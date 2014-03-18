@@ -7273,8 +7273,7 @@ int main(int argc, char * argv[])
 			str << "outputfilename=[<"<< arginfo.getDefaultTmpFileName()+".bwt" << ">] (name of output .bwt file)" << std::endl;
 			str << "sasamplingrate=[" << BwtMergeSort<libmaus::suffixsort::ByteInputTypes>::getDefaultSaSamplingRate() << "] sampling rate for sampled suffix array"<< std::endl;
 			str << "isasamplingrate=[" << BwtMergeSort<libmaus::suffixsort::ByteInputTypes>::getDefaultIsaSamplingRate() << "] sampling rate for sampled inverse suffix array"<< std::endl;
-			str << "blocksize=[" << BwtMergeSort<libmaus::suffixsort::ByteInputTypes>::getDefaultBlockSize(
-				BwtMergeSort<libmaus::suffixsort::ByteInputTypes>::getDefaultMem(),numthreads) << "] block size" << std::endl;
+			// str << "blocksize=[" << BwtMergeSort<libmaus::suffixsort::ByteInputTypes>::getDefaultBlockSize(BwtMergeSort<libmaus::suffixsort::ByteInputTypes>::getDefaultMem(),numthreads) << "] block size" << std::endl;
 			str << "mem=[" << BwtMergeSort<libmaus::suffixsort::ByteInputTypes>::getDefaultMem() << "] memory target" << std::endl;
 			#if defined(_OPENMP)
 			str << "numthreads=[" << BwtMergeSort<libmaus::suffixsort::ByteInputTypes>::getDefaultNumThreads() << "] number of threads" << std::endl;
