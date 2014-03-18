@@ -27,3 +27,6 @@ src/Makefile.in
 src/bwtb3m
 src/bwtb3m.o
 stamp-h1
+src/bytestreamToLz4.o
+src/bytestreamToLz4
+*~
