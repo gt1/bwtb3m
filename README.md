@@ -35,33 +35,35 @@ The following script can be used to generate an index for BWA. It expects 4 argu
  - the path to the bwtb3mtobwa program
  - the file name of the input FastA file to be indexed
 
-	#! /bin/bash
-	if [ $# -lt 4 ] ; then
-		echo "usage: ${SHELL} $0 /path/to/bwa /path/to/bwtb3m /path/to/bwtb3mtobwa <in.fa>"
-		exit 1
-	fi
+```
+#! /bin/bash
+if [ $# -lt 4 ] ; then
+	echo "usage: ${SHELL} $0 /path/to/bwa /path/to/bwtb3m /path/to/bwtb3mtobwa <in.fa>"
+	exit 1
+fi
 
-	BWA="$1"
-	BWTB3M="$2"
-	BWTB3MTOBWA="$3"
-	INPUT="$4"
+BWA="$1"
+BWTB3M="$2"
+BWTB3MTOBWA="$3"
+INPUT="$4"
 
-	if [ ! -e "${BWA}" ] ; then
-		echo "File ${BWA} does not exist"
-		exit 1
-	fi
-	if [ ! -e "${BWTB3M}" ] ; then
-		echo "File ${BWTB3M} does not exist"
-		exit 1
-	fi
-	if [ ! -e "${BWTB3MTOBWA}" ] ; then
-		echo "File ${BWTB3MTOBWA} does not exist"
-		exit 1
-	fi
+if [ ! -e "${BWA}" ] ; then
+	echo "File ${BWA} does not exist"
+	exit 1
+fi
+if [ ! -e "${BWTB3M}" ] ; then
+	echo "File ${BWTB3M} does not exist"
+	exit 1
+fi
+if [ ! -e "${BWTB3MTOBWA}" ] ; then
+	echo "File ${BWTB3MTOBWA} does not exist"
+	exit 1
+fi
 
-	"${BWA}" fa2pac "${INPUT}"
-	"${BWTB3M}" inputtype=pacterm outputfilename=${INPUT}.pac.bwt ${INPUT}.pac
-	"${BWTB3MTOBWA}" ${INPUT}.pac.bwt ${INPUT}.bwt ${INPUT}.sa
-	"${BWA}" bwtupdate "${INPUT}.bwt"
-	rm -f "${INPUT}".pac.*
-	"${BWA}" fa2pac -f "${INPUT}"
+"${BWA}" fa2pac "${INPUT}"
+"${BWTB3M}" inputtype=pacterm outputfilename=${INPUT}.pac.bwt ${INPUT}.pac
+"${BWTB3MTOBWA}" ${INPUT}.pac.bwt ${INPUT}.bwt ${INPUT}.sa
+"${BWA}" bwtupdate "${INPUT}.bwt"
+rm -f "${INPUT}".pac.*
+"${BWA}" fa2pac -f "${INPUT}"
+```
