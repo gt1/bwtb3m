@@ -270,7 +270,11 @@ struct RlToHwtBase
 		// get maximum symbol
 		int64_t const maxsym = symbols.size() ? symbols[symbols.size()-1] : -1;
 		// check it is in range
-		assert ( maxsym <= static_cast<int64_t>(std::numeric_limits<entity_type>::max()) );
+		assert ( 
+			maxsym < 0
+			||
+			static_cast<uint64_t>(maxsym) <= static_cast<uint64_t>(std::numeric_limits<entity_type>::max()) 
+		);
 		// size of symbol table
 		uint64_t const tablesize = maxsym+1;
 		// number of inner nodes in Huffman tree
