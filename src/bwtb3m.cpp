@@ -6533,10 +6533,12 @@ struct BwtMergeSort
 			true /* keep second */,
 			*pmergedsa /* output stream */,
 			blockmem/2/*par*/,
-			true /* parallel */
+			true /* parallel */,
+			true /* delete input */
 		);
 		pmergedsa->flush();
 		pmergedsa.reset();
+		remove(mergesatmp.c_str());
 		}
 		std::cerr << "done." << std::endl;		
 
@@ -6555,9 +6557,11 @@ struct BwtMergeSort
 			true /* keep second */,
 			*pmergedisa /* output stream */,
 			blockmem/2/*par*/,
-			true /* parallel */
+			true /* parallel */,
+			true /* delete input */
 		);
 		std::cerr << "done." << std::endl;		
+		remove(mergeisatmp.c_str());
 
 		#if 0
 		// check sampled suffix array by pairwise comparison on text
@@ -7194,16 +7198,24 @@ struct BwtMergeSort
 		::libmaus::suffixsort::BwtMergeBlockSortResult const mergeresult = mergetree->sortresult;
 		
 		#if defined(HUFRL)
-		::libmaus::huffman::RLEncoderStd::concatenate(mergeresult.getFiles().getBWT(),outfn);
+		::libmaus::huffman::RLEncoderStd::concatenate(mergeresult.getFiles().getBWT(),outfn,true /* removeinput */);
 		#else
-		::libmaus::gamma::GammaRLEncoder::concatenate(mergeresult.getFiles().getBWT(),outfn);
+		::libmaus::gamma::GammaRLEncoder::concatenate(mergeresult.getFiles().getBWT(),outfn,true /* removeinput */);
 		#endif
 		//rename ( mergeresult.getFiles().getBWT().c_str(), outfn.c_str() );
 		
+		// remove hwt request for term symbol hwt
 		remove ( mergeresult.getFiles().getHWTReq().c_str() );
+		
+		// remove hwt (null op)
 		std::string const debhwt = ::libmaus::util::OutputFileNameTools::clipOff(outfn,".bwt") + ".hwt" + ".deb";
 		rename ( mergeresult.getFiles().getHWT().c_str(), debhwt.c_str() );
 		remove ( debhwt.c_str() );
+		
+		// remove gt files
+		for ( uint64_t i = 0; i < mergeresult.getFiles().getGT().size(); ++i )
+			remove ( mergeresult.getFiles().getGT()[i].c_str() );
+		
 		std::string const mergedisaname = mergeresult.getFiles().getSampledISA();
 			
 		std::cerr << "[V] computing Huffman shaped wavelet tree of final BWT...";	
