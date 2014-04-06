@@ -6829,6 +6829,9 @@ struct BwtMergeSort
 				
 	static int computeBwt(::libmaus::util::ArgInfo const & arginfo)
 	{
+		libmaus::timing::RealTimeClock bwtclock;
+		bwtclock.start();
+	
 		uint64_t mcnt = 0;
 		::libmaus::util::TempFileRemovalContainer::setup();
 		uint64_t const rlencoderblocksize = 16*1024;
@@ -7203,6 +7206,8 @@ struct BwtMergeSort
 		::libmaus::gamma::GammaRLEncoder::concatenate(mergeresult.getFiles().getBWT(),outfn,true /* removeinput */);
 		#endif
 		//rename ( mergeresult.getFiles().getBWT().c_str(), outfn.c_str() );
+		
+		std::cerr << "[V] BWT computed in time " << bwtclock.formatTime(bwtclock.getElapsedSeconds()) << std::endl;
 		
 		// remove hwt request for term symbol hwt
 		remove ( mergeresult.getFiles().getHWTReq().c_str() );
