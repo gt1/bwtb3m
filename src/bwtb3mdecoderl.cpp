@@ -18,6 +18,7 @@
 **/
 #include <libmaus/huffman/RLDecoder.hpp>
 #include <libmaus/util/ArgInfo.hpp>
+#include <libmaus/util/utf8.hpp>
 #include <iostream>
 
 void bwtb3mdecode(::libmaus::util::ArgInfo const & arginfo)
@@ -41,6 +42,18 @@ void bwtb3mdecode(::libmaus::util::ArgInfo const & arginfo)
 			}
 			for ( uint64_t i = 0; i < P.second; ++i )
 				SGO.put(P.first);
+		}
+		
+		SGO.flush();
+	}
+	else if ( inputtype == "utf-8" )
+	{
+		std::pair<int64_t,uint64_t> P;
+		libmaus::aio::SynchronousGenericOutput<uint8_t> SGO(std::cout,64*1024);
+		while ( (P = dec.decodeRun()).first >= 0 )
+		{
+			for ( uint64_t i = 0; i < P.second; ++i )
+				libmaus::util::UTF8::encodeUTF8(P.first,SGO);
 		}
 		
 		SGO.flush();
