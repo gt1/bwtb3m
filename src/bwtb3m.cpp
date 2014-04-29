@@ -112,6 +112,7 @@
 #include <libmaus/util/TempFileRemovalContainer.hpp>
 #include <libmaus/util/Utf8String.hpp>
 #include <libmaus/util/SimpleCountingHash.hpp>
+#include <libmaus/util/SuccinctBorderArray.hpp>
 
 #if defined(HUFRL)
 typedef ::libmaus::huffman::RLDecoder rl_decoder;
@@ -2303,12 +2304,22 @@ struct BwtMergeBlockSortRequest : libmaus::suffixsort::BwtMergeEnumBase
 		::libmaus::aio::SynchronousGenericOutput<uint64_t> SGOISA(tmpfilenames.getSampledISA(),16*1024);
 		for ( uint64_t r = 0; r < cblocksize; ++r )
 		{
-			uint64_t const p = SA[r];
-			
-			if ( ! (p & isasamplingmask) )
+			// position for rank inside block
+			uint64_t const pp = SA[r];
+			// absolute position in complete text
+			uint64_t const p = pp + blockstart;
+		
+			// sampled position?
+			if ( 
+				(! (p & isasamplingmask))
+				||
+				(!pp)
+			)
 			{
+				// rank in block
 				SGOISA.put(r);
-				SGOISA.put(p + blockstart);
+				// absolute position
+				SGOISA.put(p);
 			}
 		}
 		SGOISA.flush();
@@ -2662,6 +2673,7 @@ struct BwtMergeBlockSortRequest : libmaus::suffixsort::BwtMergeEnumBase
 		}
 		else
 		{
+			libmaus::util::TempFileRemovalContainer::addTempFile(tmpfilenames.getHWTReq());
 			libmaus::aio::CheckedOutputStream hwtReqCOS(tmpfilenames.getHWTReq());
 			RlToHwtTermRequest::serialise(hwtReqCOS,
 				tmpfilenames.getBWT(),
@@ -4298,8 +4310,11 @@ struct BwtMergeSort
 		::libmaus::aio::SynchronousGenericInput<uint64_t> SGIISAnew(newmergedisaname,16*1024);
 		::libmaus::aio::SynchronousGenericOutput<uint64_t> SGOISA(mergedmergedisaname,16*1024);
 		
+		// sum over old (RHS block) suffixes
 		uint64_t s = 0;
+		// rank of position zero in merged block
 		uint64_t blockp0rank = 0;
+		
 		// scan the gap array
 		for ( uint64_t i = 0; i < gn; ++i )
 		{
@@ -4316,10 +4331,9 @@ struct BwtMergeSort
 			
 				SGOISA . put ( r );
 				SGOISA . put ( p );
-				
-				// std::cerr << "copying r=" << r << " p=" << p << std::endl;
 			}
 
+			// is next sample in next (LHS) block for rank i?
 			if ( SGIISAnew.peek() == static_cast<int64_t>(i) )
 			{
 				// add number of old suffixes to rank
@@ -4329,16 +4343,15 @@ struct BwtMergeSort
 				
 				SGOISA . put ( r );
 				SGOISA . put ( p );
-				
+			
+				// check whether this rank is for the leftmost position in the merged block	
 				if ( p == blockstart )
-				{
 					blockp0rank = r;
-					//std::cerr << "p=" << p << " r=" << r << std::endl;
-				}			
-
-				// std::cerr << "copying r=" << r << " p=" << p << std::endl;
 			}
 		}
+		
+		assert ( SGIISAnew.peek() < 0 );
+		assert ( SGIISAold.peek() < 0 );
 
 		SGOISA.flush();
 		std::cerr << "done, time " << rtc.getElapsedSeconds() << std::endl;
@@ -5569,6 +5582,7 @@ struct BwtMergeSort
 		std::cerr << "done, time " << mprtc.getElapsedSeconds() << std::endl;
 		#endif
 
+		libmaus::util::TempFileRemovalContainer::addTempFile(result.getFiles().getHWTReq());
 		libmaus::aio::CheckedOutputStream hwtreqCOS(result.getFiles().getHWTReq());
 		RlToHwtTermRequest::serialise(
 			hwtreqCOS,
@@ -6050,6 +6064,7 @@ struct BwtMergeSort
 		std::cerr << "done, time " << mprtc.getElapsedSeconds() << std::endl;
 		#endif
 
+		libmaus::util::TempFileRemovalContainer::addTempFile(result.getFiles().getHWTReq());
 		libmaus::aio::CheckedOutputStream hwtreqCOS(result.getFiles().getHWTReq());
 		RlToHwtTermRequest::serialise(
 			hwtreqCOS,
@@ -6269,6 +6284,7 @@ struct BwtMergeSort
 		std::cerr << "done, time " << mprtc.getElapsedSeconds() << std::endl;
 		#endif
 
+		libmaus::util::TempFileRemovalContainer::addTempFile(result.getFiles().getHWTReq());
 		libmaus::aio::CheckedOutputStream hwtreqCOS(result.getFiles().getHWTReq());
 		RlToHwtTermRequest::serialise(hwtreqCOS,
 			result.getFiles().getBWT(),
@@ -6826,13 +6842,26 @@ struct BwtMergeSort
 
 		return H.getByType<int64_t>();
 	}
+	
+	static uint64_t getBlockStart(uint64_t const b, uint64_t const blocksize, uint64_t const fullblocks)
+	{
+		return (b < fullblocks) ? (b*blocksize) : (fullblocks * blocksize + (b-fullblocks) * (blocksize-1));
+	}
+	
+	static uint64_t getBlockSize(uint64_t const b, uint64_t const blocksize, uint64_t const fullblocks)
+	{
+		return (b < fullblocks) ? blocksize : (blocksize-1);
+	}
 				
 	static int computeBwt(::libmaus::util::ArgInfo const & arginfo)
 	{
 		libmaus::timing::RealTimeClock bwtclock;
 		bwtclock.start();
 	
+		#if defined(FERAMANZGEN_MEMORY_DEBUG)
 		uint64_t mcnt = 0;
+		#endif
+		
 		::libmaus::util::TempFileRemovalContainer::setup();
 		uint64_t const rlencoderblocksize = 16*1024;
 		::libmaus::parallel::OMPLock cerrlock;
@@ -6859,26 +6888,21 @@ struct BwtMergeSort
 		uint64_t const isasamplingrate = ::libmaus::math::nextTwoPow(arginfo.getValue<uint64_t>("isasamplingrate",getDefaultIsaSamplingRate()));
 		// final suffix array sampling rate
 		uint64_t const sasamplingrate = ::libmaus::math::nextTwoPow(arginfo.getValue<uint64_t>("sasamplingrate",getDefaultSaSamplingRate()));
-		// ISA sampling rate during block merging
-		uint64_t const preisasamplingrate = ::libmaus::math::nextTwoPow(arginfo.getValue<uint64_t>("preisasamplingrate",256*1024));
-		// target block alignment
-		uint64_t const tblockalign = std::max(static_cast<uint64_t>(1),arginfo.getValue<uint64_t>("blockalign",getDefaultBlockAlign()));
-		// block alignment, a multiple of preisasamplingrate
-		uint64_t const blockalign = ((tblockalign + preisasamplingrate - 1)/preisasamplingrate)*preisasamplingrate;
-		// target block size
-		uint64_t const tblocksize = std::max(static_cast<uint64_t>(1),arginfo.getValueUnsignedNumeric<uint64_t>("blocksize",getDefaultBlockSize(mem,numthreads)));
+
+		// file name		
 		std::string const fn = arginfo.getRestArg<std::string>(0);
-		/* check if input file exists */
+		// check whether file exists
 		if ( ! ::libmaus::util::GetFileSize::fileExists(fn) )
 		{
 			::libmaus::exception::LibMausException se;
-			se.getStream() << "File " << fn << " does not exit." << std::endl;
+			se.getStream() << "File " << fn << " does not exist or cannot be opened." << std::endl;
 			se.finish();
 			throw se;
 		}
+
 		/* get file size */
 		uint64_t const fs = input_types_type::linear_wrapper::getFileSize(fn);
-		
+
 		/* check that file is not empty */
 		if ( ! fs )
 		{
@@ -6887,19 +6911,40 @@ struct BwtMergeSort
 			se.finish();
 			throw se;		
 		}
-		
-		std::cerr << "[M"<< (mcnt++) << "] " << libmaus::util::MemUsage() << " " << libmaus::autoarray::AutoArrayMemUsage() << std::endl;
-		
-		// target number of blocks
-		uint64_t const tnumblocks = ( fs + tblocksize - 1 ) / tblocksize;
-		// actual block size (multiple of blockalign)
-		uint64_t const blocksize = (( (( fs + tnumblocks - 1 ) / tnumblocks) + blockalign - 1 ) / blockalign ) * blockalign;
-		// actual number of blocks
-		uint64_t const numblocks = ( fs + blocksize - 1 ) / blocksize;
-		// maximum block size
-		// uint64_t const maxblocksize = (numblocks > 1) ? blocksize : fs;
 
-		std::cerr << "[V] sorting file " << fn << " of size " << fs << " with block size " << blocksize << std::endl;
+		// target block size
+		uint64_t const tblocksize = std::max(static_cast<uint64_t>(1),arginfo.getValueUnsignedNumeric<uint64_t>("blocksize",getDefaultBlockSize(mem,numthreads)));
+		// number of blocks
+		uint64_t const numblocks = (fs + tblocksize - 1) / tblocksize;
+		// final block size
+		uint64_t const blocksize = (fs + numblocks - 1)/ numblocks;
+		// full block product
+		uint64_t const fullblockprod = numblocks * blocksize;
+		// extraneous
+		uint64_t const extrasyms = fullblockprod - fs;
+		// check
+		assert ( extrasyms < numblocks );
+		// full blocks
+		uint64_t const fullblocks = numblocks - extrasyms;
+		// reduced blocks
+		uint64_t const redblocks = numblocks - fullblocks;
+		// check
+		assert ( fullblocks * blocksize + redblocks * (blocksize-1) == fs );
+		
+		// next power of two
+		uint64_t const blocksizenexttwo = ::libmaus::math::nextTwoPow(blocksize);
+		// prev power of two
+		uint64_t const blocksizeprevtwo = (blocksize == blocksizenexttwo) ? blocksize : (blocksizenexttwo / 2);
+		
+		// ISA sampling rate during block merging
+		uint64_t const preisasamplingrate = std::min(::libmaus::math::nextTwoPow(arginfo.getValue<uint64_t>("preisasamplingrate",256*1024)),blocksizeprevtwo);
+				
+		#if defined(FERAMANZGEN_MEMORY_DEBUG)
+		std::cerr << "[M"<< (mcnt++) << "] " << libmaus::util::MemUsage() << " " << libmaus::autoarray::AutoArrayMemUsage() << std::endl;
+		#endif
+		
+		std::cerr << "[V] sorting file " << fn << " of size " << fs << " with block size " << blocksize << " (" << numblocks << " blocks)" << " and " << numthreads << " threads" << std::endl;
+		std::cerr << "[V] full blocks " << fullblocks << " reduced blocks " << redblocks << std::endl;
 		
 		// there should be at least one block
 		assert ( numblocks );
@@ -6910,9 +6955,6 @@ struct BwtMergeSort
 		std::cerr << "[M"<< (mcnt++) << "] " << libmaus::util::MemUsage() << " " << libmaus::autoarray::AutoArrayMemUsage() << std::endl;
 		#endif
 
-		std::cerr << "[V] processing file " << fn << " of size " << fs << " block size " << blocksize 
-			<< " number of blocks " << numblocks << std::endl;
-		
 		std::cerr << "[V] computing symbol frequences" << std::endl;
 		std::map<int64_t,uint64_t> chistnoterm;	
 		// std::vector< std::map<int64_t,uint64_t> > blockfreqvec(numblocks);
@@ -6922,9 +6964,9 @@ struct BwtMergeSort
 			// block id
 			uint64_t const b = numblocks-bb-1;
 			// start of block in file
-			uint64_t const blockstart = b*blocksize;
+			uint64_t const blockstart = getBlockStart(b,blocksize,fullblocks);
 			// size of this block
-			uint64_t const cblocksize = std::min(blocksize,fs-blockstart);
+			uint64_t const cblocksize = getBlockSize(b,blocksize,fullblocks);
 
 			std::map<int64_t,uint64_t> const blockfreqs =
 				getBlockSymFreqs(fn,blockstart,blockstart+cblocksize);
@@ -7010,10 +7052,12 @@ struct BwtMergeSort
 		for ( uint64_t bb = 0; bb < numblocks; ++bb )
 		{
 			uint64_t const b = numblocks-bb-1;
+
 			// start of block in file
-			uint64_t const blockstart = b*blocksize;
+			uint64_t const blockstart = getBlockStart(b,blocksize,fullblocks);
 			// size of this block
-			uint64_t const cblocksize = std::min(blocksize,fs-blockstart);
+			uint64_t const cblocksize = getBlockSize(b,blocksize,fullblocks);
+
 			// symbol frequency map
 			// std::map<int64_t,uint64_t> const & blockfreqs = blockfreqvec[b];
 			std::string const freqstmpfilename = blocktmpnames[b].getHist() + ".freqs";
