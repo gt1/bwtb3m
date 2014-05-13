@@ -192,17 +192,9 @@ int allHamDna(libmaus::util::ArgInfo const & arginfo)
 					uint64_t const pos_f = fullpos_f - seqstart[prerefid_f];
 
 					wr.encodeAlignment(
-						pat.sid,
-						refid_f,
-						pos_f,
-						0,
+						pat.sid,refid_f,pos_f,0,
 						second ? libmaus::bambam::BamFlagBase::LIBMAUS_BAMBAM_FSECONDARY : 0, // flags
-						cigar,
-						-1,
-						-1,
-						0,
-						query,
-						quality
+						cigar,-1,-1,0,query,quality
 					);
 					wr.putAuxNumber("NM",'i',mismatches);
 					
@@ -239,17 +231,10 @@ int allHamDna(libmaus::util::ArgInfo const & arginfo)
 					std::reverse(rquality.begin(),rquality.end());
 					
 					wr.encodeAlignment(
-						pat.sid,
-						refid_r,
-						pos_r,
-						0,
-						libmaus::bambam::BamFlagBase::LIBMAUS_BAMBAM_FREVERSE | (second ? libmaus::bambam::BamFlagBase::LIBMAUS_BAMBAM_FSECONDARY : 0), // flags
-						cigar,
-						-1,
-						-1,
-						0,
-						libmaus::fastx::reverseComplementUnmapped(query),
-						rquality
+						pat.sid,refid_r,pos_r,0,
+						libmaus::bambam::BamFlagBase::LIBMAUS_BAMBAM_FREVERSE | 
+						(second ? libmaus::bambam::BamFlagBase::LIBMAUS_BAMBAM_FSECONDARY : 0), // flags
+						cigar,-1,-1,0,libmaus::fastx::reverseComplementUnmapped(query),rquality
 					);
 					wr.putAuxNumber("NM",'i',mismatches);
 
