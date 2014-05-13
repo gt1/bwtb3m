@@ -20,6 +20,7 @@
 #include "config.h"
 #endif
 
+#include <libmaus/wavelet/ImpCompactHuffmanWaveletTree.hpp>
 #include <libmaus/wavelet/ImpExternalWaveletGeneratorCompactHuffman.hpp>
 #include <libmaus/wavelet/ImpExternalWaveletGeneratorCompactHuffmanParallel.hpp>
 
@@ -66,6 +67,7 @@
 
 #include <libmaus/lf/DArray.hpp>
 #include <libmaus/lf/LF.hpp>
+#include <libmaus/lf/ImpCompactHuffmanWaveletLF.hpp>
 
 #include <libmaus/math/numbits.hpp>
 
@@ -99,6 +101,7 @@
 #include <libmaus/wavelet/Utf8ToImpHuffmanWaveletTree.hpp>
 
 #include <libmaus/util/ArgInfo.hpp>
+#include <libmaus/util/BorderArray.hpp>
 #include <libmaus/util/FileTempFileContainer.hpp>
 #include <libmaus/util/GetFileSize.hpp>
 #include <libmaus/util/Histogram.hpp>
@@ -1918,6 +1921,7 @@ struct BwtMergeBlockSortRequest : libmaus::suffixsort::BwtMergeEnumBase
 	uint64_t cblocksize; // size of this block (in symbols)
 	::libmaus::suffixsort::BwtMergeZBlockRequestVector zreqvec; // vector of positions in file where rank in this block is requested
 	bool computeTermSymbolHwt;
+	uint64_t lcpnext;
 	
 	static bwt_merge_sort_input_type decodeInputType(uint64_t const i)
 	{
@@ -1961,6 +1965,7 @@ struct BwtMergeBlockSortRequest : libmaus::suffixsort::BwtMergeEnumBase
 		::libmaus::util::NumberSerialisation::serialiseNumber(stream,cblocksize);
 		zreqvec.serialise(stream);
 		::libmaus::util::NumberSerialisation::serialiseNumber(stream,computeTermSymbolHwt);
+		::libmaus::util::NumberSerialisation::serialiseNumber(stream,lcpnext);
 	}
 	
 	std::string serialise() const
@@ -1991,7 +1996,8 @@ struct BwtMergeBlockSortRequest : libmaus::suffixsort::BwtMergeEnumBase
 		blockstart(::libmaus::util::NumberSerialisation::deserialiseNumber(stream)),
 		cblocksize(::libmaus::util::NumberSerialisation::deserialiseNumber(stream)),
 		zreqvec(stream),
-		computeTermSymbolHwt(::libmaus::util::NumberSerialisation::deserialiseNumber(stream))
+		computeTermSymbolHwt(::libmaus::util::NumberSerialisation::deserialiseNumber(stream)),
+		lcpnext(::libmaus::util::NumberSerialisation::deserialiseNumber(stream))
 	{
 	}
 
@@ -2010,7 +2016,8 @@ struct BwtMergeBlockSortRequest : libmaus::suffixsort::BwtMergeEnumBase
 		uint64_t rblockstart,
 		uint64_t rcblocksize,
 		::libmaus::suffixsort::BwtMergeZBlockRequestVector const & rzreqvec,
-		bool const rcomputeTermSymbolHwt
+		bool const rcomputeTermSymbolHwt,
+		uint64_t const rlcpnext
 	)
 	: 
 		inputtype(rinputtype),
@@ -2027,7 +2034,8 @@ struct BwtMergeBlockSortRequest : libmaus::suffixsort::BwtMergeEnumBase
 		blockstart(rblockstart),
 		cblocksize(rcblocksize),
 		zreqvec(rzreqvec),
-		computeTermSymbolHwt(rcomputeTermSymbolHwt)
+		computeTermSymbolHwt(rcomputeTermSymbolHwt),
+		lcpnext(rlcpnext)
 	{
 	}
 	
@@ -2068,6 +2076,46 @@ struct BwtMergeBlockSortRequest : libmaus::suffixsort::BwtMergeEnumBase
 			textstr,m,
 			// restriction for position
 			n
+		);
+		
+		return Q.second;
+	}
+
+	template<typename input_types_type>
+	static uint64_t findSplitCommonBounded(
+		std::string const & fn,
+		// position of textblock
+		uint64_t const t,
+		// length of textblock
+		uint64_t const n,
+		// position of pattern
+		uint64_t const p,
+		// length of file
+		uint64_t const m,
+		// bound
+		uint64_t const bound
+	)
+	{
+		typedef typename input_types_type::base_input_stream base_input_stream;
+		typedef typename input_types_type::circular_wrapper circular_wrapper;
+		
+		circular_wrapper textstr(fn,t);
+		circular_wrapper patstr(fn,p);
+		
+		// dynamically growing best prefix table
+		::libmaus::util::KMP::BestPrefix<base_input_stream> BP(patstr,m);
+		// adapter for accessing pattern in BP
+		typename ::libmaus::util::KMP::BestPrefix<base_input_stream>::BestPrefixXAdapter xadapter = BP.getXAdapter();
+		// call KMP adaption
+		std::pair<uint64_t, uint64_t> Q = ::libmaus::util::KMP::PREFIX_SEARCH_INTERNAL_RESTRICTED_BOUNDED(
+			// pattern
+			xadapter,m,BP,
+			// text
+			textstr,m,
+			// restriction for position
+			n,
+			// bound on length
+			bound
 		);
 		
 		return Q.second;
@@ -2161,10 +2209,10 @@ struct BwtMergeBlockSortRequest : libmaus::suffixsort::BwtMergeEnumBase
 		#endif
 		
 		// start of next block
-		uint64_t const nextblockstart = (blockstart + cblocksize) % fs;
+		// uint64_t const nextblockstart = (blockstart + cblocksize) % fs;
 		
 		// find lcp between this block and start of next
-		uint64_t const blcp = findSplitCommon<input_types_type>(fn,blockstart,cblocksize,nextblockstart,fs);
+		uint64_t const blcp = lcpnext; // findSplitCommon<input_types_type>(fn,blockstart,cblocksize,nextblockstart,fs);
 
 		#if defined(FERAMANZGEN_DEBUG)
 		gcerrlock.lock();
@@ -2758,6 +2806,8 @@ std::ostream & operator<<(std::ostream & out, BwtMergeBlockSortRequest const & o
 	out << "}";
 	out << ",";
 	out << o.computeTermSymbolHwt;
+	out << ",";
+	out << o.lcpnext;
 	out << ")";
 	
 	return out;
@@ -6596,9 +6646,11 @@ struct BwtMergeSort
 		return 256*1024;
 	}
 
-	static uint64_t getDefaultBlockSize(uint64_t const mem, uint64_t const threads)
+	static uint64_t getDefaultBlockSize(uint64_t const mem, uint64_t const threads, uint64_t const fs)
 	{
-		return std::max(static_cast<uint64_t>(0.95 * mem / ( 5 * threads )),static_cast<uint64_t>(1));
+		uint64_t const memblocksize = std::max(static_cast<uint64_t>(0.95 * mem / ( 5 * threads )),static_cast<uint64_t>(1));
+		uint64_t const fsblocksize = (fs + threads - 1)/threads;
+		return std::min(memblocksize,fsblocksize);
 	}
 
 	static uint64_t getDefaultBlockAlign()
@@ -6913,7 +6965,13 @@ struct BwtMergeSort
 		}
 
 		// target block size
-		uint64_t const tblocksize = std::max(static_cast<uint64_t>(1),arginfo.getValueUnsignedNumeric<uint64_t>("blocksize",getDefaultBlockSize(mem,numthreads)));
+		uint64_t const tblocksize = 
+			std::max(
+				static_cast<uint64_t>(1),
+				arginfo.getValueUnsignedNumeric<uint64_t>(
+					"blocksize",getDefaultBlockSize(mem,numthreads,fs)
+				)
+		);
 		// number of blocks
 		uint64_t const numblocks = (fs + tblocksize - 1) / tblocksize;
 		// final block size
@@ -6938,7 +6996,8 @@ struct BwtMergeSort
 		
 		// ISA sampling rate during block merging
 		uint64_t const preisasamplingrate = std::min(::libmaus::math::nextTwoPow(arginfo.getValue<uint64_t>("preisasamplingrate",256*1024)),blocksizeprevtwo);
-				
+
+			
 		#if defined(FERAMANZGEN_MEMORY_DEBUG)
 		std::cerr << "[M"<< (mcnt++) << "] " << libmaus::util::MemUsage() << " " << libmaus::autoarray::AutoArrayMemUsage() << std::endl;
 		#endif
@@ -6948,6 +7007,128 @@ struct BwtMergeSort
 		
 		// there should be at least one block
 		assert ( numblocks );
+
+		#if 0
+		std::vector<int64_t> minblockperiods(numblocks);
+		// compute periods
+		libmaus::parallel::OMPLock block;
+		#if defined(_OPENMP)
+		#pragma omp parallel for schedule(dynamic,1)
+		#endif
+		for ( uint64_t bb = 0; bb < numblocks; ++bb )
+		{
+			// block id
+			uint64_t const b = numblocks-bb-1;
+			// start of block in file
+			uint64_t const blockstart = getBlockStart(b,blocksize,fullblocks);
+
+			typedef typename input_types_type::base_input_stream base_input_stream;
+			typedef typename base_input_stream::char_type char_type;
+			typedef typename input_types_type::circular_wrapper circular_wrapper;
+
+			uint64_t const readlen = 3 * blocksize;
+			circular_wrapper textstr(fn,blockstart);
+			libmaus::autoarray::AutoArray<char_type> A(readlen,false);
+			textstr.read(&A[0],A.size());
+
+			block.lock();
+			std::cerr << "\r" << std::string(80,' ') << "\r[Checking " << (bb+1) << "/" << numblocks << "]\r";
+			block.unlock();
+
+			libmaus::util::BorderArray<uint32_t> SBA(A.begin(),A.size());
+			
+			uint64_t minper = std::numeric_limits<uint64_t>::max();
+			for ( uint64_t i = (blocksize-1); i < A.size(); ++i )
+			{
+				uint64_t const period = (i+1)-SBA[i];
+
+				// if period divides length of the prefix
+				if ( 
+					( ( (i+1) % period ) == 0 ) && ((i+1) / period > 1) 
+					&&
+					(period < minper)
+				)
+				{
+					block.lock();
+					std::cerr << "\nlen " << (i+1) << " block " << b << " period " << period << std::endl;
+					block.unlock();
+					minper = period;
+				}
+			}
+			
+			if ( minper == std::numeric_limits<uint64_t>::max() )
+				minblockperiods[b] = -1;
+			else
+				minblockperiods[b] = minper;
+				
+		}
+		std::cerr << std::endl;
+		
+		exit(0);
+		#endif
+
+		std::cerr << "[V] computing LCP between block suffixes and the following block start: ";
+		std::vector<uint64_t> largelcpblocks;
+		libmaus::parallel::OMPLock largelcpblockslock;
+		uint64_t const largelcpthres = 16*1024;
+		std::vector<uint64_t> boundedlcpblockvalues(numblocks);
+		libmaus::parallel::SynchronousCounter<uint64_t> largelcpblockscomputed(0);
+		#if defined(_OPENMP)
+		#pragma omp parallel for schedule(dynamic,1)
+		#endif
+		for ( uint64_t bb = 0; bb < numblocks; ++bb )
+		{
+			// block id
+			uint64_t const b = numblocks-bb-1;
+			// start of block in file
+			uint64_t const blockstart = getBlockStart(b,blocksize,fullblocks);
+			// size of this block
+			uint64_t const cblocksize = getBlockSize(b,blocksize,fullblocks);
+
+			// start of next block
+			uint64_t const nextblockstart = (blockstart + cblocksize) % fs;
+		
+			// find bounded lcp between this block and start of next
+			uint64_t const blcp = BwtMergeBlockSortRequest::findSplitCommonBounded<input_types_type>(fn,blockstart,cblocksize,nextblockstart,fs,largelcpthres);
+
+			if ( blcp >= largelcpthres )
+			{
+				libmaus::parallel::ScopeLock slock(largelcpblockslock);
+				largelcpblocks.push_back(b);
+			}
+
+			{
+			libmaus::parallel::ScopeLock slock(largelcpblockslock);
+			uint64_t const finished = ++largelcpblockscomputed;
+			std::cerr << "(" << static_cast<double>(finished)/numblocks << ")";
+			}
+			
+			boundedlcpblockvalues[b] = blcp;
+		}
+		std::cerr << "done." << std::endl;
+		
+		std::sort(largelcpblocks.begin(),largelcpblocks.end());
+		for ( uint64_t ib = 0; ib < largelcpblocks.size(); ++ib )
+		{
+			uint64_t const b = largelcpblocks[ib];
+			
+			std::cerr << "[V] Recomputing lcp value for block " << b << std::endl;
+
+			// start of block in file
+			uint64_t const blockstart = getBlockStart(b,blocksize,fullblocks);
+			// size of this block
+			uint64_t const cblocksize = getBlockSize(b,blocksize,fullblocks);
+
+			// start of next block
+			uint64_t const nextblockstart = (blockstart + cblocksize) % fs;
+		
+			// find bounded lcp between this block and start of next
+			uint64_t const blcp = BwtMergeBlockSortRequest::findSplitCommon<input_types_type>(fn,blockstart,cblocksize,nextblockstart,fs);
+
+			boundedlcpblockvalues[b] = blcp;
+		}
+		
+		// exit(0);
 
 		::libmaus::suffixsort::BwtMergeTempFileNameSetVector blocktmpnames(tmpfilenamebase, numblocks, numthreads /* bwt */, numthreads /* gt */);
 
@@ -7097,7 +7278,8 @@ struct BwtMergeSort
 					preisasamplingrate,
 					blockstart,cblocksize,
 					zreqvec,
-					computeTermSymbolHwt
+					computeTermSymbolHwt,
+					boundedlcpblockvalues[b]
 				);
 
 			// std::cerr << *PMSB;
