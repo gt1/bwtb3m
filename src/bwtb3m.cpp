@@ -252,7 +252,7 @@ struct RlToHwtBase
 	/**
 	 * specialised version for small alphabets
 	 **/
-	template<typename entity_type = uint8_t>
+	template<typename entity_type>
 	static libmaus::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type rlToHwtTermSmallAlphabet(
 		std::vector<std::string> const & bwt, 
 		std::string const & huftreefilename,
