@@ -1466,7 +1466,7 @@ struct RlToHwtBase
 		std::string const tmpprefix
 	)
 	{
-		::libmaus::util::Histogram::unique_ptr_type mhist = UNIQUE_PTR_MOVE(computeRlSymHist(bwt));
+		::libmaus::util::Histogram::unique_ptr_type mhist(computeRlSymHist(bwt));
 		::std::map<int64_t,uint64_t> const chist = mhist->getByType<int64_t>();
 
 		::libmaus::huffman::HuffmanTree H ( chist.begin(), chist.size(), false, true, true );
@@ -2239,7 +2239,8 @@ struct BwtMergeBlockSortRequest : libmaus::suffixsort::BwtMergeEnumBase
 
 		// set up circular reader
 		typename input_types_type::circular_wrapper circ(fn,blockstart);
-		cwptr = UNIQUE_PTR_MOVE(circular_wrapper_ptr_type(new circular_wrapper(fn,blockstart)));
+		circular_wrapper_ptr_type tcwptr(new circular_wrapper(fn,blockstart));
+		cwptr = UNIQUE_PTR_MOVE(tcwptr);
 		// construct string (read text and preprocess it for random symbol access)
 		typename string_type::unique_ptr_type PT(new string_type(*cwptr, octetlength, readsize));
 		string_type & T = *PT;
@@ -3258,14 +3259,13 @@ struct BaseBlockSorting
 			}
 	
 		for ( uint64_t i = 0; i < numthreads; ++i )
-			threads[i] =
-				UNIQUE_PTR_MOVE(
-					BaseBlockSortThread::unique_ptr_type(
-						new BaseBlockSortThread(
-							i,P,V,next,freemem,finished,freememlock,itodo
-						)
-					)
-				);
+		{
+			BaseBlockSortThread::unique_ptr_type tthreadsi(
+				new BaseBlockSortThread(i,P,V,next,freemem,finished,freememlock,itodo)			
+			);
+			threads[i] = UNIQUE_PTR_MOVE(tthreadsi);
+
+		}
 	}
 	
 	void start(uint64_t const stacksize)
@@ -3803,7 +3803,7 @@ struct BwtMergeSort
 			}
 		}
 
-		::libmaus::util::Histogram::unique_ptr_type PH(UNIQUE_PTR_MOVE(HS.merge()));
+		::libmaus::util::Histogram::unique_ptr_type PH(HS.merge());
 		::libmaus::util::Histogram & H(*PH);
 
 		return H.getByType<int64_t>();
@@ -3831,9 +3831,12 @@ struct BwtMergeSort
 		sbis_type::raw_input_ptr_type ript;
 		sbis_type::unique_ptr_type SBIS;
 		
-		istr = UNIQUE_PTR_MOVE(::libmaus::aio::CheckedInputStream::unique_ptr_type(new ::libmaus::aio::CheckedInputStream(fn)));
-		ript = UNIQUE_PTR_MOVE(sbis_type::raw_input_ptr_type(new sbis_type::raw_input_type(*istr)));
-		SBIS = UNIQUE_PTR_MOVE(sbis_type::unique_ptr_type(new sbis_type(ript,static_cast<uint64_t>(64*1024))));
+		::libmaus::aio::CheckedInputStream::unique_ptr_type tistr(new ::libmaus::aio::CheckedInputStream(fn));
+		istr = UNIQUE_PTR_MOVE(tistr);
+		sbis_type::raw_input_ptr_type tript(new sbis_type::raw_input_type(*istr));
+		ript = UNIQUE_PTR_MOVE(tript);
+		sbis_type::unique_ptr_type tSBIS(new sbis_type(ript,static_cast<uint64_t>(64*1024)));
+		SBIS = UNIQUE_PTR_MOVE(tSBIS);
 		
 		uint64_t const fullbytes = n / 8;
 		for ( uint64_t i = 0; i < fullbytes; ++i )
@@ -4147,14 +4150,13 @@ struct BwtMergeSort
 				for ( uint64_t j = 0; j < gapfilenames.size(); ++j )
 				{
 					::libmaus::huffman::KvInitResult kvinitresult;
-					gapdecs[j] = UNIQUE_PTR_MOVE(
-						gapfile_decoder_type::unique_ptr_type(
-							new gapfile_decoder_type(
-								gapfilenames[j],
-								lspref,kvinitresult
-							)
-						)
+					gapfile_decoder_type::unique_ptr_type tgapdecsj(
+						new gapfile_decoder_type(
+							gapfilenames[j],
+							lspref,kvinitresult
+						)						
 					);
+					gapdecs[j] = UNIQUE_PTR_MOVE(tgapdecsj);
 					
 					// key offset for block z and file j
 					bwtusedcntsacc [ j * (actgparts+1) + z ] = kvinitresult.koffset;
@@ -4235,14 +4237,13 @@ struct BwtMergeSort
 						suflat += bwtusedcnts [ k*actgparts + z ];
 				
 					::libmaus::huffman::KvInitResult kvinitresult;
-					gapdecoders[j] = UNIQUE_PTR_MOVE(
-						gapfile_decoder_type::unique_ptr_type(
-							new gapfile_decoder_type(
-								gapfilenames[j],
-								lspref,kvinitresult
-							)
-						)
+					gapfile_decoder_type::unique_ptr_type tgapdecodersj(
+						new gapfile_decoder_type(
+							gapfilenames[j],
+							lspref,kvinitresult
+						)					
 					);
+					gapdecoders[j] = UNIQUE_PTR_MOVE(tgapdecodersj);
 					if ( suflat )
 						gapcur[j] = gapdecoders[j]->decode();
 					else
@@ -4262,11 +4263,10 @@ struct BwtMergeSort
 					uint64_t const bwtoffset = bwtusedcntsacc [ j * (actgparts+1) + z ];
 					bwttowrite[j] = bwtusedcnts [ j * actgparts + z ];
 					
-					bwtdecoders[j] = UNIQUE_PTR_MOVE(
-						rl_decoder::unique_ptr_type(
-							new rl_decoder(bwtfilenames[j],bwtoffset)
-						)
+					rl_decoder::unique_ptr_type tbwtdecodersj(
+						new rl_decoder(bwtfilenames[j],bwtoffset)					
 					);
+					bwtdecoders[j] = UNIQUE_PTR_MOVE(tbwtdecodersj);
 					
 					#if 0
 					std::cerr << "block=" << j << " offset=" << bwtoffset << " bwttowrite=" << bwttowrite[j] << std::endl;
@@ -6505,13 +6505,17 @@ struct BwtMergeSort
 		{
 			satempfilenames[i] = ( tmpfilenamebase + ".sampledsa_" + ::libmaus::util::NumberSerialisation::formatNumber(i,6) );
 			::libmaus::util::TempFileRemovalContainer::addTempFile(satempfilenames[i]);
-			SAF[i] = UNIQUE_PTR_MOVE(::libmaus::aio::SynchronousGenericOutput<uint64_t>::unique_ptr_type(
-				new ::libmaus::aio::SynchronousGenericOutput<uint64_t>(satempfilenames[i],8*1024)));
+			::libmaus::aio::SynchronousGenericOutput<uint64_t>::unique_ptr_type tSAFi(
+				new ::libmaus::aio::SynchronousGenericOutput<uint64_t>(satempfilenames[i],8*1024)
+			);
+			SAF[i] = UNIQUE_PTR_MOVE(tSAFi);
 
 			isatempfilenames[i] = ( tmpfilenamebase + ".sampledisa_" + ::libmaus::util::NumberSerialisation::formatNumber(i,6) );
 			::libmaus::util::TempFileRemovalContainer::addTempFile(isatempfilenames[i]);
-			ISAF[i] = UNIQUE_PTR_MOVE(::libmaus::aio::SynchronousGenericOutput<uint64_t>::unique_ptr_type(
-				new ::libmaus::aio::SynchronousGenericOutput<uint64_t>(isatempfilenames[i],8*1024)));
+			::libmaus::aio::SynchronousGenericOutput<uint64_t>::unique_ptr_type tISAFi(
+				new ::libmaus::aio::SynchronousGenericOutput<uint64_t>(isatempfilenames[i],8*1024)
+			);
+			ISAF[i] = UNIQUE_PTR_MOVE(tISAFi);
 		}
 		
 		std::vector < std::pair< std::pair<uint64_t,uint64_t>, std::pair<uint64_t,uint64_t> > > WV;
@@ -6889,7 +6893,7 @@ struct BwtMergeSort
 			}
 		}
 
-		::libmaus::util::Histogram::unique_ptr_type PH(UNIQUE_PTR_MOVE(HS.merge()));
+		::libmaus::util::Histogram::unique_ptr_type PH(HS.merge());
 		::libmaus::util::Histogram & H(*PH);
 
 		return H.getByType<int64_t>();
@@ -7553,8 +7557,7 @@ int main(int argc, char * argv[])
 			std::string const idxfn = fn + ".idx";
 			if ( ! ::libmaus::util::GetFileSize::fileExists(idxfn) )
 			{
-				::libmaus::util::Utf8BlockIndex::unique_ptr_type index =
-					UNIQUE_PTR_MOVE(::libmaus::util::Utf8BlockIndex::constructFromUtf8File(fn));
+				::libmaus::util::Utf8BlockIndex::unique_ptr_type index(::libmaus::util::Utf8BlockIndex::constructFromUtf8File(fn));
 				::libmaus::aio::CheckedOutputStream COS(idxfn);
 				index->serialise(COS);
 				COS.flush();
