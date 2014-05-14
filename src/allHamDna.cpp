@@ -102,7 +102,7 @@ int allHamDna(libmaus::util::ArgInfo const & arginfo)
 	
 	reader_type FAin(CIS);
 	typename reader_type::pattern_type pat;
-	std::vector< std::pair<uint64_t, libmaus::fm::BidirectionalIndexInterval >> VBI;
+	std::vector< std::pair<uint64_t, libmaus::fm::BidirectionalIndexInterval > > VBI;
 	std::vector<uint64_t> const seqstart = index.getSeqStartPositions();
 	
 	if ( seqstart.size() % 2 )
