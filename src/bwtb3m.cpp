@@ -5015,8 +5015,10 @@ struct BwtMergeSort
 		SGGFS.registerTermSemaphore(&tsem);
 		SGGFS.registerTermSemaphore(&globsem);
 		SGGFS.setTermSemCnt(numthreads);
-				
+		
+		#if defined(_OPENMP)		
 		#pragma omp parallel
+		#endif
 		{
 			uint64_t z = 0;
 			
