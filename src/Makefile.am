@@ -1,6 +1,6 @@
 ACLOCAL_AMFLAGS=-I m4
 
-bin_PROGRAMS = bwtb3m bytestreamToLz4 bwtb3mtobwa bwtb3mdecoderl allHamDna hwtToRlHwt
+bin_PROGRAMS = bwtb3m bytestreamToLz4 bwtb3mtobwa bwtb3mdecoderl allHamDna hwtToRlHwt probeScanDna
 noinst_HEADERS = 
 
 bwtb3m_SOURCES = bwtb3m.cpp
@@ -9,3 +9,4 @@ bwtb3mtobwa_SOURCES = bwtb3mtobwa.cpp
 bwtb3mdecoderl_SOURCES = bwtb3mdecoderl.cpp
 allHamDna_SOURCES = allHamDna.cpp
 hwtToRlHwt_SOURCES = hwtToRlHwt.cpp
+probeScanDna_SOURCES = probeScanDna.cpp
