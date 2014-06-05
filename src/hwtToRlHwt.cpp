@@ -31,11 +31,12 @@
 void hwtToRlHwt(::libmaus::util::ArgInfo const & arginfo)
 {
 	uint64_t const rlblocksize = arginfo.getValueUnsignedNumeric<uint64_t>("blocksize",64*1024);
+	bool const recreate = arginfo.getValue<unsigned int>("recreate",true);
 
 	std::string const infn = arginfo.getRestArg<std::string>(0);	
         std::string const rlhwtname = libmaus::util::OutputFileNameTools::clipOff(infn,".bwt") + ".rlhwt";
         
-        if ( ! libmaus::util::GetFileSize::fileExists(rlhwtname) )
+        if ( (! libmaus::util::GetFileSize::fileExists(rlhwtname)) || recreate )
         {
 		std::string const histfn = libmaus::util::OutputFileNameTools::clipOff(infn,".bwt") + ".hist";
 
@@ -86,7 +87,6 @@ void hwtToRlHwt(::libmaus::util::ArgInfo const & arginfo)
 		libmaus::autoarray::AutoArray<libmaus::aio::CheckedOutputStream::unique_ptr_type> rloutfiles(H.inner());
 		libmaus::autoarray::AutoArray<libmaus::aio::CheckedInputOutputStream::unique_ptr_type> rlidxoutfiles(H.inner());
 		libmaus::autoarray::AutoArray<libmaus::rank::RunLengthBitVectorGenerator::unique_ptr_type> rlgens(H.inner());
-		// libmaus::autoarray::AutoArray<>
 		for ( uint64_t i = 0; i < H.inner(); ++i )
 		{
 			std::ostringstream fnostr;
