@@ -26,6 +26,7 @@
 #include <libmaus/lz/BufferedGzipStream.hpp>
 #include <libmaus/suffixtree/CompressedSuffixTree.hpp>
 #include <libmaus/util/ArgInfo.hpp>
+#include <libmaus/util/stringFunctions.hpp>
 #include <libmaus/util/ToUpperTable.hpp>
 
 void evaluateAcc(std::ostream & out, std::vector<uint64_t> const & acccols, std::vector<uint64_t> vacc)
@@ -420,6 +421,39 @@ int probeScanDna(
 	return EXIT_SUCCESS;
 }
 
+static std::vector<uint64_t> parseAccCols(std::string const & scols)
+{
+	std::deque<std::string> const stokens = libmaus::util::stringFunctions::tokenize(scols,std::string(","));
+	std::vector<uint64_t> acccols;
+	
+	for ( uint64_t i = 0; i < stokens.size(); ++i )
+	{
+		std::string const stoken = stokens[i];
+
+		uint64_t v = 0;
+
+		for ( uint64_t j = 0; j < stoken.size(); ++j )
+		{
+			if ( !isdigit(static_cast<unsigned char>(stoken[j])) )
+			{
+				libmaus::exception::LibMausException lme;
+				lme.getStream() << "Cannot parse " << stoken << " as a number." << std::endl;
+				lme.finish();
+				throw lme;
+			}
+			else
+			{
+				v *= 10;
+				v += static_cast<unsigned char>(stoken[j]) - '0';
+			}
+		}
+		
+		acccols.push_back(v);
+	}
+	
+	return acccols;
+}
+
 int main(int argc, char * argv[])
 {
 	try
@@ -434,11 +468,12 @@ int main(int argc, char * argv[])
 
 		uint64_t const probelen = arginfo.getValue<unsigned int>("probelen",20);
 		std::string const mode = arginfo.getValue<std::string>("mode","words");
-		std::vector<uint64_t> acccols;
-		acccols.push_back(2);
-		acccols.push_back(4);
-		acccols.push_back(10);
-		acccols.push_back(20);
+		std::vector<uint64_t> acccols = parseAccCols(arginfo.getUnparsedValue("acccols",std::string("2,4,10,20,50,100")));
+		
+		std::cerr << "[V] accumulation columns ";
+		for ( uint64_t i = 0; i < acccols.size(); ++i )
+			std::cerr << acccols[i] << ((i+1<acccols.size())?",":"");
+		std::cerr << std::endl;
 	
 		if ( mode == "words" )
 		{
