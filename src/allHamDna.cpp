@@ -132,7 +132,8 @@ int allHamDna(libmaus::util::ArgInfo const & arginfo)
 	}
 
 	libmaus::bambam::BamHeader header;
-	header.chromosomes = chromosomes;
+	for ( uint64_t i = 0; i < chromosomes.size(); ++i )
+		header.addChromosome(chromosomes[i].name,chromosomes[i].len);
 	header.initSetup();
 
 	// add PG line to header
