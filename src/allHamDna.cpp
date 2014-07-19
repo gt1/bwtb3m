@@ -124,16 +124,18 @@ int allHamDna(libmaus::util::ArgInfo const & arginfo)
 	{
 		seqlen[i] = seqstart[2*i+1]-(seqstart[2*i]+1);
 		
-		if ( seqlen[i] != chromosomes[i].len )
+		if ( seqlen[i] != chromosomes[i].getLength() )
 		{
-			std::cerr << "[E] error: index is inconsistent with fai file, length of sequence " << chromosomes[i].name << " is wrong" << std::endl;
+			std::cerr << "[E] error: index is inconsistent with fai file, length of sequence " << chromosomes[i].getNameString() << " is wrong" << std::endl;
 			return EXIT_FAILURE;
 		}
 	}
 
 	libmaus::bambam::BamHeader header;
 	for ( uint64_t i = 0; i < chromosomes.size(); ++i )
-		header.addChromosome(chromosomes[i].name,chromosomes[i].len);
+		header.addChromosome(
+			chromosomes[i].getNameString(),chromosomes[i].getLength()
+		);
 	header.initSetup();
 
 	// add PG line to header
