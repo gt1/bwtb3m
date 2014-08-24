@@ -2926,7 +2926,7 @@ struct MergeStrategyBlock
 	/**
 	 * @return space required in bytes for sorting block in internal memory using divsufsort
 	 **/
-	uint64_t directSortSpace() const
+	virtual uint64_t directSortSpace() const
 	{
 		if ( (high-low) < (1ull << 31) )
 		{
@@ -3089,6 +3089,28 @@ struct MergeStrategyBaseBlock : public MergeStrategyBlock
 		se.getStream() << "childFinished called on an object of struct MergeStrategyBaseBlock" << std::endl;
 		se.finish();
 		throw se;
+	}
+
+	/**
+	 * @return space required in bytes for sorting block in internal memory using divsufsort
+	 **/
+	virtual uint64_t directSortSpace() const
+	{
+		if ( ((high-low)+sortreq.lcpnext) < (1ull << 31) )
+		{
+			return 
+				((high-low)+sortreq.lcpnext)*(sizeof(uint32_t)) + // suffix array
+				(high-low+7)/8 + // GT bit vector
+				(sourcetextindexbits+7)/8 +
+				sourcelengthbytes;
+		}
+		else
+		{
+			return ((high-low)+sortreq.lcpnext)*(sizeof(uint64_t)) + // suffix array
+				(high-low+7)/8 + // GT bit vector
+				(sourcetextindexbits+7)/8 +
+				sourcelengthbytes;
+		}
 	}
 };
 
@@ -5801,7 +5823,9 @@ struct BwtMergeSort
 
 				// std::cerr << "[" << ilow << "," << ihigh << ")" << std::endl;
 				
+				#if defined(GAP_ARRAY_BYTE_DEBUG)
 				{
+					// check obtained prefix sum
 					libmaus::suffixsort::GapArrayByteDecoder::unique_ptr_type pgap2dec(GACR.G->getDecoder(ilow));
 					libmaus::suffixsort::GapArrayByteDecoderBuffer::unique_ptr_type pgap2decbuf(new libmaus::suffixsort::GapArrayByteDecoderBuffer(*pgap2dec,8192));
 					libmaus::suffixsort::GapArrayByteDecoderBuffer::iterator gap2decbufit = pgap2decbuf->begin();
@@ -5812,6 +5836,7 @@ struct BwtMergeSort
 					
 					assert ( p == a );
 				}
+				#endif
 
 				P.push_back(P.back() + p);
 				wpacks.push_back(std::pair<uint64_t,uint64_t>(ilow,ihigh));
