@@ -16,6 +16,7 @@
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 **/
+#include <config.h>
 #include <libmaus/aio/PosixFdInputStream.hpp>
 #include <libmaus/bitio/CompactArray.hpp>
 #include <libmaus/bitio/CompactArrayWriterFile.hpp>
@@ -90,23 +91,41 @@ int digitsToCompact(libmaus::util::ArgInfo const & arginfo)
 	return EXIT_SUCCESS;
 }
 
+
 int main(int argc, char * argv[])
 {
 	try
 	{
 		libmaus::util::ArgInfo const arginfo(argc,argv);
-		int const r = digitsToCompact(arginfo);
-
-		#if 0
-		// read array and output data
-		std::string const outputfilename = arginfo.getUnparsedValue("outputfilename","output.compact");
-		libmaus::aio::PosixFdInputStream PFIS(outputfilename);
-		libmaus::bitio::CompactArray C(PFIS);
-		for ( uint64_t i = 0; i < C.n; ++i )
-			std::cout.put(C[i]+'0');
-		#endif
 		
-		return r;
+		if ( arginfo.helpRequested() )
+		{
+			std::cerr << "This is " << PACKAGE_NAME << " version " << PACKAGE_VERSION << std::endl;
+			std::cerr << std::endl;
+			std::cerr << "usage: " << arginfo.progname << " [options] < input" << std::endl;
+			std::cerr << std::endl;
+			std::cerr << "options:" << std::endl;
+			std::cerr << "gz=[0|1] (input file is plain (0)/gzip compressed (1), default is uncompressed)" << std::endl;
+			std::cerr << "outputfilename=<output.compact> (name of output file, default is output.compact)" << std::endl;
+			std::cerr << "term=[0|1] (0: map digits to symbols 0-9, 1: map digits to symbols 1-10 and append 0 at the end)" << std::endl;
+		
+			return EXIT_SUCCESS;
+		}
+		else
+		{
+			int const r = digitsToCompact(arginfo);
+
+			#if 0
+			// read array and output data
+			std::string const outputfilename = arginfo.getUnparsedValue("outputfilename","output.compact");
+			libmaus::aio::PosixFdInputStream PFIS(outputfilename);
+			libmaus::bitio::CompactArray C(PFIS);
+			for ( uint64_t i = 0; i < C.n; ++i )
+				std::cout.put(C[i]+'0');
+			#endif
+			
+			return r;
+		}
 	}
 	catch(std::exception const & ex)
 	{
