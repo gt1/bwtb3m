@@ -6676,6 +6676,11 @@ struct BwtMergeSort
 	{
 		return 256*1024;
 	}
+	
+	static bool getDefaultBWTOnly()
+	{
+		return false;
+	}
 
 	static uint64_t getDefaultBlockSize(uint64_t const mem, uint64_t const threads, uint64_t const fs)
 	{
@@ -6955,6 +6960,8 @@ struct BwtMergeSort
 		uint64_t const numthreads = 1;
 		#endif
 
+		// compute BWT only? (no SA and ISA)
+		bool const bwtonly = arginfo.getValue<unsigned int>("bwtonly",getDefaultBWTOnly());
 		// total memory available
 		uint64_t const mem = std::max(static_cast<uint64_t>(1),arginfo.getValueUnsignedNumeric<uint64_t>("mem",getDefaultMem()));
 		// base for tmp file names
@@ -7465,6 +7472,14 @@ struct BwtMergeSort
 		//rename ( mergeresult.getFiles().getBWT().c_str(), outfn.c_str() );
 		
 		std::cerr << "[V] BWT computed in time " << bwtclock.formatTime(bwtclock.getElapsedSeconds()) << std::endl;
+
+		// serialise character histogram
+		std::string const outhist = ::libmaus::util::OutputFileNameTools::clipOff(outfn,".bwt") + ".hist";
+		::libmaus::aio::CheckedOutputStream::unique_ptr_type Phistout(new ::libmaus::aio::CheckedOutputStream(outhist));
+		::libmaus::util::NumberMapSerialisation::serialiseMap(*Phistout,chistnoterm);
+		Phistout->flush();
+		Phistout->close();
+		Phistout.reset();
 		
 		// remove hwt request for term symbol hwt
 		remove ( mergeresult.getFiles().getHWTReq().c_str() );
@@ -7478,50 +7493,44 @@ struct BwtMergeSort
 		for ( uint64_t i = 0; i < mergeresult.getFiles().getGT().size(); ++i )
 			remove ( mergeresult.getFiles().getGT()[i].c_str() );
 		
-		std::string const mergedisaname = mergeresult.getFiles().getSampledISA();
+		if ( ! bwtonly )
+		{	
+			std::cerr << "[V] computing Huffman shaped wavelet tree of final BWT...";	
+			std::string const outhwt = ::libmaus::util::OutputFileNameTools::clipOff(outfn,".bwt") + ".hwt";
+			libmaus::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type pICHWT;
+			if ( input_types_type::utf8Wavelet() )
+			{
+				libmaus::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type tICHWT(
+					RlToHwtBase<true>::rlToHwt(outfn, outhwt, tmpfilenamebase+"_finalhwttmp")
+				);
+				pICHWT = UNIQUE_PTR_MOVE(tICHWT);
+			}
+			else
+			{
+				libmaus::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type tICHWT(
+					RlToHwtBase<false>::rlToHwt(outfn, outhwt, tmpfilenamebase+"_finalhwttmp")
+				);		
+				pICHWT = UNIQUE_PTR_MOVE(tICHWT);
+			}
+			std::cerr << "done, " << std::endl;
 			
-		std::cerr << "[V] computing Huffman shaped wavelet tree of final BWT...";	
-		std::string const outhwt = ::libmaus::util::OutputFileNameTools::clipOff(outfn,".bwt") + ".hwt";
-		libmaus::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type pICHWT;
-		if ( input_types_type::utf8Wavelet() )
-		{
-			libmaus::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type tICHWT(
-				RlToHwtBase<true>::rlToHwt(outfn, outhwt, tmpfilenamebase+"_finalhwttmp")
+			std::cerr << "[V] loading Huffman shaped wavelet tree of final BWT...";	
+			::libmaus::lf::ImpCompactHuffmanWaveletLF IHWT(pICHWT);
+			std::cerr << "done." << std::endl;
+
+			// sort the sampled isa file	
+			uint64_t const blockmem = memperthread; // memory per thread
+			std::string const mergedisaname = mergeresult.getFiles().getSampledISA();
+			sortIsaFile(mergedisaname,blockmem);
+
+			// compute sampled suffix array and sampled inverse suffix array
+			computeSampledSA(
+				fn,fs,IHWT,mergedisaname,outfn,tmpfilenamebase,
+				numthreads,lfblockmult,sasamplingrate,isasamplingrate,blockmem
 			);
-			pICHWT = UNIQUE_PTR_MOVE(tICHWT);
+
+			// std::cerr << "[V] mergeresult.blockp0rank=" << mergeresult.blockp0rank << std::endl;
 		}
-		else
-		{
-			libmaus::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type tICHWT(
-				RlToHwtBase<false>::rlToHwt(outfn, outhwt, tmpfilenamebase+"_finalhwttmp")
-			);		
-			pICHWT = UNIQUE_PTR_MOVE(tICHWT);
-		}
-		std::cerr << "done, " << std::endl;
-		
-		std::cerr << "[V] loading Huffman shaped wavelet tree of final BWT...";	
-		::libmaus::lf::ImpCompactHuffmanWaveletLF IHWT(pICHWT);
-		std::cerr << "done." << std::endl;
-
-		// sort the sampled isa file	
-		uint64_t const blockmem = memperthread; // memory per thread
-		sortIsaFile(mergedisaname,blockmem);
-
-		// compute sampled suffix array and sampled inverse suffix array
-		computeSampledSA(
-			fn,fs,IHWT,mergedisaname,outfn,tmpfilenamebase,
-			numthreads,lfblockmult,sasamplingrate,isasamplingrate,blockmem
-		);
-
-		// serialise character histogram
-		std::string const outhist = ::libmaus::util::OutputFileNameTools::clipOff(outfn,".bwt") + ".hist";
-		::libmaus::aio::CheckedOutputStream::unique_ptr_type Phistout(new ::libmaus::aio::CheckedOutputStream(outhist));
-		::libmaus::util::NumberMapSerialisation::serialiseMap(*Phistout,chistnoterm);
-		Phistout->flush();
-		Phistout->close();
-		Phistout.reset();
-		
-		// std::cerr << "[V] mergeresult.blockp0rank=" << mergeresult.blockp0rank << std::endl;
 		
 		return EXIT_SUCCESS;
 	}
@@ -7560,6 +7569,7 @@ int main(int argc, char * argv[])
 			#if defined(_OPENMP)
 			str << "numthreads=[" << BwtMergeSort<libmaus::suffixsort::ByteInputTypes>::getDefaultNumThreads() << "] number of threads" << std::endl;
 			#endif
+			str << "bwtonly=[" << BwtMergeSort<libmaus::suffixsort::ByteInputTypes>::getDefaultBWTOnly() << "] compute BWT only (no sampled suffix array and reverse)" << std::endl;
 			// blocksize
 			
 			se.finish();
