@@ -16,11 +16,11 @@
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 **/
-#include <libmaus/bitio/CompactArrayWriterFile.hpp>
-#include <libmaus/fastx/CharBuffer.hpp>
-#include <libmaus/fastx/StreamFastAReader.hpp>
-#include <libmaus/lz/BufferedGzipStream.hpp>
-#include <libmaus/util/ArgInfo.hpp>
+#include <libmaus2/bitio/CompactArrayWriterFile.hpp>
+#include <libmaus2/fastx/CharBuffer.hpp>
+#include <libmaus2/fastx/StreamFastAReader.hpp>
+#include <libmaus2/lz/BufferedGzipStream.hpp>
+#include <libmaus2/util/ArgInfo.hpp>
 
 std::string formatBytes(uint64_t n)
 {
@@ -73,25 +73,25 @@ std::string stripAfterDot(std::string const s)
 	return s;
 }
 
-int fagzToCompact(libmaus::util::ArgInfo const & arginfo)
+int fagzToCompact(libmaus2::util::ArgInfo const & arginfo)
 {
 	bool const rc = arginfo.getValue<unsigned int>("rc",1);
 	bool const gz = arginfo.getValue<unsigned int>("gz",1);
 	uint64_t const limit = arginfo.getValueUnsignedNumeric<uint64_t>("limit",std::numeric_limits<uint64_t>::max());
 	std::string const outputfilename = arginfo.getUnparsedValue("outputfilename","output.compact");
 	int const verbose = arginfo.getValue<int>("verbose",1);
-	libmaus::autoarray::AutoArray<char> B(8*1024,false);
-	libmaus::bitio::CompactArrayWriterFile compactout(outputfilename,3);
+	libmaus2::autoarray::AutoArray<char> B(8*1024,false);
+	libmaus2::bitio::CompactArrayWriterFile compactout(outputfilename,3);
 	
 	if ( ! rc )
 		std::cerr << "[V] not storing reverse complements" << std::endl;
 
 	// forward mapping table		
-	libmaus::autoarray::AutoArray<uint8_t> ftable(256,false);
+	libmaus2::autoarray::AutoArray<uint8_t> ftable(256,false);
 	// reverse complement mapping table
-	libmaus::autoarray::AutoArray<uint8_t> rtable(256,false);
+	libmaus2::autoarray::AutoArray<uint8_t> rtable(256,false);
 	// rc mapping for mapped symbols
-	libmaus::autoarray::AutoArray<uint8_t> ctable(256,false);
+	libmaus2::autoarray::AutoArray<uint8_t> ctable(256,false);
 	
 	std::fill(ftable.begin(),ftable.end(),5);
 	std::fill(rtable.begin(),rtable.end(),5);
@@ -110,13 +110,13 @@ int fagzToCompact(libmaus::util::ArgInfo const & arginfo)
 	for ( uint64_t i = 0; i < arginfo.restargs.size() && insize < limit; ++i )
 	{
 		std::string const fn = arginfo.stringRestArg(i);
-		libmaus::aio::CheckedInputStream CIS(fn);
-		libmaus::lz::BufferedGzipStream::unique_ptr_type BGS;
+		libmaus2::aio::CheckedInputStream CIS(fn);
+		libmaus2::lz::BufferedGzipStream::unique_ptr_type BGS;
 		std::istream * istr = 0;
 		if ( gz )
 		{
-			libmaus::lz::BufferedGzipStream::unique_ptr_type tBGS(
-				new libmaus::lz::BufferedGzipStream(CIS));
+			libmaus2::lz::BufferedGzipStream::unique_ptr_type tBGS(
+				new libmaus2::lz::BufferedGzipStream(CIS));
 			BGS = UNIQUE_PTR_MOVE(tBGS);
 			istr = BGS.get();
 		}
@@ -124,8 +124,8 @@ int fagzToCompact(libmaus::util::ArgInfo const & arginfo)
 		{
 			istr = &CIS;			
 		}
-		libmaus::fastx::StreamFastAReaderWrapper fain(*istr);
-		libmaus::fastx::StreamFastAReaderWrapper::pattern_type pattern;
+		libmaus2::fastx::StreamFastAReaderWrapper fain(*istr);
+		libmaus2::fastx::StreamFastAReaderWrapper::pattern_type pattern;
 		
 		while ( fain.getNextPatternUnlocked(pattern) )
 		{
@@ -170,7 +170,7 @@ int main(int argc, char * argv[])
 {
 	try
 	{
-		libmaus::util::ArgInfo const arginfo(argc,argv);
+		libmaus2::util::ArgInfo const arginfo(argc,argv);
 		return fagzToCompact(arginfo);
 	}
 	catch(std::exception const & ex)

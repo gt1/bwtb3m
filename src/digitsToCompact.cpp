@@ -17,13 +17,13 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 **/
 #include <config.h>
-#include <libmaus/aio/PosixFdInputStream.hpp>
-#include <libmaus/bitio/CompactArray.hpp>
-#include <libmaus/bitio/CompactArrayWriterFile.hpp>
-#include <libmaus/lz/BufferedGzipStream.hpp>
-#include <libmaus/util/ArgInfo.hpp>
+#include <libmaus2/aio/PosixFdInputStream.hpp>
+#include <libmaus2/bitio/CompactArray.hpp>
+#include <libmaus2/bitio/CompactArrayWriterFile.hpp>
+#include <libmaus2/lz/BufferedGzipStream.hpp>
+#include <libmaus2/util/ArgInfo.hpp>
 
-int digitsToCompact(libmaus::util::ArgInfo const & arginfo)
+int digitsToCompact(libmaus2::util::ArgInfo const & arginfo)
 {
 	// is input file gzipped?
 	bool const gz = arginfo.getValue<unsigned int>("gz",0);
@@ -31,22 +31,22 @@ int digitsToCompact(libmaus::util::ArgInfo const & arginfo)
 	bool const addterm = arginfo.getValue<unsigned int>("term",0);
 	// name of output file
 	std::string const outputfilename = arginfo.getUnparsedValue("outputfilename","output.compact");
-	libmaus::autoarray::AutoArray<char> B(8*1024,false);
-	libmaus::bitio::CompactArrayWriterFile compactout(outputfilename,4);
+	libmaus2::autoarray::AutoArray<char> B(8*1024,false);
+	libmaus2::bitio::CompactArrayWriterFile compactout(outputfilename,4);
 	
 	// error table
-	libmaus::autoarray::AutoArray<uint8_t> etable(256,false);
+	libmaus2::autoarray::AutoArray<uint8_t> etable(256,false);
 	std::fill(etable.begin(),etable.end(),1);
 	for ( int i = '0'; i <= '9'; ++i )
 		etable[i] = 0;
 	uint8_t const termadd = addterm ? 1 : 0;
 	
-	libmaus::lz::BufferedGzipStream::unique_ptr_type BGS;
+	libmaus2::lz::BufferedGzipStream::unique_ptr_type BGS;
 	std::istream * istr = 0;
 	if ( gz )
 	{
-		libmaus::lz::BufferedGzipStream::unique_ptr_type tBGS(
-			new libmaus::lz::BufferedGzipStream(std::cin));
+		libmaus2::lz::BufferedGzipStream::unique_ptr_type tBGS(
+			new libmaus2::lz::BufferedGzipStream(std::cin));
 		BGS = UNIQUE_PTR_MOVE(tBGS);
 		istr = BGS.get();
 	}
@@ -69,7 +69,7 @@ int digitsToCompact(libmaus::util::ArgInfo const & arginfo)
 			
 		if ( err )
 		{
-			libmaus::exception::LibMausException lme;
+			libmaus2::exception::LibMausException lme;
 			lme.getStream() << "Input file contains non decimal digit symbols." << std::endl;
 			lme.finish();
 			throw lme;
@@ -96,7 +96,7 @@ int main(int argc, char * argv[])
 {
 	try
 	{
-		libmaus::util::ArgInfo const arginfo(argc,argv);
+		libmaus2::util::ArgInfo const arginfo(argc,argv);
 		
 		if ( arginfo.helpRequested() )
 		{
@@ -118,8 +118,8 @@ int main(int argc, char * argv[])
 			#if 0
 			// read array and output data
 			std::string const outputfilename = arginfo.getUnparsedValue("outputfilename","output.compact");
-			libmaus::aio::PosixFdInputStream PFIS(outputfilename);
-			libmaus::bitio::CompactArray C(PFIS);
+			libmaus2::aio::PosixFdInputStream PFIS(outputfilename);
+			libmaus2::bitio::CompactArray C(PFIS);
 			for ( uint64_t i = 0; i < C.n; ++i )
 				std::cout.put(C[i]+'0');
 			#endif

@@ -20,9 +20,9 @@
 #include "config.h"
 #endif
 
-#include <libmaus/wavelet/ImpCompactHuffmanWaveletTree.hpp>
-#include <libmaus/wavelet/ImpExternalWaveletGeneratorCompactHuffman.hpp>
-#include <libmaus/wavelet/ImpExternalWaveletGeneratorCompactHuffmanParallel.hpp>
+#include <libmaus2/wavelet/ImpCompactHuffmanWaveletTree.hpp>
+#include <libmaus2/wavelet/ImpExternalWaveletGeneratorCompactHuffman.hpp>
+#include <libmaus2/wavelet/ImpExternalWaveletGeneratorCompactHuffmanParallel.hpp>
 
 #include <iostream>
 #include <iomanip>
@@ -30,101 +30,101 @@
 // #define HUFGAP
 #define HUFRL
 
-#include <libmaus/aio/CheckedInputStream.hpp>
-#include <libmaus/aio/CheckedOutputStream.hpp>
-#include <libmaus/aio/CircularWrapper.hpp>
-#include <libmaus/aio/FileFragment.hpp>
-#include <libmaus/aio/ReorderConcatGenericInput.hpp>
+#include <libmaus2/aio/CheckedInputStream.hpp>
+#include <libmaus2/aio/CheckedOutputStream.hpp>
+#include <libmaus2/aio/CircularWrapper.hpp>
+#include <libmaus2/aio/FileFragment.hpp>
+#include <libmaus2/aio/ReorderConcatGenericInput.hpp>
 
-#include <libmaus/autoarray/AutoArray.hpp>
+#include <libmaus2/autoarray/AutoArray.hpp>
 
-#include <libmaus/bitio/BitStreamFileDecoder.hpp>
-#include <libmaus/bitio/CompactDecoderBuffer.hpp>
-#include <libmaus/bitio/BitVectorInput.hpp>
-#include <libmaus/bitio/BitVectorOutput.hpp>
+#include <libmaus2/bitio/BitStreamFileDecoder.hpp>
+#include <libmaus2/bitio/CompactDecoderBuffer.hpp>
+#include <libmaus2/bitio/BitVectorInput.hpp>
+#include <libmaus2/bitio/BitVectorOutput.hpp>
 
-#include <libmaus/gamma/GammaGapEncoder.hpp>
-#include <libmaus/gamma/GammaGapDecoder.hpp>
-#include <libmaus/gamma/SparseGammaGapFileSet.hpp>
-#include <libmaus/gamma/SparseGammaGapFileLevelSet.hpp>
-#include <libmaus/gamma/SparseGammaGapMultiFileLevelSet.hpp>
-#include <libmaus/gamma/SparseGammaGapEncoder.hpp>
-#include <libmaus/gamma/SparseGammaGapDecoder.hpp>
+#include <libmaus2/gamma/GammaGapEncoder.hpp>
+#include <libmaus2/gamma/GammaGapDecoder.hpp>
+#include <libmaus2/gamma/SparseGammaGapFileSet.hpp>
+#include <libmaus2/gamma/SparseGammaGapFileLevelSet.hpp>
+#include <libmaus2/gamma/SparseGammaGapMultiFileLevelSet.hpp>
+#include <libmaus2/gamma/SparseGammaGapEncoder.hpp>
+#include <libmaus2/gamma/SparseGammaGapDecoder.hpp>
 
-#include <libmaus/huffman/GapDecoder.hpp>
-#include <libmaus/huffman/GapEncoder.hpp>
-#include <libmaus/huffman/HuffmanTree.hpp>
+#include <libmaus2/huffman/GapDecoder.hpp>
+#include <libmaus2/huffman/GapEncoder.hpp>
+#include <libmaus2/huffman/HuffmanTree.hpp>
 
-#include <libmaus/gamma/GammaGapEncoder.hpp>
-#include <libmaus/gamma/GammaGapDecoder.hpp>
-#include <libmaus/gamma/GammaRLEncoder.hpp>
-#include <libmaus/gamma/GammaRLDecoder.hpp>
+#include <libmaus2/gamma/GammaGapEncoder.hpp>
+#include <libmaus2/gamma/GammaGapDecoder.hpp>
+#include <libmaus2/gamma/GammaRLEncoder.hpp>
+#include <libmaus2/gamma/GammaRLDecoder.hpp>
 
-#include <libmaus/huffman/huffman.hpp>
-#include <libmaus/huffman/HuffmanEncoderFile.hpp>
-#include <libmaus/huffman/RLEncoder.hpp>
-#include <libmaus/huffman/RLDecoder.hpp>
+#include <libmaus2/huffman/huffman.hpp>
+#include <libmaus2/huffman/HuffmanEncoderFile.hpp>
+#include <libmaus2/huffman/RLEncoder.hpp>
+#include <libmaus2/huffman/RLDecoder.hpp>
 
-#include <libmaus/lf/DArray.hpp>
-#include <libmaus/lf/LF.hpp>
-#include <libmaus/lf/ImpCompactHuffmanWaveletLF.hpp>
+#include <libmaus2/lf/DArray.hpp>
+#include <libmaus2/lf/LF.hpp>
+#include <libmaus2/lf/ImpCompactHuffmanWaveletLF.hpp>
 
-#include <libmaus/math/numbits.hpp>
+#include <libmaus2/math/numbits.hpp>
 
-#include <libmaus/parallel/SynchronousCounter.hpp>
-#include <libmaus/parallel/LockedBool.hpp>
+#include <libmaus2/parallel/SynchronousCounter.hpp>
+#include <libmaus2/parallel/LockedBool.hpp>
 
-#include <libmaus/sorting/PairFileSorting.hpp>
+#include <libmaus2/sorting/PairFileSorting.hpp>
 
-#include <libmaus/suffixsort/BwtMergeBlockSortResult.hpp>
-#include <libmaus/suffixsort/BwtMergeTempFileNameSet.hpp>
-#include <libmaus/suffixsort/BwtMergeTempFileNameSetVector.hpp>
-#include <libmaus/suffixsort/BwtMergeZBlock.hpp>
-#include <libmaus/suffixsort/BwtMergeZBlockRequest.hpp>
-#include <libmaus/suffixsort/BwtMergeZBlockRequestVector.hpp>
-#include <libmaus/suffixsort/ByteInputTypes.hpp>
-#include <libmaus/suffixsort/CircularBwt.hpp>
-#include <libmaus/suffixsort/CircularSuffixComparator.hpp>
-#include <libmaus/suffixsort/CompactInputTypes.hpp>
-#include <libmaus/suffixsort/divsufsort.hpp>
-#include <libmaus/suffixsort/GapArrayByte.hpp>
-#include <libmaus/suffixsort/GapMergePacket.hpp>
-#include <libmaus/suffixsort/PacInputTypes.hpp>
-#include <libmaus/suffixsort/PacTermInputTypes.hpp>
-#include <libmaus/suffixsort/Utf8InputTypes.hpp>
-#include <libmaus/suffixsort/Lz4InputTypes.hpp>
+#include <libmaus2/suffixsort/BwtMergeBlockSortResult.hpp>
+#include <libmaus2/suffixsort/BwtMergeTempFileNameSet.hpp>
+#include <libmaus2/suffixsort/BwtMergeTempFileNameSetVector.hpp>
+#include <libmaus2/suffixsort/BwtMergeZBlock.hpp>
+#include <libmaus2/suffixsort/BwtMergeZBlockRequest.hpp>
+#include <libmaus2/suffixsort/BwtMergeZBlockRequestVector.hpp>
+#include <libmaus2/suffixsort/ByteInputTypes.hpp>
+#include <libmaus2/suffixsort/CircularBwt.hpp>
+#include <libmaus2/suffixsort/CircularSuffixComparator.hpp>
+#include <libmaus2/suffixsort/CompactInputTypes.hpp>
+#include <libmaus2/suffixsort/divsufsort.hpp>
+#include <libmaus2/suffixsort/GapArrayByte.hpp>
+#include <libmaus2/suffixsort/GapMergePacket.hpp>
+#include <libmaus2/suffixsort/PacInputTypes.hpp>
+#include <libmaus2/suffixsort/PacTermInputTypes.hpp>
+#include <libmaus2/suffixsort/Utf8InputTypes.hpp>
+#include <libmaus2/suffixsort/Lz4InputTypes.hpp>
 
-#include <libmaus/wavelet/ImpExternalWaveletGeneratorHuffman.hpp>
-#include <libmaus/wavelet/ImpExternalWaveletGeneratorHuffmanParallel.hpp>
-#include <libmaus/wavelet/ImpHuffmanWaveletTree.hpp>
-#include <libmaus/wavelet/Utf8ToImpCompactHuffmanWaveletTree.hpp>
-#include <libmaus/wavelet/Utf8ToImpHuffmanWaveletTree.hpp>
+#include <libmaus2/wavelet/ImpExternalWaveletGeneratorHuffman.hpp>
+#include <libmaus2/wavelet/ImpExternalWaveletGeneratorHuffmanParallel.hpp>
+#include <libmaus2/wavelet/ImpHuffmanWaveletTree.hpp>
+#include <libmaus2/wavelet/Utf8ToImpCompactHuffmanWaveletTree.hpp>
+#include <libmaus2/wavelet/Utf8ToImpHuffmanWaveletTree.hpp>
 
-#include <libmaus/util/ArgInfo.hpp>
-#include <libmaus/util/BorderArray.hpp>
-#include <libmaus/util/FileTempFileContainer.hpp>
-#include <libmaus/util/GetFileSize.hpp>
-#include <libmaus/util/Histogram.hpp>
-#include <libmaus/util/HistogramSet.hpp>
-#include <libmaus/util/KMP.hpp>
-#include <libmaus/util/MemUsage.hpp>
-#include <libmaus/util/NumberMapSerialisation.hpp>
-#include <libmaus/util/OctetString.hpp>
-#include <libmaus/util/OutputFileNameTools.hpp>
-#include <libmaus/util/StringSerialisation.hpp>
-#include <libmaus/util/TempFileRemovalContainer.hpp>
-#include <libmaus/util/Utf8String.hpp>
-#include <libmaus/util/SimpleCountingHash.hpp>
-#include <libmaus/util/SuccinctBorderArray.hpp>
+#include <libmaus2/util/ArgInfo.hpp>
+#include <libmaus2/util/BorderArray.hpp>
+#include <libmaus2/util/FileTempFileContainer.hpp>
+#include <libmaus2/util/GetFileSize.hpp>
+#include <libmaus2/util/Histogram.hpp>
+#include <libmaus2/util/HistogramSet.hpp>
+#include <libmaus2/util/KMP.hpp>
+#include <libmaus2/util/MemUsage.hpp>
+#include <libmaus2/util/NumberMapSerialisation.hpp>
+#include <libmaus2/util/OctetString.hpp>
+#include <libmaus2/util/OutputFileNameTools.hpp>
+#include <libmaus2/util/StringSerialisation.hpp>
+#include <libmaus2/util/TempFileRemovalContainer.hpp>
+#include <libmaus2/util/Utf8String.hpp>
+#include <libmaus2/util/SimpleCountingHash.hpp>
+#include <libmaus2/util/SuccinctBorderArray.hpp>
 
 #if defined(HUFRL)
-typedef ::libmaus::huffman::RLDecoder rl_decoder;
+typedef ::libmaus2::huffman::RLDecoder rl_decoder;
 #else
-typedef ::libmaus::gamma::GammaRLDecoder rl_decoder;
+typedef ::libmaus2::gamma::GammaRLDecoder rl_decoder;
 #endif
 
-libmaus::parallel::OMPLock gcerrlock;
-libmaus::parallel::OMPLock glock;
+libmaus2::parallel::OMPLock gcerrlock;
+libmaus2::parallel::OMPLock glock;
 
 struct WtTodo
 {
@@ -156,10 +156,10 @@ struct RlToHwtBase
 		return _utf8_input_type;
 	}
 	
-	static libmaus::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type loadWaveletTree(std::string const & hwt)
+	static libmaus2::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type loadWaveletTree(std::string const & hwt)
 	{
-		libmaus::aio::CheckedInputStream CIS(hwt);
-		libmaus::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type pICHWT(new libmaus::wavelet::ImpCompactHuffmanWaveletTree(CIS));
+		libmaus2::aio::CheckedInputStream CIS(hwt);
+		libmaus2::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type pICHWT(new libmaus2::wavelet::ImpCompactHuffmanWaveletTree(CIS));
 		return UNIQUE_PTR_MOVE(pICHWT);
 	}
 	
@@ -220,7 +220,7 @@ struct RlToHwtBase
 	{
 		typedef _object_type object_type;
 		std::stack<object_type> todo;
-		libmaus::parallel::OMPLock lock;
+		libmaus2::parallel::OMPLock lock;
 		
 		Todo()
 		{
@@ -229,13 +229,13 @@ struct RlToHwtBase
 		
 		void push(object_type const & o)
 		{
-			libmaus::parallel::ScopeLock sl(lock);
+			libmaus2::parallel::ScopeLock sl(lock);
 			todo.push(o);
 		}
 		
 		bool pop(object_type & o)
 		{
-			libmaus::parallel::ScopeLock sl(lock);
+			libmaus2::parallel::ScopeLock sl(lock);
 			if ( todo.size() )
 			{
 				o = todo.top();
@@ -253,24 +253,24 @@ struct RlToHwtBase
 	 * specialised version for small alphabets
 	 **/
 	template<typename entity_type>
-	static libmaus::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type rlToHwtTermSmallAlphabet(
+	static libmaus2::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type rlToHwtTermSmallAlphabet(
 		std::vector<std::string> const & bwt, 
 		std::string const & huftreefilename,
 		uint64_t const bwtterm,
 		uint64_t const p0r
 		)
 	{
-		// std::cerr << "(" << libmaus::util::Demangle::demangle<entity_type>() << ")";
+		// std::cerr << "(" << libmaus2::util::Demangle::demangle<entity_type>() << ")";
 	
 		// load the huffman tree
-		::libmaus::huffman::HuffmanTree::unique_ptr_type UH = loadCompactHuffmanTree(huftreefilename);
-		::libmaus::huffman::HuffmanTree & H = *UH;
+		::libmaus2::huffman::HuffmanTree::unique_ptr_type UH = loadCompactHuffmanTree(huftreefilename);
+		::libmaus2::huffman::HuffmanTree & H = *UH;
 		// check depth is low
 		assert ( H.maxDepth() <= 8*sizeof(entity_type) );
 		// get encoding table
-		::libmaus::huffman::HuffmanTree::EncodeTable const E(H);
+		::libmaus2::huffman::HuffmanTree::EncodeTable const E(H);
 		// get symbol array
-		libmaus::autoarray::AutoArray<int64_t> const symbols = H.symbolArray();
+		libmaus2::autoarray::AutoArray<int64_t> const symbols = H.symbolArray();
 		// get maximum symbol
 		int64_t const maxsym = symbols.size() ? symbols[symbols.size()-1] : -1;
 		// check it is in range
@@ -284,13 +284,13 @@ struct RlToHwtBase
 		// number of inner nodes in Huffman tree
 		uint64_t const inner = H.inner();
 
-		::libmaus::huffman::IndexDecoderDataArray IDD(bwt);
-		::libmaus::huffman::IndexEntryContainerVector::unique_ptr_type IECV = ::libmaus::huffman::IndexLoader::loadAccIndex(bwt);
+		::libmaus2::huffman::IndexDecoderDataArray IDD(bwt);
+		::libmaus2::huffman::IndexEntryContainerVector::unique_ptr_type IECV = ::libmaus2::huffman::IndexLoader::loadAccIndex(bwt);
 
 		// compute symbol to node mapping
 		uint64_t symtonodesvecsize = 0;
 		// depth <= 16, tablesize <= 64k
-		libmaus::autoarray::AutoArray<uint32_t> symtonodevecoffsets(tablesize,false);
+		libmaus2::autoarray::AutoArray<uint32_t> symtonodevecoffsets(tablesize,false);
 		for ( uint64_t i = 0; i < symbols.size(); ++i )
 		{
 			uint64_t const sym = symbols[i];
@@ -299,7 +299,7 @@ struct RlToHwtBase
 			symtonodesvecsize += E.getCodeLength(sym);
 		}
 		
-		libmaus::autoarray::AutoArray<uint32_t> symtonodes(symtonodesvecsize,false);
+		libmaus2::autoarray::AutoArray<uint32_t> symtonodes(symtonodesvecsize,false);
 		uint32_t * symtonodesp = symtonodes.begin();
 		for ( uint64_t i = 0; i < symbols.size(); ++i )
 		{
@@ -364,18 +364,18 @@ struct RlToHwtBase
 		uint64_t const blocks_per_thread_2 = (b_2 + numthreads-1)/numthreads;
 		
 		// local character histograms
-		libmaus::autoarray::AutoArray<uint64_t> localhist(numthreads * tablesize,false);
+		libmaus2::autoarray::AutoArray<uint64_t> localhist(numthreads * tablesize,false);
 		// global node sizes
-		libmaus::autoarray::AutoArray2d<uint64_t> localnodehist(inner,b_g+1,true);
+		libmaus2::autoarray::AutoArray2d<uint64_t> localnodehist(inner,b_g+1,true);
 
 		#if 0
 		std::cerr << "(" << symtonodevecoffsets.byteSize() << "," << symtonodes.byteSize() << "," << localhist.byteSize() << "," 
 			<< (inner * (b_g+1) * sizeof(uint64_t)) << ")";
 		#endif
 		
-		libmaus::parallel::OMPLock cerrlock;
+		libmaus2::parallel::OMPLock cerrlock;
 		
-		libmaus::autoarray::AutoArray<rl_decoder::unique_ptr_type> rldecs(2*numthreads);
+		libmaus2::autoarray::AutoArray<rl_decoder::unique_ptr_type> rldecs(2*numthreads);
 		Todo<RlDecoderInfoObject> todostack;
 		// set up block information for symbols after terminator
 		for ( uint64_t ii = 0; ii < numthreads; ++ii )
@@ -508,11 +508,11 @@ struct RlToHwtBase
 				std::cerr << "localnodehist(" << node << "," << b << ")=" << localnodehist(node,b) << std::endl;
 		#endif
 
-		typedef libmaus::rank::ImpCacheLineRank rank_type;
+		typedef libmaus2::rank::ImpCacheLineRank rank_type;
 		typedef rank_type::unique_ptr_type rank_ptr_type;
-		libmaus::autoarray::AutoArray<rank_ptr_type> R(inner);
-		libmaus::autoarray::AutoArray<uint64_t *> P(inner);
-		libmaus::autoarray::AutoArray<entity_type> U(numthreads*t_g*2,false);
+		libmaus2::autoarray::AutoArray<rank_ptr_type> R(inner);
+		libmaus2::autoarray::AutoArray<uint64_t *> P(inner);
+		libmaus2::autoarray::AutoArray<entity_type> U(numthreads*t_g*2,false);
 
 		for ( uint64_t node = 0; node < inner; ++node )
 		{
@@ -530,7 +530,7 @@ struct RlToHwtBase
 				P[node][i] = 0;
 		}
 		
-		libmaus::parallel::OMPLock nodelock;
+		libmaus2::parallel::OMPLock nodelock;
 
 		// set up block information for symbols after terminator
 		for ( uint64_t ii = 0; ii < numthreads; ++ii )
@@ -688,7 +688,7 @@ struct RlToHwtBase
 						(*optrs[bit]) = sym;
 						optrs[bit] += inc[bit];
 					
-						libmaus::bitio::putBit(P[unode],bitoff,bit);
+						libmaus2::bitio::putBit(P[unode],bitoff,bit);
 					
 						towrite--;
 						bitoff++;
@@ -730,7 +730,7 @@ struct RlToHwtBase
 						(*optrs[bit]) = sym;
 						optrs[bit] += inc[bit];
 	
-						libmaus::bitio::putBit(P[unode],bitoff,bit);
+						libmaus2::bitio::putBit(P[unode],bitoff,bit);
 					
 						towrite--;
 						bitoff++;	
@@ -768,7 +768,7 @@ struct RlToHwtBase
 			{
 				uint64_t const bit = E.getBitFromTop(bwtterm,i);
 				uint64_t const unode = node - H.root();				
-				libmaus::bitio::putBit ( P[unode] , localnodehist ( unode , b_0 ), bit );
+				libmaus2::bitio::putBit ( P[unode] , localnodehist ( unode , b_0 ), bit );
 				
 				if ( bit )
 					node = H.rightChild(node);
@@ -802,7 +802,7 @@ struct RlToHwtBase
 				for ( uint64_t i = 0; i < toproc; ++i )
 				{
 					miniword |= miniacc << (i*9);
-					miniacc  += libmaus::rank::PopCnt8<sizeof(unsigned long)>::popcnt8(inptr[i]);
+					miniacc  += libmaus2::rank::PopCnt8<sizeof(unsigned long)>::popcnt8(inptr[i]);
 				}
 				miniword |= (miniacc << (toproc*9));
 				
@@ -818,15 +818,15 @@ struct RlToHwtBase
 			}
 		}
 		
-		libmaus::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type pICHWT(
-			new libmaus::wavelet::ImpCompactHuffmanWaveletTree(n,H,R)
+		libmaus2::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type pICHWT(
+			new libmaus2::wavelet::ImpCompactHuffmanWaveletTree(n,H,R)
 		);
 		
 		#if 0
-		libmaus::wavelet::ImpCompactHuffmanWaveletTree const & ICHWT = *pICHWT;
+		libmaus2::wavelet::ImpCompactHuffmanWaveletTree const & ICHWT = *pICHWT;
 		// open decoder
 		rl_decoder dec(bwt,0);
-		libmaus::autoarray::AutoArray<uint64_t> ranktable(tablesize);
+		libmaus2::autoarray::AutoArray<uint64_t> ranktable(tablesize);
 		for ( uint64_t i = 0; i < ICHWT.size(); ++i )
 		{
 			int64_t const sym = dec.decode();
@@ -856,15 +856,15 @@ struct RlToHwtBase
 	/**
 	 * specialised version for small alphabets
 	 **/
-	static libmaus::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type rlToHwtSmallAlphabet(
+	static libmaus2::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type rlToHwtSmallAlphabet(
 		std::string const & bwt, 
 		std::string const & huftreefilename
 	)
 	{
 		// load the huffman tree
-		::libmaus::huffman::HuffmanTree::unique_ptr_type UH = loadCompactHuffmanTree(huftreefilename);
-		::libmaus::huffman::HuffmanTree & H = *UH;
-		libmaus::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type ptr(rlToHwtSmallAlphabet(bwt,H));		
+		::libmaus2::huffman::HuffmanTree::unique_ptr_type UH = loadCompactHuffmanTree(huftreefilename);
+		::libmaus2::huffman::HuffmanTree & H = *UH;
+		libmaus2::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type ptr(rlToHwtSmallAlphabet(bwt,H));		
 		return UNIQUE_PTR_MOVE(ptr);
 	}
 	
@@ -872,17 +872,17 @@ struct RlToHwtBase
 	 * specialised version for small alphabets
 	 **/
 	template<typename entity_type>
-	static libmaus::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type rlToHwtSmallAlphabet(
+	static libmaus2::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type rlToHwtSmallAlphabet(
 		std::string const & bwt, 
-		::libmaus::huffman::HuffmanTree const & H
+		::libmaus2::huffman::HuffmanTree const & H
 	)
 	{
 		// check depth is low
 		assert ( H.maxDepth() <= 8*sizeof(entity_type) );
 		// get encoding table
-		::libmaus::huffman::HuffmanTree::EncodeTable const E(H);
+		::libmaus2::huffman::HuffmanTree::EncodeTable const E(H);
 		// get symbol array
-		libmaus::autoarray::AutoArray<int64_t> const symbols = H.symbolArray();
+		libmaus2::autoarray::AutoArray<int64_t> const symbols = H.symbolArray();
 		// get maximum symbol
 		int64_t const maxsym = symbols.size() ? symbols[symbols.size()-1] : -1;
 		// check it is in range
@@ -899,7 +899,7 @@ struct RlToHwtBase
 		// compute symbol to node mapping
 		uint64_t symtonodesvecsize = 0;
 		// depth <= 16, tablesize <= 64k
-		libmaus::autoarray::AutoArray<uint32_t> symtonodevecoffsets(tablesize,false);
+		libmaus2::autoarray::AutoArray<uint32_t> symtonodevecoffsets(tablesize,false);
 		for ( uint64_t i = 0; i < symbols.size(); ++i )
 		{
 			uint64_t const sym = symbols[i];
@@ -908,7 +908,7 @@ struct RlToHwtBase
 			symtonodesvecsize += E.getCodeLength(sym);
 		}
 		
-		libmaus::autoarray::AutoArray<uint32_t> symtonodes(symtonodesvecsize,false);
+		libmaus2::autoarray::AutoArray<uint32_t> symtonodes(symtonodesvecsize,false);
 		uint32_t * symtonodesp = symtonodes.begin();
 		for ( uint64_t i = 0; i < symbols.size(); ++i )
 		{
@@ -963,9 +963,9 @@ struct RlToHwtBase
 		// total size
 		uint64_t const n = rl_decoder::getLength(bwt);
 
-		::libmaus::huffman::IndexDecoderDataArray IDD(std::vector<std::string>(1,bwt));
-		::libmaus::huffman::IndexEntryContainerVector::unique_ptr_type IECV = 
-			::libmaus::huffman::IndexLoader::loadAccIndex(std::vector<std::string>(1,bwt));
+		::libmaus2::huffman::IndexDecoderDataArray IDD(std::vector<std::string>(1,bwt));
+		::libmaus2::huffman::IndexEntryContainerVector::unique_ptr_type IECV = 
+			::libmaus2::huffman::IndexLoader::loadAccIndex(std::vector<std::string>(1,bwt));
 		
 		#if defined(_OPENMP)
 		uint64_t const numthreads = omp_get_max_threads();
@@ -990,18 +990,18 @@ struct RlToHwtBase
 		uint64_t const blocks_per_thread_g = (b_g + numthreads-1)/numthreads;
 
 		// local character histograms
-		libmaus::autoarray::AutoArray<uint64_t> localhist(numthreads * tablesize,false);
+		libmaus2::autoarray::AutoArray<uint64_t> localhist(numthreads * tablesize,false);
 		// global node sizes
-		libmaus::autoarray::AutoArray2d<uint64_t> localnodehist(inner,b_g+1,true);
+		libmaus2::autoarray::AutoArray2d<uint64_t> localnodehist(inner,b_g+1,true);
 
 		#if 0
 		std::cerr << "(" << symtonodevecoffsets.byteSize() << "," << symtonodes.byteSize() << "," << localhist.byteSize() << "," 
 			<< (inner * (b_g+1) * sizeof(uint64_t)) << ")";
 		#endif
 		
-		libmaus::parallel::OMPLock cerrlock;
+		libmaus2::parallel::OMPLock cerrlock;
 
-		libmaus::autoarray::AutoArray<rl_decoder::unique_ptr_type> rldecs(numthreads);
+		libmaus2::autoarray::AutoArray<rl_decoder::unique_ptr_type> rldecs(numthreads);
 		Todo<RlDecoderInfoObject> todostack;
 		// set up block information
 		for ( uint64_t i = 0; i < numthreads; ++i )
@@ -1106,11 +1106,11 @@ struct RlToHwtBase
 				std::cerr << "localnodehist(" << node << "," << b << ")=" << localnodehist(node,b) << std::endl;
 		#endif
 
-		typedef libmaus::rank::ImpCacheLineRank rank_type;
+		typedef libmaus2::rank::ImpCacheLineRank rank_type;
 		typedef rank_type::unique_ptr_type rank_ptr_type;
-		libmaus::autoarray::AutoArray<rank_ptr_type> R(inner);
-		libmaus::autoarray::AutoArray<uint64_t *> P(inner);
-		libmaus::autoarray::AutoArray<entity_type> U(numthreads*t_g*2,false);
+		libmaus2::autoarray::AutoArray<rank_ptr_type> R(inner);
+		libmaus2::autoarray::AutoArray<uint64_t *> P(inner);
+		libmaus2::autoarray::AutoArray<entity_type> U(numthreads*t_g*2,false);
 
 		for ( uint64_t node = 0; node < inner; ++node )
 		{
@@ -1133,7 +1133,7 @@ struct RlToHwtBase
 				P[node][i] = 0;
 		}
 		
-		libmaus::parallel::OMPLock nodelock;
+		libmaus2::parallel::OMPLock nodelock;
 
 		// set up block information
 		for ( uint64_t i = 0; i < numthreads; ++i )
@@ -1263,7 +1263,7 @@ struct RlToHwtBase
 						(*optrs[bit]) = sym;
 						optrs[bit] += inc[bit];
 					
-						libmaus::bitio::putBit(P[unode],bitoff,bit);
+						libmaus2::bitio::putBit(P[unode],bitoff,bit);
 					
 						towrite--;
 						bitoff++;
@@ -1305,7 +1305,7 @@ struct RlToHwtBase
 						(*optrs[bit]) = sym;
 						optrs[bit] += inc[bit];
 
-						libmaus::bitio::putBit(P[unode],bitoff,bit);
+						libmaus2::bitio::putBit(P[unode],bitoff,bit);
 					
 						towrite--;
 						bitoff++;	
@@ -1356,7 +1356,7 @@ struct RlToHwtBase
 				for ( uint64_t i = 0; i < toproc; ++i )
 				{
 					miniword |= miniacc << (i*9);
-					miniacc  += libmaus::rank::PopCnt8<sizeof(unsigned long)>::popcnt8(inptr[i]);
+					miniacc  += libmaus2::rank::PopCnt8<sizeof(unsigned long)>::popcnt8(inptr[i]);
 				}
 				miniword |= (miniacc << (toproc*9));
 				
@@ -1372,15 +1372,15 @@ struct RlToHwtBase
 			}
 		}
 		
-		libmaus::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type pICHWT(
-			new libmaus::wavelet::ImpCompactHuffmanWaveletTree(n,H,R)
+		libmaus2::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type pICHWT(
+			new libmaus2::wavelet::ImpCompactHuffmanWaveletTree(n,H,R)
 		);
 		
 		#if 0
-		libmaus::wavelet::ImpCompactHuffmanWaveletTree const & ICHWT = *pICHWT;
+		libmaus2::wavelet::ImpCompactHuffmanWaveletTree const & ICHWT = *pICHWT;
 		// open decoder
 		rl_decoder dec(std::vector<std::string>(1,bwt),0);
-		libmaus::autoarray::AutoArray<uint64_t> ranktable(tablesize);
+		libmaus2::autoarray::AutoArray<uint64_t> ranktable(tablesize);
 		for ( uint64_t i = 0; i < ICHWT.size(); ++i )
 		{
 			int64_t const sym = dec.decode();
@@ -1400,7 +1400,7 @@ struct RlToHwtBase
 		return UNIQUE_PTR_MOVE(pICHWT);
 	}
 
-	static ::libmaus::util::Histogram::unique_ptr_type computeRlSymHist(std::string const & bwt)
+	static ::libmaus2::util::Histogram::unique_ptr_type computeRlSymHist(std::string const & bwt)
 	{
 		#if defined(_OPENMP)
 		uint64_t const numthreads = omp_get_max_threads();
@@ -1412,8 +1412,8 @@ struct RlToHwtBase
 		
 		uint64_t const numpacks = 4*numthreads;
 		uint64_t const packsize = (n + numpacks - 1)/numpacks;
-		::libmaus::parallel::OMPLock histlock;
-		::libmaus::util::Histogram::unique_ptr_type mhist(new ::libmaus::util::Histogram);
+		::libmaus2::parallel::OMPLock histlock;
+		::libmaus2::util::Histogram::unique_ptr_type mhist(new ::libmaus2::util::Histogram);
 
 		#if defined(_OPENMP)
 		#pragma omp parallel for schedule(dynamic,1)
@@ -1422,7 +1422,7 @@ struct RlToHwtBase
 		{
 			uint64_t const low = std::min(t*packsize,n);
 			uint64_t const high = std::min(low+packsize,n);
-			::libmaus::util::Histogram lhist;
+			::libmaus2::util::Histogram lhist;
 			
 			if ( high-low )
 			{
@@ -1460,30 +1460,30 @@ struct RlToHwtBase
 		return 64ull*1024ull*1024ull;
 	}
 
-	static libmaus::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type rlToHwt(
+	static libmaus2::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type rlToHwt(
 		std::string const & bwt, 
 		std::string const & hwt, 
 		std::string const tmpprefix
 	)
 	{
-		::libmaus::util::Histogram::unique_ptr_type mhist(computeRlSymHist(bwt));
+		::libmaus2::util::Histogram::unique_ptr_type mhist(computeRlSymHist(bwt));
 		::std::map<int64_t,uint64_t> const chist = mhist->getByType<int64_t>();
 
-		::libmaus::huffman::HuffmanTree H ( chist.begin(), chist.size(), false, true, true );
+		::libmaus2::huffman::HuffmanTree H ( chist.begin(), chist.size(), false, true, true );
 		
 		if ( utf8Wavelet() )
 		{
-			::libmaus::wavelet::Utf8ToImpCompactHuffmanWaveletTree::constructWaveletTreeFromRl<rl_decoder,true /* radix sort */>(
+			::libmaus2::wavelet::Utf8ToImpCompactHuffmanWaveletTree::constructWaveletTreeFromRl<rl_decoder,true /* radix sort */>(
 				bwt,hwt,tmpprefix,H,
 				utf8WaveletMaxPartMem() /* part size maximum */,
 				utf8WaveletMaxThreads());
 
-			libmaus::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type IHWT(libmaus::wavelet::ImpCompactHuffmanWaveletTree::load(hwt));
+			libmaus2::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type IHWT(libmaus2::wavelet::ImpCompactHuffmanWaveletTree::load(hwt));
 			return UNIQUE_PTR_MOVE(IHWT);
 
 			#if 0
-			libmaus::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type IHWT(libmaus::wavelet::ImpCompactHuffmanWaveletTree::load(hwt));
-			libmaus::lf::ImpCompactHuffmanWaveletLF IHWL(hwt);
+			libmaus2::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type IHWT(libmaus2::wavelet::ImpCompactHuffmanWaveletTree::load(hwt));
+			libmaus2::lf::ImpCompactHuffmanWaveletLF IHWL(hwt);
 			rl_decoder rldec(std::vector<std::string>(1,bwt));
 			std::cerr << "Checking output bwt of length " << IHWT->size() << "...";
 			for ( uint64_t i = 0; i < IHWT->size(); ++i )
@@ -1509,8 +1509,8 @@ struct RlToHwtBase
 			// special case for very small alphabets
 			if ( H.maxDepth() <= 8*sizeof(uint8_t) && H.maxSymbol() <= std::numeric_limits<uint8_t>::max() )
 			{
-				libmaus::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type ptr(rlToHwtSmallAlphabet<uint8_t>(bwt,H));
-				libmaus::aio::CheckedOutputStream COS(hwt);
+				libmaus2::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type ptr(rlToHwtSmallAlphabet<uint8_t>(bwt,H));
+				libmaus2::aio::CheckedOutputStream COS(hwt);
 				ptr->serialise(COS);
 				COS.flush();
 				COS.close();
@@ -1518,8 +1518,8 @@ struct RlToHwtBase
 			}
 			else if ( H.maxDepth() <= 8*sizeof(uint16_t) && H.maxSymbol() <= std::numeric_limits<uint16_t>::max() )
 			{
-				libmaus::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type ptr(rlToHwtSmallAlphabet<uint16_t>(bwt,H));
-				libmaus::aio::CheckedOutputStream COS(hwt);
+				libmaus2::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type ptr(rlToHwtSmallAlphabet<uint16_t>(bwt,H));
+				libmaus2::aio::CheckedOutputStream COS(hwt);
 				ptr->serialise(COS);
 				COS.flush();
 				COS.close();
@@ -1527,8 +1527,8 @@ struct RlToHwtBase
 			}
 			else if ( H.maxDepth() <= 8*sizeof(uint32_t) && H.maxSymbol() <= std::numeric_limits<uint16_t>::max() )
 			{
-				libmaus::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type ptr(rlToHwtSmallAlphabet<uint32_t>(bwt,H));
-				libmaus::aio::CheckedOutputStream COS(hwt);
+				libmaus2::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type ptr(rlToHwtSmallAlphabet<uint32_t>(bwt,H));
+				libmaus2::aio::CheckedOutputStream COS(hwt);
 				ptr->serialise(COS);
 				COS.flush();
 				COS.close();
@@ -1536,8 +1536,8 @@ struct RlToHwtBase
 			}
 			else if ( H.maxDepth() <= 8*sizeof(uint64_t) && H.maxSymbol() <= std::numeric_limits<uint16_t>::max() )
 			{
-				libmaus::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type ptr(rlToHwtSmallAlphabet<uint64_t>(bwt,H));
-				libmaus::aio::CheckedOutputStream COS(hwt);
+				libmaus2::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type ptr(rlToHwtSmallAlphabet<uint64_t>(bwt,H));
+				libmaus2::aio::CheckedOutputStream COS(hwt);
 				ptr->serialise(COS);
 				COS.flush();
 				COS.close();
@@ -1545,7 +1545,7 @@ struct RlToHwtBase
 			}
 			else
 			{
-				::libmaus::util::TempFileNameGenerator tmpgen(tmpprefix,3);
+				::libmaus2::util::TempFileNameGenerator tmpgen(tmpprefix,3);
 
 				#if defined(_OPENMP)
 				uint64_t const numthreads = omp_get_max_threads();
@@ -1557,7 +1557,7 @@ struct RlToHwtBase
 				uint64_t const packsize = (n + numthreads - 1)/numthreads;
 				uint64_t const numpacks = (n + packsize-1)/packsize;
 
-				::libmaus::wavelet::ImpExternalWaveletGeneratorCompactHuffmanParallel IEWGH(H,tmpgen,numthreads);
+				::libmaus2::wavelet::ImpExternalWaveletGeneratorCompactHuffmanParallel IEWGH(H,tmpgen,numthreads);
 
 				#if defined(_OPENMP)
 				#pragma omp parallel for
@@ -1568,7 +1568,7 @@ struct RlToHwtBase
 					uint64_t const low = std::min(t*packsize,n);
 					uint64_t const high = std::min(low+packsize,n);
 					
-					::libmaus::wavelet::ImpExternalWaveletGeneratorCompactHuffmanParallel::BufferType & BTS = IEWGH[t];
+					::libmaus2::wavelet::ImpExternalWaveletGeneratorCompactHuffmanParallel::BufferType & BTS = IEWGH[t];
 
 					if ( high-low )
 					{
@@ -1593,7 +1593,7 @@ struct RlToHwtBase
 				
 				IEWGH.createFinalStream(hwt);
 
-				libmaus::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type IHWT(libmaus::wavelet::ImpCompactHuffmanWaveletTree::load(hwt));
+				libmaus2::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type IHWT(libmaus2::wavelet::ImpCompactHuffmanWaveletTree::load(hwt));
 				return UNIQUE_PTR_MOVE(IHWT);
 			}
 		}
@@ -1603,21 +1603,21 @@ struct RlToHwtBase
 		std::vector<std::string> const & bwt, 
 		std::string const & hwt, 
 		std::string const tmpprefix,
-		::libmaus::huffman::HuffmanTree & H,
+		::libmaus2::huffman::HuffmanTree & H,
 		uint64_t const bwtterm,
 		uint64_t const p0r
 		)
 	{
 		if ( utf8Wavelet() )
 		{
-			::libmaus::wavelet::Utf8ToImpCompactHuffmanWaveletTree::constructWaveletTreeFromRlWithTerm<rl_decoder,true /* radix sort */>(
+			::libmaus2::wavelet::Utf8ToImpCompactHuffmanWaveletTree::constructWaveletTreeFromRlWithTerm<rl_decoder,true /* radix sort */>(
 				bwt,hwt,tmpprefix,H,p0r,bwtterm,
 				utf8WaveletMaxPartMem() /* maximum part size */,
 				utf8WaveletMaxThreads()
 			);
 			
 			#if 0
-			libmaus::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type IHWT(libmaus::wavelet::ImpCompactHuffmanWaveletTree::load(hwt));
+			libmaus2::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type IHWT(libmaus2::wavelet::ImpCompactHuffmanWaveletTree::load(hwt));
 			rl_decoder rldec(bwt);
 
 			std::cerr << "Checking output bwt of length " << IHWT->size() << "...";
@@ -1631,7 +1631,7 @@ struct RlToHwtBase
 		}
 		else
 		{			
-			::libmaus::util::TempFileNameGenerator tmpgen(tmpprefix,3);
+			::libmaus2::util::TempFileNameGenerator tmpgen(tmpprefix,3);
 
 			#if defined(_OPENMP)
 			uint64_t const numthreads = omp_get_max_threads();
@@ -1650,7 +1650,7 @@ struct RlToHwtBase
 			uint64_t const packsizehigh = (nhigh + numthreads - 1)/numthreads;
 			uint64_t const numpackshigh = packsizehigh ? ( (nhigh + packsizehigh-1)/packsizehigh ) : 0;
 
-			::libmaus::wavelet::ImpExternalWaveletGeneratorCompactHuffmanParallel IEWGH(H,tmpgen,2*numthreads+1);
+			::libmaus2::wavelet::ImpExternalWaveletGeneratorCompactHuffmanParallel IEWGH(H,tmpgen,2*numthreads+1);
 
 			#if defined(_OPENMP)
 			#pragma omp parallel for
@@ -1661,7 +1661,7 @@ struct RlToHwtBase
 				uint64_t const low  = std::min(t*packsizelow,nlow);
 				uint64_t const high = std::min(low+packsizelow,nlow);
 				
-				::libmaus::wavelet::ImpExternalWaveletGeneratorCompactHuffmanParallel::BufferType & BTS = IEWGH[t];
+				::libmaus2::wavelet::ImpExternalWaveletGeneratorCompactHuffmanParallel::BufferType & BTS = IEWGH[t];
 
 				if ( high-low )
 				{
@@ -1695,7 +1695,7 @@ struct RlToHwtBase
 				uint64_t const low  = std::min(nlow + 1 + t*packsizehigh,n);
 				uint64_t const high = std::min(low+packsizehigh,n);
 				
-				::libmaus::wavelet::ImpExternalWaveletGeneratorCompactHuffmanParallel::BufferType & BTS = IEWGH[numthreads+1+t];
+				::libmaus2::wavelet::ImpExternalWaveletGeneratorCompactHuffmanParallel::BufferType & BTS = IEWGH[numthreads+1+t];
 
 				if ( high-low )
 				{
@@ -1731,33 +1731,33 @@ struct RlToHwtBase
 		uint64_t const p0r
 		)
 	{
-		::libmaus::huffman::HuffmanTree H(chist.begin(),chist.size(),false,true,true);
+		::libmaus2::huffman::HuffmanTree H(chist.begin(),chist.size(),false,true,true);
 		rlToHwtTerm(bwt,hwt,tmpprefix,H,bwtterm,p0r);
 	}
 
-	static ::libmaus::huffman::HuffmanTree::unique_ptr_type loadCompactHuffmanTree(std::string const & huftreefilename)
+	static ::libmaus2::huffman::HuffmanTree::unique_ptr_type loadCompactHuffmanTree(std::string const & huftreefilename)
 	{
-		libmaus::aio::CheckedInputStream::unique_ptr_type CIN(new libmaus::aio::CheckedInputStream(huftreefilename));
-		::libmaus::huffman::HuffmanTree::unique_ptr_type tH(new ::libmaus::huffman::HuffmanTree(*CIN));
+		libmaus2::aio::CheckedInputStream::unique_ptr_type CIN(new libmaus2::aio::CheckedInputStream(huftreefilename));
+		::libmaus2::huffman::HuffmanTree::unique_ptr_type tH(new ::libmaus2::huffman::HuffmanTree(*CIN));
 		CIN->close();
 		CIN.reset();
 		
 		return UNIQUE_PTR_MOVE(tH);
 	}
 
-	static ::libmaus::huffman::HuffmanTreeNode::shared_ptr_type loadHuffmanTree(std::string const & huftreefilename)
+	static ::libmaus2::huffman::HuffmanTreeNode::shared_ptr_type loadHuffmanTree(std::string const & huftreefilename)
 	{
 		// deserialise symbol frequences
-		libmaus::aio::CheckedInputStream::unique_ptr_type chistCIN(new libmaus::aio::CheckedInputStream(huftreefilename));
-		::libmaus::huffman::HuffmanTreeNode::shared_ptr_type shnode = 
-			::libmaus::huffman::HuffmanTreeNode::deserialize(*chistCIN);
+		libmaus2::aio::CheckedInputStream::unique_ptr_type chistCIN(new libmaus2::aio::CheckedInputStream(huftreefilename));
+		::libmaus2::huffman::HuffmanTreeNode::shared_ptr_type shnode = 
+			::libmaus2::huffman::HuffmanTreeNode::deserialize(*chistCIN);
 		chistCIN->close();
 		chistCIN.reset();
 		
 		return shnode;
 	}
 
-	static libmaus::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type rlToHwtTerm(
+	static libmaus2::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type rlToHwtTerm(
 		std::vector<std::string> const & bwt, 
 		std::string const & hwt, 
 		std::string const tmpprefix,
@@ -1766,33 +1766,33 @@ struct RlToHwtBase
 		uint64_t const p0r
 		)
 	{
-		::libmaus::huffman::HuffmanTree::unique_ptr_type UH = loadCompactHuffmanTree(huftreefilename);
-		::libmaus::huffman::HuffmanTree & H = *UH;
+		::libmaus2::huffman::HuffmanTree::unique_ptr_type UH = loadCompactHuffmanTree(huftreefilename);
+		::libmaus2::huffman::HuffmanTree & H = *UH;
 
 		// std::cerr << "(maxdepth=" << H.maxDepth() << ",maxSymbol=" << H.maxSymbol() << ")";
 
 		if ( H.maxDepth() <= 8*sizeof(uint8_t) && H.maxSymbol() <= std::numeric_limits<uint8_t>::max() )
 		{
 			// std::cerr << "(small)";
-			libmaus::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type tICHWT(rlToHwtTermSmallAlphabet<uint8_t>(bwt,huftreefilename,bwtterm,p0r));			
+			libmaus2::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type tICHWT(rlToHwtTermSmallAlphabet<uint8_t>(bwt,huftreefilename,bwtterm,p0r));			
 			return UNIQUE_PTR_MOVE(tICHWT);
 		}
 		else if ( H.maxDepth() <= 8*sizeof(uint16_t) && H.maxSymbol() <= std::numeric_limits<uint16_t>::max() )
 		{
 			// std::cerr << "(small)";
-			libmaus::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type tICHWT(rlToHwtTermSmallAlphabet<uint16_t>(bwt,huftreefilename,bwtterm,p0r));			
+			libmaus2::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type tICHWT(rlToHwtTermSmallAlphabet<uint16_t>(bwt,huftreefilename,bwtterm,p0r));			
 			return UNIQUE_PTR_MOVE(tICHWT);
 		}
 		else if ( H.maxDepth() <= 8*sizeof(uint32_t) && H.maxSymbol() <= std::numeric_limits<uint16_t>::max() )
 		{
 			// std::cerr << "(small)";
-			libmaus::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type tICHWT(rlToHwtTermSmallAlphabet<uint32_t>(bwt,huftreefilename,bwtterm,p0r));			
+			libmaus2::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type tICHWT(rlToHwtTermSmallAlphabet<uint32_t>(bwt,huftreefilename,bwtterm,p0r));			
 			return UNIQUE_PTR_MOVE(tICHWT);
 		}
 		else if ( H.maxDepth() <= 8*sizeof(uint64_t) && H.maxSymbol() <= std::numeric_limits<uint16_t>::max() )
 		{
 			// std::cerr << "(small)";
-			libmaus::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type tICHWT(rlToHwtTermSmallAlphabet<uint64_t>(bwt,huftreefilename,bwtterm,p0r));			
+			libmaus2::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type tICHWT(rlToHwtTermSmallAlphabet<uint64_t>(bwt,huftreefilename,bwtterm,p0r));			
 			return UNIQUE_PTR_MOVE(tICHWT);
 		}
 		else
@@ -1800,7 +1800,7 @@ struct RlToHwtBase
 		
 			// std::cerr << "(large)";
 			rlToHwtTerm(bwt,hwt,tmpprefix,H,bwtterm,p0r);
-			libmaus::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type tICHWT(loadWaveletTree(hwt));
+			libmaus2::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type tICHWT(loadWaveletTree(hwt));
 			return UNIQUE_PTR_MOVE(tICHWT);
 		}
 	}
@@ -1810,8 +1810,8 @@ struct RlToHwtBase
 struct RlToHwtTermRequest
 {
 	typedef RlToHwtTermRequest this_type;
-	typedef libmaus::util::unique_ptr<this_type>::type unique_ptr_type;
-	typedef libmaus::util::shared_ptr<this_type>::type shared_ptr_type;
+	typedef libmaus2::util::unique_ptr<this_type>::type unique_ptr_type;
+	typedef libmaus2::util::shared_ptr<this_type>::type shared_ptr_type;
 	
 	std::vector<std::string> bwt;
 	std::string hwt;
@@ -1834,33 +1834,33 @@ struct RlToHwtTermRequest
 	
 	RlToHwtTermRequest(std::istream & in)
 	:
-		bwt(libmaus::util::StringSerialisation::deserialiseStringVector(in)),
-		hwt(libmaus::util::StringSerialisation::deserialiseString(in)),
-		tmpprefix(libmaus::util::StringSerialisation::deserialiseString(in)),
-		huftreefilename(libmaus::util::StringSerialisation::deserialiseString(in)),
-		bwtterm(libmaus::util::NumberSerialisation::deserialiseSignedNumber(in)),
-		p0r(libmaus::util::NumberSerialisation::deserialiseNumber(in)),
-		utf8(libmaus::util::NumberSerialisation::deserialiseNumber(in))
+		bwt(libmaus2::util::StringSerialisation::deserialiseStringVector(in)),
+		hwt(libmaus2::util::StringSerialisation::deserialiseString(in)),
+		tmpprefix(libmaus2::util::StringSerialisation::deserialiseString(in)),
+		huftreefilename(libmaus2::util::StringSerialisation::deserialiseString(in)),
+		bwtterm(libmaus2::util::NumberSerialisation::deserialiseSignedNumber(in)),
+		p0r(libmaus2::util::NumberSerialisation::deserialiseNumber(in)),
+		utf8(libmaus2::util::NumberSerialisation::deserialiseNumber(in))
 	{
 	
 	}
 	
 	static unique_ptr_type load(std::string const & filename)
 	{
-		libmaus::aio::CheckedInputStream CIS(filename);
+		libmaus2::aio::CheckedInputStream CIS(filename);
 		unique_ptr_type ptr(new this_type(CIS));
 		return UNIQUE_PTR_MOVE(ptr);
 	}
 	
 	std::ostream & serialise(std::ostream & out) const
 	{
-		libmaus::util::StringSerialisation::serialiseStringVector(out,bwt);
-		libmaus::util::StringSerialisation::serialiseString(out,hwt);
-		libmaus::util::StringSerialisation::serialiseString(out,tmpprefix);
-		libmaus::util::StringSerialisation::serialiseString(out,huftreefilename);
-		libmaus::util::NumberSerialisation::serialiseSignedNumber(out,bwtterm);
-		libmaus::util::NumberSerialisation::serialiseNumber(out,p0r);
-		libmaus::util::NumberSerialisation::serialiseNumber(out,utf8);
+		libmaus2::util::StringSerialisation::serialiseStringVector(out,bwt);
+		libmaus2::util::StringSerialisation::serialiseString(out,hwt);
+		libmaus2::util::StringSerialisation::serialiseString(out,tmpprefix);
+		libmaus2::util::StringSerialisation::serialiseString(out,huftreefilename);
+		libmaus2::util::NumberSerialisation::serialiseSignedNumber(out,bwtterm);
+		libmaus2::util::NumberSerialisation::serialiseNumber(out,p0r);
+		libmaus2::util::NumberSerialisation::serialiseNumber(out,utf8);
 		return out;
 	}
 
@@ -1875,28 +1875,28 @@ struct RlToHwtTermRequest
 		bool const utf8
 	)
 	{
-		libmaus::util::StringSerialisation::serialiseStringVector(out,bwt);
-		libmaus::util::StringSerialisation::serialiseString(out,hwt);
-		libmaus::util::StringSerialisation::serialiseString(out,tmpprefix);
-		libmaus::util::StringSerialisation::serialiseString(out,huftreefilename);
-		libmaus::util::NumberSerialisation::serialiseSignedNumber(out,bwtterm);
-		libmaus::util::NumberSerialisation::serialiseNumber(out,p0r);
-		libmaus::util::NumberSerialisation::serialiseNumber(out,utf8);
+		libmaus2::util::StringSerialisation::serialiseStringVector(out,bwt);
+		libmaus2::util::StringSerialisation::serialiseString(out,hwt);
+		libmaus2::util::StringSerialisation::serialiseString(out,tmpprefix);
+		libmaus2::util::StringSerialisation::serialiseString(out,huftreefilename);
+		libmaus2::util::NumberSerialisation::serialiseSignedNumber(out,bwtterm);
+		libmaus2::util::NumberSerialisation::serialiseNumber(out,p0r);
+		libmaus2::util::NumberSerialisation::serialiseNumber(out,utf8);
 		return out;
 	}
 
-	libmaus::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type dispatch()
+	libmaus2::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type dispatch()
 	{
 		if ( utf8 )
 		{
-			libmaus::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type tptr(
+			libmaus2::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type tptr(
 				RlToHwtBase<true>::rlToHwtTerm(bwt,hwt,tmpprefix,huftreefilename,bwtterm,p0r)
 			);
 			return UNIQUE_PTR_MOVE(tptr);
 		}
 		else
 		{
-			libmaus::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type tptr(
+			libmaus2::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type tptr(
 				RlToHwtBase<false>::rlToHwtTerm(bwt,hwt,tmpprefix,huftreefilename,bwtterm,p0r)
 			);
 			return UNIQUE_PTR_MOVE(tptr);
@@ -1904,7 +1904,7 @@ struct RlToHwtTermRequest
 	}
 };
 
-struct BwtMergeBlockSortRequest : libmaus::suffixsort::BwtMergeEnumBase
+struct BwtMergeBlockSortRequest : libmaus2::suffixsort::BwtMergeEnumBase
 {
 	bwt_merge_sort_input_type inputtype;
 	std::string fn; // file name of complete file
@@ -1919,7 +1919,7 @@ struct BwtMergeBlockSortRequest : libmaus::suffixsort::BwtMergeEnumBase
 	uint64_t isasamplingrate; // sampling rate for inverse suffix array
 	uint64_t blockstart; // start of this block (in symbols)
 	uint64_t cblocksize; // size of this block (in symbols)
-	::libmaus::suffixsort::BwtMergeZBlockRequestVector zreqvec; // vector of positions in file where rank in this block is requested
+	::libmaus2::suffixsort::BwtMergeZBlockRequestVector zreqvec; // vector of positions in file where rank in this block is requested
 	bool computeTermSymbolHwt;
 	uint64_t lcpnext;
 	
@@ -1939,7 +1939,7 @@ struct BwtMergeBlockSortRequest : libmaus::suffixsort::BwtMergeEnumBase
 				return bwt_merge_input_type_utf8;
 			default:
 			{
-				::libmaus::exception::LibMausException ex;
+				::libmaus2::exception::LibMausException ex;
 				ex.getStream() << "Number " << i << " is not a valid input type designator." << std::endl;
 				ex.finish();
 				throw ex;
@@ -1950,22 +1950,22 @@ struct BwtMergeBlockSortRequest : libmaus::suffixsort::BwtMergeEnumBase
 	template<typename stream_type>
 	void serialise(stream_type & stream) const
 	{
-		::libmaus::util::NumberSerialisation::serialiseNumber(stream,static_cast<int>(inputtype));		
-		::libmaus::util::StringSerialisation::serialiseString(stream,fn);
-		::libmaus::util::NumberSerialisation::serialiseNumber(stream,fs);
-		::libmaus::util::StringSerialisation::serialiseString(stream,chistfilename);
-		::libmaus::util::StringSerialisation::serialiseString(stream,huftreefilename);
-		::libmaus::util::NumberSerialisation::serialiseNumber(stream,bwtterm);
-		::libmaus::util::NumberSerialisation::serialiseNumber(stream,maxsym);
-		::libmaus::util::StringSerialisation::serialiseString(stream,tmpfilenamesser);
-		::libmaus::util::StringSerialisation::serialiseString(stream,tmpfilenamebase);
-		::libmaus::util::NumberSerialisation::serialiseNumber(stream,rlencoderblocksize);
-		::libmaus::util::NumberSerialisation::serialiseNumber(stream,isasamplingrate);
-		::libmaus::util::NumberSerialisation::serialiseNumber(stream,blockstart);
-		::libmaus::util::NumberSerialisation::serialiseNumber(stream,cblocksize);
+		::libmaus2::util::NumberSerialisation::serialiseNumber(stream,static_cast<int>(inputtype));		
+		::libmaus2::util::StringSerialisation::serialiseString(stream,fn);
+		::libmaus2::util::NumberSerialisation::serialiseNumber(stream,fs);
+		::libmaus2::util::StringSerialisation::serialiseString(stream,chistfilename);
+		::libmaus2::util::StringSerialisation::serialiseString(stream,huftreefilename);
+		::libmaus2::util::NumberSerialisation::serialiseNumber(stream,bwtterm);
+		::libmaus2::util::NumberSerialisation::serialiseNumber(stream,maxsym);
+		::libmaus2::util::StringSerialisation::serialiseString(stream,tmpfilenamesser);
+		::libmaus2::util::StringSerialisation::serialiseString(stream,tmpfilenamebase);
+		::libmaus2::util::NumberSerialisation::serialiseNumber(stream,rlencoderblocksize);
+		::libmaus2::util::NumberSerialisation::serialiseNumber(stream,isasamplingrate);
+		::libmaus2::util::NumberSerialisation::serialiseNumber(stream,blockstart);
+		::libmaus2::util::NumberSerialisation::serialiseNumber(stream,cblocksize);
 		zreqvec.serialise(stream);
-		::libmaus::util::NumberSerialisation::serialiseNumber(stream,computeTermSymbolHwt);
-		::libmaus::util::NumberSerialisation::serialiseNumber(stream,lcpnext);
+		::libmaus2::util::NumberSerialisation::serialiseNumber(stream,computeTermSymbolHwt);
+		::libmaus2::util::NumberSerialisation::serialiseNumber(stream,lcpnext);
 	}
 	
 	std::string serialise() const
@@ -1982,22 +1982,22 @@ struct BwtMergeBlockSortRequest : libmaus::suffixsort::BwtMergeEnumBase
 	template<typename stream_type>	
 	BwtMergeBlockSortRequest(stream_type & stream)
 	:
-		inputtype(decodeInputType(::libmaus::util::NumberSerialisation::deserialiseNumber(stream))),
-		fn(::libmaus::util::StringSerialisation::deserialiseString(stream)),
-		fs(::libmaus::util::NumberSerialisation::deserialiseNumber(stream)),
-		chistfilename(::libmaus::util::StringSerialisation::deserialiseString(stream)),
-		huftreefilename(::libmaus::util::StringSerialisation::deserialiseString(stream)),
-		bwtterm(::libmaus::util::NumberSerialisation::deserialiseNumber(stream)),
-		maxsym(::libmaus::util::NumberSerialisation::deserialiseNumber(stream)),
-		tmpfilenamesser(::libmaus::util::StringSerialisation::deserialiseString(stream)),
-		tmpfilenamebase(::libmaus::util::StringSerialisation::deserialiseString(stream)),
-		rlencoderblocksize(::libmaus::util::NumberSerialisation::deserialiseNumber(stream)),
-		isasamplingrate(::libmaus::util::NumberSerialisation::deserialiseNumber(stream)),
-		blockstart(::libmaus::util::NumberSerialisation::deserialiseNumber(stream)),
-		cblocksize(::libmaus::util::NumberSerialisation::deserialiseNumber(stream)),
+		inputtype(decodeInputType(::libmaus2::util::NumberSerialisation::deserialiseNumber(stream))),
+		fn(::libmaus2::util::StringSerialisation::deserialiseString(stream)),
+		fs(::libmaus2::util::NumberSerialisation::deserialiseNumber(stream)),
+		chistfilename(::libmaus2::util::StringSerialisation::deserialiseString(stream)),
+		huftreefilename(::libmaus2::util::StringSerialisation::deserialiseString(stream)),
+		bwtterm(::libmaus2::util::NumberSerialisation::deserialiseNumber(stream)),
+		maxsym(::libmaus2::util::NumberSerialisation::deserialiseNumber(stream)),
+		tmpfilenamesser(::libmaus2::util::StringSerialisation::deserialiseString(stream)),
+		tmpfilenamebase(::libmaus2::util::StringSerialisation::deserialiseString(stream)),
+		rlencoderblocksize(::libmaus2::util::NumberSerialisation::deserialiseNumber(stream)),
+		isasamplingrate(::libmaus2::util::NumberSerialisation::deserialiseNumber(stream)),
+		blockstart(::libmaus2::util::NumberSerialisation::deserialiseNumber(stream)),
+		cblocksize(::libmaus2::util::NumberSerialisation::deserialiseNumber(stream)),
 		zreqvec(stream),
-		computeTermSymbolHwt(::libmaus::util::NumberSerialisation::deserialiseNumber(stream)),
-		lcpnext(::libmaus::util::NumberSerialisation::deserialiseNumber(stream))
+		computeTermSymbolHwt(::libmaus2::util::NumberSerialisation::deserialiseNumber(stream)),
+		lcpnext(::libmaus2::util::NumberSerialisation::deserialiseNumber(stream))
 	{
 	}
 
@@ -2015,7 +2015,7 @@ struct BwtMergeBlockSortRequest : libmaus::suffixsort::BwtMergeEnumBase
 		uint64_t risasamplingrate,
 		uint64_t rblockstart,
 		uint64_t rcblocksize,
-		::libmaus::suffixsort::BwtMergeZBlockRequestVector const & rzreqvec,
+		::libmaus2::suffixsort::BwtMergeZBlockRequestVector const & rzreqvec,
 		bool const rcomputeTermSymbolHwt,
 		uint64_t const rlcpnext
 	)
@@ -2065,11 +2065,11 @@ struct BwtMergeBlockSortRequest : libmaus::suffixsort::BwtMergeEnumBase
 		circular_wrapper patstr(fn,p);
 		
 		// dynamically growing best prefix table
-		::libmaus::util::KMP::BestPrefix<base_input_stream> BP(patstr,m);
+		::libmaus2::util::KMP::BestPrefix<base_input_stream> BP(patstr,m);
 		// adapter for accessing pattern in BP
-		typename ::libmaus::util::KMP::BestPrefix<base_input_stream>::BestPrefixXAdapter xadapter = BP.getXAdapter();
+		typename ::libmaus2::util::KMP::BestPrefix<base_input_stream>::BestPrefixXAdapter xadapter = BP.getXAdapter();
 		// call KMP adaption
-		std::pair<uint64_t, uint64_t> Q = ::libmaus::util::KMP::PREFIX_SEARCH_INTERNAL_RESTRICTED(
+		std::pair<uint64_t, uint64_t> Q = ::libmaus2::util::KMP::PREFIX_SEARCH_INTERNAL_RESTRICTED(
 			// pattern
 			xadapter,m,BP,
 			// text
@@ -2103,11 +2103,11 @@ struct BwtMergeBlockSortRequest : libmaus::suffixsort::BwtMergeEnumBase
 		circular_wrapper patstr(fn,p);
 		
 		// dynamically growing best prefix table
-		::libmaus::util::KMP::BestPrefix<base_input_stream> BP(patstr,m);
+		::libmaus2::util::KMP::BestPrefix<base_input_stream> BP(patstr,m);
 		// adapter for accessing pattern in BP
-		typename ::libmaus::util::KMP::BestPrefix<base_input_stream>::BestPrefixXAdapter xadapter = BP.getXAdapter();
+		typename ::libmaus2::util::KMP::BestPrefix<base_input_stream>::BestPrefixXAdapter xadapter = BP.getXAdapter();
 		// call KMP adaption
-		std::pair<uint64_t, uint64_t> Q = ::libmaus::util::KMP::PREFIX_SEARCH_INTERNAL_RESTRICTED_BOUNDED(
+		std::pair<uint64_t, uint64_t> Q = ::libmaus2::util::KMP::PREFIX_SEARCH_INTERNAL_RESTRICTED_BOUNDED(
 			// pattern
 			xadapter,m,BP,
 			// text
@@ -2121,22 +2121,22 @@ struct BwtMergeBlockSortRequest : libmaus::suffixsort::BwtMergeEnumBase
 		return Q.second;
 	}
 	
-	static ::libmaus::huffman::HuffmanTree::unique_ptr_type loadCompactHuffmanTree(std::string const & huftreefilename)
+	static ::libmaus2::huffman::HuffmanTree::unique_ptr_type loadCompactHuffmanTree(std::string const & huftreefilename)
 	{
-		libmaus::aio::CheckedInputStream::unique_ptr_type CIN(new libmaus::aio::CheckedInputStream(huftreefilename));
-		::libmaus::huffman::HuffmanTree::unique_ptr_type tH(new ::libmaus::huffman::HuffmanTree(*CIN));
+		libmaus2::aio::CheckedInputStream::unique_ptr_type CIN(new libmaus2::aio::CheckedInputStream(huftreefilename));
+		::libmaus2::huffman::HuffmanTree::unique_ptr_type tH(new ::libmaus2::huffman::HuffmanTree(*CIN));
 		CIN->close();
 		CIN.reset();
 		
 		return UNIQUE_PTR_MOVE(tH);
 	}
 
-	static ::libmaus::huffman::HuffmanTreeNode::shared_ptr_type loadHuffmanTree(std::string const & huftreefilename)
+	static ::libmaus2::huffman::HuffmanTreeNode::shared_ptr_type loadHuffmanTree(std::string const & huftreefilename)
 	{
 		// deserialise symbol frequences
-		libmaus::aio::CheckedInputStream::unique_ptr_type chistCIN(new libmaus::aio::CheckedInputStream(huftreefilename));
-		::libmaus::huffman::HuffmanTreeNode::shared_ptr_type shnode = 
-			::libmaus::huffman::HuffmanTreeNode::deserialize(*chistCIN);
+		libmaus2::aio::CheckedInputStream::unique_ptr_type chistCIN(new libmaus2::aio::CheckedInputStream(huftreefilename));
+		::libmaus2::huffman::HuffmanTreeNode::shared_ptr_type shnode = 
+			::libmaus2::huffman::HuffmanTreeNode::deserialize(*chistCIN);
 		chistCIN->close();
 		chistCIN.reset();
 		
@@ -2144,17 +2144,17 @@ struct BwtMergeBlockSortRequest : libmaus::suffixsort::BwtMergeEnumBase
 	}
 
 	template<typename input_types_type>
-	::libmaus::suffixsort::BwtMergeBlockSortResult sortBlock() const
+	::libmaus2::suffixsort::BwtMergeBlockSortResult sortBlock() const
 	{
 		// typedef typename input_types_type::base_input_stream base_input_stream;
 		// typedef typename base_input_stream::char_type char_type;
-		// typedef typename ::libmaus::util::UnsignedCharVariant<char_type>::type unsigned_char_type;
+		// typedef typename ::libmaus2::util::UnsignedCharVariant<char_type>::type unsigned_char_type;
 	
 		// glock.lock();
 	
 		#if defined(FERAMANZGEN_DEBUG)
 		gcerrlock.lock();
-		std::cerr << "[SB1] " << libmaus::util::MemUsage() << "," << libmaus::autoarray::AutoArrayMemUsage() << std::endl;
+		std::cerr << "[SB1] " << libmaus2::util::MemUsage() << "," << libmaus2::autoarray::AutoArrayMemUsage() << std::endl;
 		gcerrlock.unlock();
 		#endif
 	
@@ -2166,25 +2166,25 @@ struct BwtMergeBlockSortRequest : libmaus::suffixsort::BwtMergeEnumBase
 			<< std::setw(10) << std::setfill('0') << cblocksize
 			;
 		std::string const tmpfilenamedir = tmpfilenamedirstr.str();
-		::libmaus::util::TempFileNameGenerator tmpgen(tmpfilenamedir,3);
+		::libmaus2::util::TempFileNameGenerator tmpgen(tmpfilenamedir,3);
 
 		#if defined(FERAMANZGEN_DEBUG)
 		gcerrlock.lock();
-		std::cerr << "[SB2] " << libmaus::util::MemUsage() << "," << libmaus::autoarray::AutoArrayMemUsage() << std::endl;
+		std::cerr << "[SB2] " << libmaus2::util::MemUsage() << "," << libmaus2::autoarray::AutoArrayMemUsage() << std::endl;
 		gcerrlock.unlock();
 		#endif
 
-		::libmaus::suffixsort::BwtMergeTempFileNameSet const tmpfilenames = 
-			::libmaus::suffixsort::BwtMergeTempFileNameSet::load(tmpfilenamesser);
+		::libmaus2::suffixsort::BwtMergeTempFileNameSet const tmpfilenames = 
+			::libmaus2::suffixsort::BwtMergeTempFileNameSet::load(tmpfilenamesser);
 
 		#if defined(FERAMANZGEN_DEBUG)
 		gcerrlock.lock();
-		std::cerr << "[SB3] " << libmaus::util::MemUsage() << "," << libmaus::autoarray::AutoArrayMemUsage() << std::endl;
+		std::cerr << "[SB3] " << libmaus2::util::MemUsage() << "," << libmaus2::autoarray::AutoArrayMemUsage() << std::endl;
 		gcerrlock.unlock();
 		#endif
 		
 		// result
-		::libmaus::suffixsort::BwtMergeBlockSortResult result;
+		::libmaus2::suffixsort::BwtMergeBlockSortResult result;
 		// copy request values
 		result.setBlockStart( blockstart );
 		result.setCBlockSize( cblocksize );
@@ -2192,19 +2192,19 @@ struct BwtMergeBlockSortRequest : libmaus::suffixsort::BwtMergeEnumBase
 
 		#if defined(FERAMANZGEN_DEBUG)
 		gcerrlock.lock();
-		std::cerr << "[SB4] " << libmaus::util::MemUsage() << "," << libmaus::autoarray::AutoArrayMemUsage() << std::endl;
+		std::cerr << "[SB4] " << libmaus2::util::MemUsage() << "," << libmaus2::autoarray::AutoArrayMemUsage() << std::endl;
 		gcerrlock.unlock();
 		#endif
 		
 		// set up huffman tree
-		unsigned int const albits = maxsym ? (8*sizeof(uint64_t) - ::libmaus::bitio::Clz::clz(maxsym)) : 0;
+		unsigned int const albits = maxsym ? (8*sizeof(uint64_t) - ::libmaus2::bitio::Clz::clz(maxsym)) : 0;
 		
 		// symbol before block
 		int64_t const presym = input_types_type::linear_wrapper::getSymbolAtPosition(fn,blockstart ? (blockstart-1) : (fs-1));
 
 		#if defined(FERAMANZGEN_DEBUG)
 		gcerrlock.lock();
-		std::cerr << "[SB5] " << libmaus::util::MemUsage() << "," << libmaus::autoarray::AutoArrayMemUsage() << std::endl;
+		std::cerr << "[SB5] " << libmaus2::util::MemUsage() << "," << libmaus2::autoarray::AutoArrayMemUsage() << std::endl;
 		gcerrlock.unlock();
 		#endif
 		
@@ -2216,7 +2216,7 @@ struct BwtMergeBlockSortRequest : libmaus::suffixsort::BwtMergeEnumBase
 
 		#if defined(FERAMANZGEN_DEBUG)
 		gcerrlock.lock();
-		std::cerr << "[SB6] " << libmaus::util::MemUsage() << "," << libmaus::autoarray::AutoArrayMemUsage() << std::endl;
+		std::cerr << "[SB6] " << libmaus2::util::MemUsage() << "," << libmaus2::autoarray::AutoArrayMemUsage() << std::endl;
 		gcerrlock.unlock();
 		#endif
 		
@@ -2233,7 +2233,7 @@ struct BwtMergeBlockSortRequest : libmaus::suffixsort::BwtMergeEnumBase
 
 		#if defined(FERAMANZGEN_DEBUG)
 		gcerrlock.lock();
-		std::cerr << "[SB7] " << libmaus::util::MemUsage() << "," << libmaus::autoarray::AutoArrayMemUsage() << std::endl;
+		std::cerr << "[SB7] " << libmaus2::util::MemUsage() << "," << libmaus2::autoarray::AutoArrayMemUsage() << std::endl;
 		gcerrlock.unlock();
 		#endif
 
@@ -2247,28 +2247,28 @@ struct BwtMergeBlockSortRequest : libmaus::suffixsort::BwtMergeEnumBase
 
 		#if defined(FERAMANZGEN_DEBUG)
 		gcerrlock.lock();
-		std::cerr << "[SB8] " << libmaus::util::MemUsage() << "," << libmaus::autoarray::AutoArrayMemUsage() << std::endl;
+		std::cerr << "[SB8] " << libmaus2::util::MemUsage() << "," << libmaus2::autoarray::AutoArrayMemUsage() << std::endl;
 		gcerrlock.unlock();
 		#endif
 
 		typedef typename string_type::saidx_t saidx_t;
-		::libmaus::autoarray::AutoArray<saidx_t, ::libmaus::autoarray::alloc_type_c> SA =
+		::libmaus2::autoarray::AutoArray<saidx_t, ::libmaus2::autoarray::alloc_type_c> SA =
 			T.computeSuffixArray32();
 
 		#if defined(FERAMANZGEN_DEBUG)
 		gcerrlock.lock();
-		std::cerr << "[SB9] " << libmaus::util::MemUsage() << "," << libmaus::autoarray::AutoArrayMemUsage() << std::endl;
+		std::cerr << "[SB9] " << libmaus2::util::MemUsage() << "," << libmaus2::autoarray::AutoArrayMemUsage() << std::endl;
 		gcerrlock.unlock();
 		#endif
 		
 		// compute character histogram
-		::libmaus::util::Histogram hist;
+		::libmaus2::util::Histogram hist;
 		for ( uint64_t i = 0; i < cblocksize; ++i )
 			hist ( T[i] );
 
 		#if defined(FERAMANZGEN_DEBUG)
 		gcerrlock.lock();
-		std::cerr << "[SB10] " << libmaus::util::MemUsage() << "," << libmaus::autoarray::AutoArrayMemUsage() << std::endl;
+		std::cerr << "[SB10] " << libmaus2::util::MemUsage() << "," << libmaus2::autoarray::AutoArrayMemUsage() << std::endl;
 		gcerrlock.unlock();
 		#endif
 
@@ -2276,16 +2276,16 @@ struct BwtMergeBlockSortRequest : libmaus::suffixsort::BwtMergeEnumBase
 
 		#if defined(FERAMANZGEN_DEBUG)
 		gcerrlock.lock();
-		std::cerr << "[SB11] " << libmaus::util::MemUsage() << "," << libmaus::autoarray::AutoArrayMemUsage() << std::endl;
+		std::cerr << "[SB11] " << libmaus2::util::MemUsage() << "," << libmaus2::autoarray::AutoArrayMemUsage() << std::endl;
 		gcerrlock.unlock();
 		#endif
 
-		::libmaus::lf::DArray D(histm,bwtterm);
+		::libmaus2::lf::DArray D(histm,bwtterm);
 		D.serialise(tmpfilenames.getHist());
 
 		#if defined(FERAMANZGEN_DEBUG)
 		gcerrlock.lock();
-		std::cerr << "[SB12] " << libmaus::util::MemUsage() << "," << libmaus::autoarray::AutoArrayMemUsage() << std::endl;
+		std::cerr << "[SB12] " << libmaus2::util::MemUsage() << "," << libmaus2::autoarray::AutoArrayMemUsage() << std::endl;
 		gcerrlock.unlock();
 		#endif
 
@@ -2307,7 +2307,7 @@ struct BwtMergeBlockSortRequest : libmaus::suffixsort::BwtMergeEnumBase
 
 		#if defined(FERAMANZGEN_DEBUG)
 		gcerrlock.lock();
-		std::cerr << "[SB13] " << libmaus::util::MemUsage() << "," << libmaus::autoarray::AutoArrayMemUsage() << std::endl;
+		std::cerr << "[SB13] " << libmaus2::util::MemUsage() << "," << libmaus2::autoarray::AutoArrayMemUsage() << std::endl;
 		gcerrlock.unlock();
 		#endif
 		
@@ -2320,7 +2320,7 @@ struct BwtMergeBlockSortRequest : libmaus::suffixsort::BwtMergeEnumBase
 
 		#if defined(FERAMANZGEN_DEBUG)
 		gcerrlock.lock();
-		std::cerr << "[SB14] " << libmaus::util::MemUsage() << "," << libmaus::autoarray::AutoArrayMemUsage() << std::endl;
+		std::cerr << "[SB14] " << libmaus2::util::MemUsage() << "," << libmaus2::autoarray::AutoArrayMemUsage() << std::endl;
 		gcerrlock.unlock();
 		#endif
 
@@ -2331,7 +2331,7 @@ struct BwtMergeBlockSortRequest : libmaus::suffixsort::BwtMergeEnumBase
 
 		#if defined(FERAMANZGEN_DEBUG)
 		gcerrlock.lock();
-		std::cerr << "[SB15] " << libmaus::util::MemUsage() << "," << libmaus::autoarray::AutoArrayMemUsage() << std::endl;
+		std::cerr << "[SB15] " << libmaus2::util::MemUsage() << "," << libmaus2::autoarray::AutoArrayMemUsage() << std::endl;
 		gcerrlock.unlock();
 		#endif
 
@@ -2340,17 +2340,17 @@ struct BwtMergeBlockSortRequest : libmaus::suffixsort::BwtMergeEnumBase
 
 		#if defined(FERAMANZGEN_DEBUG)
 		gcerrlock.lock();
-		std::cerr << "[SB16] " << libmaus::util::MemUsage() << "," << libmaus::autoarray::AutoArrayMemUsage() << std::endl;
+		std::cerr << "[SB16] " << libmaus2::util::MemUsage() << "," << libmaus2::autoarray::AutoArrayMemUsage() << std::endl;
 		gcerrlock.unlock();
 		#endif
 		
 		// search for rank of first position in complete file
-		// result.absp0rank = ::libmaus::suffixsort::CircularSuffixComparator::suffixSearch(SA.begin(), cblocksize, blockstart, 0, fn, fs);
+		// result.absp0rank = ::libmaus2::suffixsort::CircularSuffixComparator::suffixSearch(SA.begin(), cblocksize, blockstart, 0, fn, fs);
 		
 		// store sampled inverse suffix array
-		assert ( ::libmaus::rank::PopCnt8<sizeof(unsigned long)>::popcnt8(isasamplingrate) == 1 );
+		assert ( ::libmaus2::rank::PopCnt8<sizeof(unsigned long)>::popcnt8(isasamplingrate) == 1 );
 		uint64_t const isasamplingmask = isasamplingrate-1;
-		::libmaus::aio::SynchronousGenericOutput<uint64_t> SGOISA(tmpfilenames.getSampledISA(),16*1024);
+		::libmaus2::aio::SynchronousGenericOutput<uint64_t> SGOISA(tmpfilenames.getSampledISA(),16*1024);
 		for ( uint64_t r = 0; r < cblocksize; ++r )
 		{
 			// position for rank inside block
@@ -2375,7 +2375,7 @@ struct BwtMergeBlockSortRequest : libmaus::suffixsort::BwtMergeEnumBase
 
 		#if defined(FERAMANZGEN_DEBUG)
 		gcerrlock.lock();
-		std::cerr << "[SB17] " << libmaus::util::MemUsage() << "," << libmaus::autoarray::AutoArrayMemUsage() << std::endl;
+		std::cerr << "[SB17] " << libmaus2::util::MemUsage() << "," << libmaus2::autoarray::AutoArrayMemUsage() << std::endl;
 		gcerrlock.unlock();
 		#endif
 		
@@ -2383,7 +2383,7 @@ struct BwtMergeBlockSortRequest : libmaus::suffixsort::BwtMergeEnumBase
 		 * compute ranks for lf mapping blocks
 		 **/
 		// std::cerr << "[V] searching for " << zreqvec.size() << " suffixes...";
-		::libmaus::timing::RealTimeClock sufsertc; sufsertc.start();
+		::libmaus2::timing::RealTimeClock sufsertc; sufsertc.start();
 		result.resizeZBlocks(zreqvec.size());
 		#if defined(_OPENMP)
 		// #pragma omp parallel for schedule(dynamic,1)
@@ -2407,24 +2407,24 @@ struct BwtMergeBlockSortRequest : libmaus::suffixsort::BwtMergeEnumBase
 			assert ( zrankext == zrank );
 			#endif
 
-			::libmaus::suffixsort::BwtMergeZBlock zblock(zabspos,zrank);
+			::libmaus2::suffixsort::BwtMergeZBlock zblock(zabspos,zrank);
 			result.setZBlock(z,zblock);
 		}
 		// std::cerr << "done, time " << sufsertc.getElapsedSeconds() << std::endl;
 
 		#if defined(FERAMANZGEN_DEBUG)
 		gcerrlock.lock();
-		std::cerr << "[SB18] " << libmaus::util::MemUsage() << "," << libmaus::autoarray::AutoArrayMemUsage() << std::endl;
+		std::cerr << "[SB18] " << libmaus2::util::MemUsage() << "," << libmaus2::autoarray::AutoArrayMemUsage() << std::endl;
 		gcerrlock.unlock();
 		#endif
 
 		// compute BWT		
-		::libmaus::bitio::BitVector::unique_ptr_type pGT(new ::libmaus::bitio::BitVector(cblocksize+1));
-		::libmaus::bitio::BitVector & GT = *pGT;
+		::libmaus2::bitio::BitVector::unique_ptr_type pGT(new ::libmaus2::bitio::BitVector(cblocksize+1));
+		::libmaus2::bitio::BitVector & GT = *pGT;
 
 		#if defined(FERAMANZGEN_DEBUG)
 		gcerrlock.lock();
-		std::cerr << "[SB19] " << libmaus::util::MemUsage() << "," << libmaus::autoarray::AutoArrayMemUsage() << std::endl;
+		std::cerr << "[SB19] " << libmaus2::util::MemUsage() << "," << libmaus2::autoarray::AutoArrayMemUsage() << std::endl;
 		gcerrlock.unlock();
 		#endif
 
@@ -2455,7 +2455,7 @@ struct BwtMergeBlockSortRequest : libmaus::suffixsort::BwtMergeEnumBase
 
 		#if defined(FERAMANZGEN_DEBUG)
 		gcerrlock.lock();
-		std::cerr << "[SB20] " << libmaus::util::MemUsage() << "," << libmaus::autoarray::AutoArrayMemUsage() << std::endl;
+		std::cerr << "[SB20] " << libmaus2::util::MemUsage() << "," << libmaus2::autoarray::AutoArrayMemUsage() << std::endl;
 		gcerrlock.unlock();
 		#endif
 		
@@ -2464,7 +2464,7 @@ struct BwtMergeBlockSortRequest : libmaus::suffixsort::BwtMergeEnumBase
 
 		#if defined(FERAMANZGEN_DEBUG)
 		gcerrlock.lock();
-		std::cerr << "[SB21] " << libmaus::util::MemUsage() << "," << libmaus::autoarray::AutoArrayMemUsage() << std::endl;
+		std::cerr << "[SB21] " << libmaus2::util::MemUsage() << "," << libmaus2::autoarray::AutoArrayMemUsage() << std::endl;
 		gcerrlock.unlock();
 		#endif
 		
@@ -2472,19 +2472,19 @@ struct BwtMergeBlockSortRequest : libmaus::suffixsort::BwtMergeEnumBase
 
 		#if defined(FERAMANZGEN_DEBUG)
 		gcerrlock.lock();
-		std::cerr << "[SB22] " << libmaus::util::MemUsage() << "," << libmaus::autoarray::AutoArrayMemUsage() << std::endl;
+		std::cerr << "[SB22] " << libmaus2::util::MemUsage() << "," << libmaus2::autoarray::AutoArrayMemUsage() << std::endl;
 		gcerrlock.unlock();
 		#endif
 
 		#if defined(FERAMANZGEN_DEBUG)
 		gcerrlock.lock();
-		std::cerr << "[SB23] " << libmaus::util::MemUsage() << "," << libmaus::autoarray::AutoArrayMemUsage() << std::endl;
+		std::cerr << "[SB23] " << libmaus2::util::MemUsage() << "," << libmaus2::autoarray::AutoArrayMemUsage() << std::endl;
 		gcerrlock.unlock();
 		#endif
 
 		// save gt array
 		#if 0
-		::libmaus::huffman::HuffmanEncoderFileStd GTHEF(tmpfilenames.getGT());
+		::libmaus2::huffman::HuffmanEncoderFileStd GTHEF(tmpfilenames.getGT());
 		for ( int64_t i = cblocksize; i > 0; --i )
 			GTHEF.writeBit(GT[i]);
 		GTHEF.flush();
@@ -2495,14 +2495,14 @@ struct BwtMergeBlockSortRequest : libmaus::suffixsort::BwtMergeEnumBase
 			uint64_t const gtpartsize = (cblocksize + tmpfilenames.getGT().size() - 1)/tmpfilenames.getGT().size();
 			uint64_t const low = std::min(j * gtpartsize,cblocksize);
 			uint64_t const high = std::min(low + gtpartsize,cblocksize);
-			libmaus::bitio::BitVectorOutput BVO(tmpfilenames.getGT()[j]);
+			libmaus2::bitio::BitVectorOutput BVO(tmpfilenames.getGT()[j]);
 			for ( int64_t i = cblocksize-low; i > static_cast<int64_t>(cblocksize-high); --i )
 				BVO.writeBit(GT[i]);
 			BVO.flush();
 		}
 		
 		#if 0
-		libmaus::bitio::BitVectorOutput BVO(tmpfilenames.getGT());
+		libmaus2::bitio::BitVectorOutput BVO(tmpfilenames.getGT());
 		for ( int64_t i = cblocksize; i > 0; --i )
 			BVO.writeBit(GT[i]);
 		BVO.flush();
@@ -2512,7 +2512,7 @@ struct BwtMergeBlockSortRequest : libmaus::suffixsort::BwtMergeEnumBase
 
 		#if defined(FERAMANZGEN_DEBUG)
 		gcerrlock.lock();
-		std::cerr << "[SB24] " << libmaus::util::MemUsage() << "," << libmaus::autoarray::AutoArrayMemUsage() << std::endl;
+		std::cerr << "[SB24] " << libmaus2::util::MemUsage() << "," << libmaus2::autoarray::AutoArrayMemUsage() << std::endl;
 		gcerrlock.unlock();
 		#endif
 		
@@ -2524,9 +2524,9 @@ struct BwtMergeBlockSortRequest : libmaus::suffixsort::BwtMergeEnumBase
 			uint64_t const high = std::min(low + targetbwtfilesize, outcnt);
 			
 			#if defined(HUFRL)
-			::libmaus::huffman::RLEncoderStd bwtenc(tmpfilenames.getBWT()[b],albits                   ,high-low,rlencoderblocksize);
+			::libmaus2::huffman::RLEncoderStd bwtenc(tmpfilenames.getBWT()[b],albits                   ,high-low,rlencoderblocksize);
 			#else
-			::libmaus::gamma::GammaRLEncoder bwtenc(tmpfilenames.getBWT()[b],albits/* alphabet bits */,high-low,rlencoderblocksize);
+			::libmaus2::gamma::GammaRLEncoder bwtenc(tmpfilenames.getBWT()[b],albits/* alphabet bits */,high-low,rlencoderblocksize);
 			#endif
 
 			if ( low <= r0 && r0 < high )
@@ -2563,7 +2563,7 @@ struct BwtMergeBlockSortRequest : libmaus::suffixsort::BwtMergeEnumBase
 
 		#if defined(FERAMANZGEN_DEBUG)
 		gcerrlock.lock();
-		std::cerr << "[SB25] " << libmaus::util::MemUsage() << "," << libmaus::autoarray::AutoArrayMemUsage() << std::endl;
+		std::cerr << "[SB25] " << libmaus2::util::MemUsage() << "," << libmaus2::autoarray::AutoArrayMemUsage() << std::endl;
 		gcerrlock.unlock();
 		#endif
 
@@ -2572,34 +2572,34 @@ struct BwtMergeBlockSortRequest : libmaus::suffixsort::BwtMergeEnumBase
 			if ( input_types_type::utf8Wavelet() )
 			{
 				std::string utftmp = tmpfilenames.getHWT() + ".utf8tmp";
-				libmaus::util::TempFileRemovalContainer::addTempFile(utftmp);
+				libmaus2::util::TempFileRemovalContainer::addTempFile(utftmp);
 
 				#if defined(FERAMANZGEN_DEBUG)
 				gcerrlock.lock();
-				std::cerr << "[SB26] " << libmaus::util::MemUsage() << "," << libmaus::autoarray::AutoArrayMemUsage() << std::endl;
+				std::cerr << "[SB26] " << libmaus2::util::MemUsage() << "," << libmaus2::autoarray::AutoArrayMemUsage() << std::endl;
 				gcerrlock.unlock();
 				#endif
 				
 				// std::cerr << "writing " << utftmp << std::endl;
 				
-				::libmaus::util::CountPutObject CPO;
+				::libmaus2::util::CountPutObject CPO;
 				for ( uint64_t i = 0; i < outcnt; ++i )
-					::libmaus::util::UTF8::encodeUTF8(SA[i],CPO);
+					::libmaus2::util::UTF8::encodeUTF8(SA[i],CPO);
 				uint64_t const ucnt = CPO.c;
 
 				#if defined(FERAMANZGEN_DEBUG)
 				gcerrlock.lock();
-				std::cerr << "[SB27] " << libmaus::util::MemUsage() << "," << libmaus::autoarray::AutoArrayMemUsage() << std::endl;
+				std::cerr << "[SB27] " << libmaus2::util::MemUsage() << "," << libmaus2::autoarray::AutoArrayMemUsage() << std::endl;
 				gcerrlock.unlock();
 				#endif
 
-				libmaus::aio::CheckedOutputStream::unique_ptr_type utfCOS(new libmaus::aio::CheckedOutputStream(utftmp));
+				libmaus2::aio::CheckedOutputStream::unique_ptr_type utfCOS(new libmaus2::aio::CheckedOutputStream(utftmp));
 				for ( uint64_t i = 0; i < outcnt; ++i )
-					::libmaus::util::UTF8::encodeUTF8(SA[i],*utfCOS);
+					::libmaus2::util::UTF8::encodeUTF8(SA[i],*utfCOS);
 
 				#if defined(FERAMANZGEN_DEBUG)
 				gcerrlock.lock();
-				std::cerr << "[SB28] " << libmaus::util::MemUsage() << "," << libmaus::autoarray::AutoArrayMemUsage() << std::endl;
+				std::cerr << "[SB28] " << libmaus2::util::MemUsage() << "," << libmaus2::autoarray::AutoArrayMemUsage() << std::endl;
 				gcerrlock.unlock();
 				#endif
 
@@ -2609,54 +2609,54 @@ struct BwtMergeBlockSortRequest : libmaus::suffixsort::BwtMergeEnumBase
 
 				#if defined(FERAMANZGEN_DEBUG)
 				gcerrlock.lock();
-				std::cerr << "[SB29] " << libmaus::util::MemUsage() << "," << libmaus::autoarray::AutoArrayMemUsage() << std::endl;
+				std::cerr << "[SB29] " << libmaus2::util::MemUsage() << "," << libmaus2::autoarray::AutoArrayMemUsage() << std::endl;
 				gcerrlock.unlock();
 				#endif
 
 				#if 0
-				::libmaus::autoarray::AutoArray<uint8_t> UT(ucnt,false);
-				::libmaus::util::PutObject<uint8_t *> P(UT.begin());
+				::libmaus2::autoarray::AutoArray<uint8_t> UT(ucnt,false);
+				::libmaus2::util::PutObject<uint8_t *> P(UT.begin());
 				for ( uint64_t i = 0; i < outcnt; ++i )
-					::libmaus::util::UTF8::encodeUTF8(SA[i],P);
+					::libmaus2::util::UTF8::encodeUTF8(SA[i],P);
 				#endif
 					
 				SA.release();
 
 				#if defined(FERAMANZGEN_DEBUG)
 				gcerrlock.lock();
-				std::cerr << "[SB30] " << libmaus::util::MemUsage() << "," << libmaus::autoarray::AutoArrayMemUsage() << std::endl;
+				std::cerr << "[SB30] " << libmaus2::util::MemUsage() << "," << libmaus2::autoarray::AutoArrayMemUsage() << std::endl;
 				gcerrlock.unlock();
 				#endif
 				
-				::libmaus::autoarray::AutoArray<uint8_t> UT(ucnt,false);
-				libmaus::aio::CheckedInputStream::unique_ptr_type utfCIS(new libmaus::aio::CheckedInputStream(utftmp));
+				::libmaus2::autoarray::AutoArray<uint8_t> UT(ucnt,false);
+				libmaus2::aio::CheckedInputStream::unique_ptr_type utfCIS(new libmaus2::aio::CheckedInputStream(utftmp));
 				utfCIS->read(reinterpret_cast<char *>(UT.begin()),ucnt,64*1024);
 				utfCIS->close();
 				utfCIS.reset();
 
 				#if defined(FERAMANZGEN_DEBUG)
 				gcerrlock.lock();
-				std::cerr << "[SB31] " << libmaus::util::MemUsage() << "," << libmaus::autoarray::AutoArrayMemUsage() << std::endl;
+				std::cerr << "[SB31] " << libmaus2::util::MemUsage() << "," << libmaus2::autoarray::AutoArrayMemUsage() << std::endl;
 				gcerrlock.unlock();
 				#endif
 
-				::libmaus::huffman::HuffmanTree::unique_ptr_type uhnode = loadCompactHuffmanTree(huftreefilename);
+				::libmaus2::huffman::HuffmanTree::unique_ptr_type uhnode = loadCompactHuffmanTree(huftreefilename);
 
 				#if defined(FERAMANZGEN_DEBUG)
 				gcerrlock.lock();
-				std::cerr << "[SB32] " << libmaus::util::MemUsage() << "," << libmaus::autoarray::AutoArrayMemUsage() << std::endl;
+				std::cerr << "[SB32] " << libmaus2::util::MemUsage() << "," << libmaus2::autoarray::AutoArrayMemUsage() << std::endl;
 				gcerrlock.unlock();
 				#endif
 				
 				std::string const tmpfileprefix = tmpfilenamedir + "_wt";
-				::libmaus::wavelet::Utf8ToImpCompactHuffmanWaveletTree::constructWaveletTree<true>(
+				::libmaus2::wavelet::Utf8ToImpCompactHuffmanWaveletTree::constructWaveletTree<true>(
 					UT,tmpfilenames.getHWT(),tmpfileprefix,uhnode.get(),
 					1/* num threads */
 				);
 
 				#if defined(FERAMANZGEN_DEBUG)
 				gcerrlock.lock();
-				std::cerr << "[SB33] " << libmaus::util::MemUsage() << "," << libmaus::autoarray::AutoArrayMemUsage() << std::endl;
+				std::cerr << "[SB33] " << libmaus2::util::MemUsage() << "," << libmaus2::autoarray::AutoArrayMemUsage() << std::endl;
 				gcerrlock.unlock();
 				#endif
 				
@@ -2664,7 +2664,7 @@ struct BwtMergeBlockSortRequest : libmaus::suffixsort::BwtMergeEnumBase
 
 				#if defined(FERAMANZGEN_DEBUG)
 				gcerrlock.lock();
-				std::cerr << "[SB34] " << libmaus::util::MemUsage() << "," << libmaus::autoarray::AutoArrayMemUsage() << std::endl;
+				std::cerr << "[SB34] " << libmaus2::util::MemUsage() << "," << libmaus2::autoarray::AutoArrayMemUsage() << std::endl;
 				gcerrlock.unlock();
 				#endif
 			}
@@ -2673,28 +2673,28 @@ struct BwtMergeBlockSortRequest : libmaus::suffixsort::BwtMergeEnumBase
 
 				#if defined(FERAMANZGEN_DEBUG)
 				gcerrlock.lock();
-				std::cerr << "[SB35] " << libmaus::util::MemUsage() << "," << libmaus::autoarray::AutoArrayMemUsage() << std::endl;
+				std::cerr << "[SB35] " << libmaus2::util::MemUsage() << "," << libmaus2::autoarray::AutoArrayMemUsage() << std::endl;
 				gcerrlock.unlock();
 				#endif
 
-				::libmaus::huffman::HuffmanTree::unique_ptr_type uhnode = loadCompactHuffmanTree(huftreefilename);
+				::libmaus2::huffman::HuffmanTree::unique_ptr_type uhnode = loadCompactHuffmanTree(huftreefilename);
 
 				#if defined(FERAMANZGEN_DEBUG)
 				gcerrlock.lock();
-				std::cerr << "[SB36] " << libmaus::util::MemUsage() << "," << libmaus::autoarray::AutoArrayMemUsage() << std::endl;
+				std::cerr << "[SB36] " << libmaus2::util::MemUsage() << "," << libmaus2::autoarray::AutoArrayMemUsage() << std::endl;
 				gcerrlock.unlock();
 				#endif
 				
 				// construct huffman shaped wavelet tree
-				libmaus::util::FileTempFileContainer FTFC(tmpgen);
+				libmaus2::util::FileTempFileContainer FTFC(tmpgen);
 
 				#if defined(FERAMANZGEN_DEBUG)
 				gcerrlock.lock();
-				std::cerr << "[SB37] " << libmaus::util::MemUsage() << "," << libmaus::autoarray::AutoArrayMemUsage() << std::endl;
+				std::cerr << "[SB37] " << libmaus2::util::MemUsage() << "," << libmaus2::autoarray::AutoArrayMemUsage() << std::endl;
 				gcerrlock.unlock();
 				#endif
 
-				::libmaus::wavelet::ImpExternalWaveletGeneratorCompactHuffman IEWGH(*uhnode,FTFC);
+				::libmaus2::wavelet::ImpExternalWaveletGeneratorCompactHuffman IEWGH(*uhnode,FTFC);
 
 				for ( uint64_t i = 0; i < r0; ++i )
 					IEWGH.putSymbol(SA[i]);
@@ -2704,26 +2704,26 @@ struct BwtMergeBlockSortRequest : libmaus::suffixsort::BwtMergeEnumBase
 
 				#if defined(FERAMANZGEN_DEBUG)
 				gcerrlock.lock();
-				std::cerr << "[SB38] " << libmaus::util::MemUsage() << "," << libmaus::autoarray::AutoArrayMemUsage() << std::endl;
+				std::cerr << "[SB38] " << libmaus2::util::MemUsage() << "," << libmaus2::autoarray::AutoArrayMemUsage() << std::endl;
 				gcerrlock.unlock();
 				#endif
 
 				// create final stream for huffman coded wavelet tree
-				::libmaus::aio::CheckedOutputStream HCOS(tmpfilenames.getHWT());
+				::libmaus2::aio::CheckedOutputStream HCOS(tmpfilenames.getHWT());
 				IEWGH.createFinalStream(HCOS);
 				HCOS.flush();
 
 				#if defined(FERAMANZGEN_DEBUG)
 				gcerrlock.lock();
-				std::cerr << "[SB39] " << libmaus::util::MemUsage() << "," << libmaus::autoarray::AutoArrayMemUsage() << std::endl;
+				std::cerr << "[SB39] " << libmaus2::util::MemUsage() << "," << libmaus2::autoarray::AutoArrayMemUsage() << std::endl;
 				gcerrlock.unlock();
 				#endif
 			}
 		}
 		else
 		{
-			libmaus::util::TempFileRemovalContainer::addTempFile(tmpfilenames.getHWTReq());
-			libmaus::aio::CheckedOutputStream hwtReqCOS(tmpfilenames.getHWTReq());
+			libmaus2::util::TempFileRemovalContainer::addTempFile(tmpfilenames.getHWTReq());
+			libmaus2::aio::CheckedOutputStream hwtReqCOS(tmpfilenames.getHWTReq());
 			RlToHwtTermRequest::serialise(hwtReqCOS,
 				tmpfilenames.getBWT(),
 				tmpfilenames.getHWT(),
@@ -2745,31 +2745,31 @@ struct BwtMergeBlockSortRequest : libmaus::suffixsort::BwtMergeEnumBase
 	
 	std::string dispatch() const
 	{
-		::libmaus::suffixsort::BwtMergeBlockSortResult result;
+		::libmaus2::suffixsort::BwtMergeBlockSortResult result;
 		
 		switch (inputtype)
 		{
 			case bwt_merge_input_type_byte:
-				result = sortBlock<libmaus::suffixsort::ByteInputTypes>();
+				result = sortBlock<libmaus2::suffixsort::ByteInputTypes>();
 				break;
 			case bwt_merge_input_type_compact:
-				result = sortBlock<libmaus::suffixsort::CompactInputTypes>();
+				result = sortBlock<libmaus2::suffixsort::CompactInputTypes>();
 				break;
 			case bwt_merge_input_type_pac:
-				result = sortBlock<libmaus::suffixsort::PacInputTypes>();
+				result = sortBlock<libmaus2::suffixsort::PacInputTypes>();
 				break;
 			case bwt_merge_input_type_pac_term:
-				result = sortBlock<libmaus::suffixsort::PacTermInputTypes>();
+				result = sortBlock<libmaus2::suffixsort::PacTermInputTypes>();
 				break;
 			case bwt_merge_input_type_lz4:
-				result = sortBlock<libmaus::suffixsort::Lz4InputTypes>();
+				result = sortBlock<libmaus2::suffixsort::Lz4InputTypes>();
 				break;
 			case bwt_merge_input_type_utf8:
-				result = sortBlock<libmaus::suffixsort::Utf8InputTypes>();
+				result = sortBlock<libmaus2::suffixsort::Utf8InputTypes>();
 				break;
 			default:
 			{
-				::libmaus::exception::LibMausException ex;
+				::libmaus2::exception::LibMausException ex;
 				ex.getStream() << "Number " << inputtype << " is not a valid input type designator." << std::endl;
 				ex.finish();
 				throw ex;				
@@ -2850,7 +2850,7 @@ struct MergeStrategyMergeGapRequestQueryObject
 struct MergeStrategyBlock
 {
 	typedef MergeStrategyBlock this_type;
-	typedef libmaus::util::shared_ptr<MergeStrategyBlock>::type shared_ptr_type;
+	typedef libmaus2::util::shared_ptr<MergeStrategyBlock>::type shared_ptr_type;
 
 	//! low symbol offset in file
 	uint64_t low;
@@ -2869,7 +2869,7 @@ struct MergeStrategyBlock
 	//! node depth
 	uint64_t nodedepth;
 	//! sorting result
-	::libmaus::suffixsort::BwtMergeBlockSortResult sortresult;
+	::libmaus2::suffixsort::BwtMergeBlockSortResult sortresult;
 	//! parent node
 	MergeStrategyBlock * parent;
 
@@ -2962,7 +2962,7 @@ struct MergeStrategyBlock
 	virtual void fillQueryPositions(uint64_t const t) = 0;
 
 	// fill query objects for inner nodes given finished leaf node information
-	virtual void fillQueryObjects(libmaus::autoarray::AutoArray<MergeStrategyMergeGapRequestQueryObject> & VV) = 0;
+	virtual void fillQueryObjects(libmaus2::autoarray::AutoArray<MergeStrategyMergeGapRequestQueryObject> & VV) = 0;
 	// fill zblock ranks from finished base blocks for t threads
 	virtual void fillGapRequestObjects(uint64_t const t) = 0;
 	
@@ -2980,7 +2980,7 @@ struct MergeStrategyBaseBlock : public MergeStrategyBlock
 
 	MergeStrategyBaseBlock(
 		uint64_t const rlow, uint64_t const rhigh, 
-		::libmaus::huffman::HuffmanTree::EncodeTable & EC,
+		::libmaus2::huffman::HuffmanTree::EncodeTable & EC,
 		std::map<int64_t,uint64_t> const & blockhist,
 		uint64_t const rsourcelengthbits,
 		uint64_t const rsourcelengthbytes,
@@ -3018,7 +3018,7 @@ struct MergeStrategyBaseBlock : public MergeStrategyBlock
 	
 	static MergeStrategyBlock::shared_ptr_type construct(
 		uint64_t const rlow, uint64_t const rhigh, 
-		::libmaus::huffman::HuffmanTree::EncodeTable & EC,
+		::libmaus2::huffman::HuffmanTree::EncodeTable & EC,
 		std::map<int64_t,uint64_t> const & blockhist,
 		uint64_t const rsourcelengthbits,
 		uint64_t const rsourcelengthbytes,
@@ -3046,16 +3046,16 @@ struct MergeStrategyBaseBlock : public MergeStrategyBlock
 	
 	void fillQueryPositions(uint64_t const /* t */)
 	{
-		::libmaus::suffixsort::BwtMergeZBlockRequestVector zreqvec;
+		::libmaus2::suffixsort::BwtMergeZBlockRequestVector zreqvec;
 		zreqvec.resize(querypos.size());
 		for ( uint64_t i = 0; i < querypos.size(); ++i )
-			zreqvec[i] = ::libmaus::suffixsort::BwtMergeZBlockRequest(querypos[i]);
+			zreqvec[i] = ::libmaus2::suffixsort::BwtMergeZBlockRequest(querypos[i]);
 		sortreq.zreqvec = zreqvec;
 	}
 
-	void fillQueryObjects(libmaus::autoarray::AutoArray<MergeStrategyMergeGapRequestQueryObject> & VV)
+	void fillQueryObjects(libmaus2::autoarray::AutoArray<MergeStrategyMergeGapRequestQueryObject> & VV)
 	{
-		libmaus::autoarray::AutoArray < ::libmaus::suffixsort::BwtMergeZBlock > const & Z = sortresult.getZBlocks();
+		libmaus2::autoarray::AutoArray < ::libmaus2::suffixsort::BwtMergeZBlock > const & Z = sortresult.getZBlocks();
 		
 		for ( uint64_t i = 0; i < Z.size(); ++i )
 		{
@@ -3063,7 +3063,7 @@ struct MergeStrategyBaseBlock : public MergeStrategyBlock
 			uint64_t const r = Z[i].getZRank();
 			
 			// search objects with matching position
-			typedef libmaus::autoarray::AutoArray<MergeStrategyMergeGapRequestQueryObject>::iterator it;
+			typedef libmaus2::autoarray::AutoArray<MergeStrategyMergeGapRequestQueryObject>::iterator it;
 			std::pair<it,it> range = std::equal_range(VV.begin(),VV.end(),MergeStrategyMergeGapRequestQueryObject(p));
 			
 			// add rank r to each object for position p
@@ -3085,7 +3085,7 @@ struct MergeStrategyBaseBlock : public MergeStrategyBlock
 	}
 	bool childFinished()
 	{
-		libmaus::exception::LibMausException se;
+		libmaus2::exception::LibMausException se;
 		se.getStream() << "childFinished called on an object of struct MergeStrategyBaseBlock" << std::endl;
 		se.finish();
 		throw se;
@@ -3117,10 +3117,10 @@ struct MergeStrategyBaseBlock : public MergeStrategyBlock
 /**
  * sorting thread for base blocks
  **/
-struct BaseBlockSortThread : public libmaus::parallel::PosixThread
+struct BaseBlockSortThread : public libmaus2::parallel::PosixThread
 {
 	typedef BaseBlockSortThread this_type;
-	typedef libmaus::util::unique_ptr<this_type>::type unique_ptr_type;
+	typedef libmaus2::util::unique_ptr<this_type>::type unique_ptr_type;
 
 	//! thread id
 	uint64_t tid;
@@ -3129,7 +3129,7 @@ struct BaseBlockSortThread : public libmaus::parallel::PosixThread
 	 * semaphore. delivers a message whenever there is sufficient
 	 * free space to process the next element
 	 **/
-	libmaus::parallel::PosixSemaphore & P;
+	libmaus2::parallel::PosixSemaphore & P;
 	//! vector of blocks to be processed
 	std::vector < MergeStrategyBlock::shared_ptr_type > & V;
 
@@ -3140,18 +3140,18 @@ struct BaseBlockSortThread : public libmaus::parallel::PosixThread
 	//! number of finished threads
 	volatile uint64_t & finished;
 	//! lock for the above
-	libmaus::parallel::PosixMutex & freememlock;
+	libmaus2::parallel::PosixMutex & freememlock;
 	//! inner node queue
 	std::deque<MergeStrategyBlock *> & itodo;
 	
 	BaseBlockSortThread(
 		uint64_t rtid,
-		libmaus::parallel::PosixSemaphore & rP,
+		libmaus2::parallel::PosixSemaphore & rP,
 		std::vector < MergeStrategyBlock::shared_ptr_type > & rV,
 		uint64_t & rnext,
 		uint64_t & rfreemem,
 		uint64_t & rfinished,
-		libmaus::parallel::PosixMutex & rfreememlock,
+		libmaus2::parallel::PosixMutex & rfreememlock,
 		std::deque<MergeStrategyBlock *> & ritodo
 	) : tid(rtid), P(rP), V(rV), next(rnext), freemem(rfreemem), finished(rfinished), freememlock(rfreememlock),
 	    itodo(ritodo)
@@ -3173,7 +3173,7 @@ struct BaseBlockSortThread : public libmaus::parallel::PosixThread
 
 			{
 				// get lock
-				libmaus::parallel::ScopePosixMutex scopelock(freememlock);
+				libmaus2::parallel::ScopePosixMutex scopelock(freememlock);
 
 				if ( next < V.size() )
 				{
@@ -3197,17 +3197,17 @@ struct BaseBlockSortThread : public libmaus::parallel::PosixThread
 				{
 					// perform sorting
 					MergeStrategyBaseBlock * block = dynamic_cast<MergeStrategyBaseBlock *>(V[pack].get());					
-					block->sortresult = ::libmaus::suffixsort::BwtMergeBlockSortResult::load(block->sortreq.dispatch());
+					block->sortresult = ::libmaus2::suffixsort::BwtMergeBlockSortResult::load(block->sortreq.dispatch());
 				}
 				catch(std::exception const & ex)
 				{
-					libmaus::parallel::ScopePosixMutex scopelock(freememlock);
+					libmaus2::parallel::ScopePosixMutex scopelock(freememlock);
 					std::cerr << tid << " failed " << pack << " " << ex.what() << std::endl;
 				}
 
 				{
 					// get lock
-					libmaus::parallel::ScopePosixMutex scopelock(freememlock);
+					libmaus2::parallel::ScopePosixMutex scopelock(freememlock);
 					
 					std::cerr << "[V] [" << tid << "] sorted block " << pack << std::endl;
 				
@@ -3232,7 +3232,7 @@ struct BaseBlockSortThread : public libmaus::parallel::PosixThread
 		}
 		
 		{
-		libmaus::parallel::ScopePosixMutex scopelock(freememlock);
+		libmaus2::parallel::ScopePosixMutex scopelock(freememlock);
 		finished++;
 		}
 		
@@ -3247,19 +3247,19 @@ struct BaseBlockSortThread : public libmaus::parallel::PosixThread
 struct BaseBlockSorting
 {
 	typedef BaseBlockSorting this_type;
-	typedef libmaus::util::unique_ptr<this_type>::type unique_ptr_type;
+	typedef libmaus2::util::unique_ptr<this_type>::type unique_ptr_type;
 
 	std::vector < MergeStrategyBlock::shared_ptr_type > & V;
 	
-	libmaus::parallel::PosixSemaphore P;
+	libmaus2::parallel::PosixSemaphore P;
 	uint64_t next;
 	uint64_t freemem;
 	uint64_t finished;
-	libmaus::parallel::PosixMutex freememlock;
+	libmaus2::parallel::PosixMutex freememlock;
 	//! inner node queue
 	std::deque<MergeStrategyBlock *> & itodo;
 
-	libmaus::autoarray::AutoArray<BaseBlockSortThread::unique_ptr_type> threads;
+	libmaus2::autoarray::AutoArray<BaseBlockSortThread::unique_ptr_type> threads;
 
 	BaseBlockSorting(
 		std::vector < MergeStrategyBlock::shared_ptr_type > & rV,
@@ -3273,7 +3273,7 @@ struct BaseBlockSorting
 		for ( uint64_t i = 0; i < V.size(); ++i )
 			if ( V[i]->directSortSpace() > freemem )
 			{
-				libmaus::exception::LibMausException se;
+				libmaus2::exception::LibMausException se;
 				se.getStream() << "Memory provided is " << freemem << " but " 
 					<< V[i]->directSortSpace() << " are required for sorting block " << i << std::endl;
 				se.finish();
@@ -3323,12 +3323,12 @@ struct BaseBlockSorting
 struct MergeStrategyMergeGapRequest
 {
 	typedef MergeStrategyMergeGapRequest this_type;
-	typedef libmaus::util::unique_ptr<this_type>::type unique_ptr_type;
-	typedef libmaus::util::shared_ptr<this_type>::type shared_ptr_type;
+	typedef libmaus2::util::unique_ptr<this_type>::type unique_ptr_type;
+	typedef libmaus2::util::shared_ptr<this_type>::type shared_ptr_type;
 
 	std::vector<MergeStrategyBlock::shared_ptr_type> const * pchildren;
 	uint64_t into;
-	std::vector < ::libmaus::suffixsort::BwtMergeZBlock > zblocks;
+	std::vector < ::libmaus2::suffixsort::BwtMergeZBlock > zblocks;
 	
 	MergeStrategyMergeGapRequest() : pchildren(0), into(0), zblocks() {}
 	MergeStrategyMergeGapRequest(
@@ -3388,10 +3388,10 @@ struct MergeStrategyMergeGapRequest
 			VV.push_back(MergeStrategyMergeGapRequestQueryObject(Q[i],0,this));
 	}
 
-	libmaus::autoarray::AutoArray<MergeStrategyMergeGapRequestQueryObject> getQueryPositionObjects(uint64_t const t)
+	libmaus2::autoarray::AutoArray<MergeStrategyMergeGapRequestQueryObject> getQueryPositionObjects(uint64_t const t)
 	{
 		std::vector<uint64_t> const Q = getQueryPositions(t);
-		libmaus::autoarray::AutoArray<MergeStrategyMergeGapRequestQueryObject> VV(Q.size());
+		libmaus2::autoarray::AutoArray<MergeStrategyMergeGapRequestQueryObject> VV(Q.size());
 		
 		for ( uint64_t i = 0; i < Q.size(); ++i )
 			VV[i] = MergeStrategyMergeGapRequestQueryObject(Q[i],0,this);
@@ -3430,7 +3430,7 @@ struct MergeStrategyMergeBlock : public MergeStrategyBlock
 	virtual std::ostream & print(std::ostream & out, uint64_t const indent) const = 0;
 
 	//void fillQueryObjects(std::vector<MergeStrategyMergeGapRequestQueryObject> & VV)
-	void fillQueryObjects(libmaus::autoarray::AutoArray<MergeStrategyMergeGapRequestQueryObject> & VV)
+	void fillQueryObjects(libmaus2::autoarray::AutoArray<MergeStrategyMergeGapRequestQueryObject> & VV)
 	{
 		for ( uint64_t i = 0; i < children.size(); ++i )
 			children[i]->fillQueryObjects(VV);
@@ -3442,7 +3442,7 @@ struct MergeStrategyMergeBlock : public MergeStrategyBlock
 		{
 			// std::vector < MergeStrategyMergeGapRequestQueryObject > VV;
 			// get gap query objects
-			libmaus::autoarray::AutoArray<MergeStrategyMergeGapRequestQueryObject> VV = gaprequests[i]->getQueryPositionObjects(/* VV, */t);
+			libmaus2::autoarray::AutoArray<MergeStrategyMergeGapRequestQueryObject> VV = gaprequests[i]->getQueryPositionObjects(/* VV, */t);
 			std::sort(VV.begin(),VV.end());
 			// fill the objects (add up ranks for each query position)
 			children[gaprequests[i]->into]->fillQueryObjects(VV);
@@ -3453,7 +3453,7 @@ struct MergeStrategyMergeBlock : public MergeStrategyBlock
 			for ( uint64_t i = 0; i < VV.size(); ++i )
 			{
 				uint64_t const ii = vn-i-1;
-				VV[i].o->zblocks.push_back(::libmaus::suffixsort::BwtMergeZBlock(VV[ii].p,VV[ii].r));
+				VV[i].o->zblocks.push_back(::libmaus2::suffixsort::BwtMergeZBlock(VV[ii].p,VV[ii].r));
 			}
 		}
 				
@@ -3761,7 +3761,7 @@ MergeStrategyBlock::shared_ptr_type constructMergeTree(
 
 	if ( ! node )
 	{
-		libmaus::exception::LibMausException se;
+		libmaus2::exception::LibMausException se;
 		se.getStream() << "There is no way to merge with these settings." << std::endl;
 		se.finish();
 		throw se;
@@ -3783,7 +3783,7 @@ struct BwtMergeSort
 	{
 		typedef typename input_types_type::linear_wrapper stream_type;
 		typedef typename input_types_type::base_input_stream::char_type char_type;
-		typedef typename ::libmaus::util::UnsignedCharVariant<char_type>::type unsigned_char_type;
+		typedef typename ::libmaus2::util::UnsignedCharVariant<char_type>::type unsigned_char_type;
 		
 		uint64_t const fs = stream_type::getFileSize(fn);
 		
@@ -3796,7 +3796,7 @@ struct BwtMergeSort
 		uint64_t const symsperfrag = (fs + numthreads - 1)/numthreads;
 		uint64_t const numfrags = (fs + symsperfrag - 1)/symsperfrag;
 
-		libmaus::util::HistogramSet HS(numfrags,256);
+		libmaus2::util::HistogramSet HS(numfrags,256);
 		
 		#if defined(_OPENMP)
 		#pragma omp parallel for
@@ -3811,8 +3811,8 @@ struct BwtMergeSort
 			stream_type CIS(fn);
 			CIS.seekg(low);
 
-			::libmaus::autoarray::AutoArray<unsigned_char_type> B(16*1024,false);
-			libmaus::util::Histogram & H = HS[t];
+			::libmaus2::autoarray::AutoArray<unsigned_char_type> B(16*1024,false);
+			libmaus2::util::Histogram & H = HS[t];
 			
 			while ( todo )
 			{
@@ -3825,8 +3825,8 @@ struct BwtMergeSort
 			}
 		}
 
-		::libmaus::util::Histogram::unique_ptr_type PH(HS.merge());
-		::libmaus::util::Histogram & H(*PH);
+		::libmaus2::util::Histogram::unique_ptr_type PH(HS.merge());
+		::libmaus2::util::Histogram & H(*PH);
 
 		return H.getByType<int64_t>();
 	}
@@ -3848,12 +3848,12 @@ struct BwtMergeSort
 		hef_type & HEF
 	)
 	{
-		typedef ::libmaus::huffman::BitInputBuffer4 sbis_type;			
-		::libmaus::aio::CheckedInputStream::unique_ptr_type istr;
+		typedef ::libmaus2::huffman::BitInputBuffer4 sbis_type;			
+		::libmaus2::aio::CheckedInputStream::unique_ptr_type istr;
 		sbis_type::raw_input_ptr_type ript;
 		sbis_type::unique_ptr_type SBIS;
 		
-		::libmaus::aio::CheckedInputStream::unique_ptr_type tistr(new ::libmaus::aio::CheckedInputStream(fn));
+		::libmaus2::aio::CheckedInputStream::unique_ptr_type tistr(new ::libmaus2::aio::CheckedInputStream(fn));
 		istr = UNIQUE_PTR_MOVE(tistr);
 		sbis_type::raw_input_ptr_type tript(new sbis_type::raw_input_type(*istr));
 		ript = UNIQUE_PTR_MOVE(tript);
@@ -3875,16 +3875,16 @@ struct BwtMergeSort
 		std::pair<uint64_t,uint64_t> const & isapre,
 		std::string const & fn,
 		uint64_t const fs,
-		::libmaus::lf::ImpCompactHuffmanWaveletLF const & IHWT,
-		::libmaus::aio::SynchronousGenericOutput<uint64_t> & SGO,
-		::libmaus::aio::SynchronousGenericOutput<uint64_t> & ISGO,
+		::libmaus2::lf::ImpCompactHuffmanWaveletLF const & IHWT,
+		::libmaus2::aio::SynchronousGenericOutput<uint64_t> & SGO,
+		::libmaus2::aio::SynchronousGenericOutput<uint64_t> & ISGO,
 		uint64_t const sasamplingrate,
 		uint64_t const isasamplingrate,
 		int64_t const ibs = -1
 	)
 	{
-		assert ( ::libmaus::rank::PopCnt8<sizeof(unsigned long)>::popcnt8(sasamplingrate) == 1 );
-		assert ( ::libmaus::rank::PopCnt8<sizeof(unsigned long)>::popcnt8(isasamplingrate) == 1 );
+		assert ( ::libmaus2::rank::PopCnt8<sizeof(unsigned long)>::popcnt8(sasamplingrate) == 1 );
+		assert ( ::libmaus2::rank::PopCnt8<sizeof(unsigned long)>::popcnt8(isasamplingrate) == 1 );
 		
 		uint64_t r = isai.first;
 		uint64_t p = isai.second;
@@ -3985,9 +3985,9 @@ struct BwtMergeSort
 			std::string const outputfilename = outputfilenameprefix + ".bwt";
 		
 			#if defined(HUFRL)
-			::libmaus::huffman::RLEncoderStd rlenc(outputfilename,0,               0,rlencoderblocksize);
+			::libmaus2::huffman::RLEncoderStd rlenc(outputfilename,0,               0,rlencoderblocksize);
 			#else
-			::libmaus::gamma::GammaRLEncoder rlenc(outputfilename,0 /* alphabet */,0,rlencoderblocksize);
+			::libmaus2::gamma::GammaRLEncoder rlenc(outputfilename,0 /* alphabet */,0,rlencoderblocksize);
 			#endif
 			
 			rlenc.flush();
@@ -4009,7 +4009,7 @@ struct BwtMergeSort
 					<< ".bwt";
 				std::string const outputfilename = outputfilenamestr.str();
 				
-				// ::libmaus::util::GetFileSize::copy(bwtfilenames[0][i],outputfilename);
+				// ::libmaus2::util::GetFileSize::copy(bwtfilenames[0][i],outputfilename);
 				rename ( bwtfilenames[0][i].c_str(), outputfilename.c_str() );
 				
 				outputfilenames.push_back(outputfilename);
@@ -4021,9 +4021,9 @@ struct BwtMergeSort
 		else
 		{
 			#if defined(HUFGAP)
-			typedef ::libmaus::huffman::GapDecoder gapfile_decoder_type;
+			typedef ::libmaus2::huffman::GapDecoder gapfile_decoder_type;
 			#else
-			typedef ::libmaus::gamma::GammaGapDecoder gapfile_decoder_type;
+			typedef ::libmaus2::gamma::GammaGapDecoder gapfile_decoder_type;
 			#endif
 
 			#if !defined(HUFRL)
@@ -4037,7 +4037,7 @@ struct BwtMergeSort
 			uint64_t const fs = getRlLength(bwtfilenames);
 
 			// first gap file meta information
-			::libmaus::huffman::IndexDecoderDataArray::unique_ptr_type Pfgapidda(new ::libmaus::huffman::IndexDecoderDataArray(gapfilenames[0]));
+			::libmaus2::huffman::IndexDecoderDataArray::unique_ptr_type Pfgapidda(new ::libmaus2::huffman::IndexDecoderDataArray(gapfilenames[0]));
 			// first gap file
 			gapfile_decoder_type::unique_ptr_type fgap(new gapfile_decoder_type(*Pfgapidda /* gapfilenames[0] */));
 			// low marker
@@ -4048,7 +4048,7 @@ struct BwtMergeSort
 			uint64_t const gpartsize = (fs + tgparts - 1) / tgparts;
 			// maximum parts
 			uint64_t const maxgparts = (fs + gpartsize - 1) / gpartsize;
-			::libmaus::autoarray::AutoArray< ::libmaus::suffixsort::GapMergePacket> gmergepackets(maxgparts);
+			::libmaus2::autoarray::AutoArray< ::libmaus2::suffixsort::GapMergePacket> gmergepackets(maxgparts);
 			// actual merge parts
 			uint64_t actgparts = 0;
 			uint64_t gs = 0;
@@ -4060,7 +4060,7 @@ struct BwtMergeSort
 			{
 				uint64_t const gsrest = (fs-gs);
 				uint64_t const gskip = std::min(gsrest,gpartsize);
-				libmaus::huffman::KvInitResult kvinit;
+				libmaus2::huffman::KvInitResult kvinit;
 				gapfile_decoder_type lgapdec(*Pfgapidda,gs + gskip, kvinit);
 				
 				// avoid small rest
@@ -4115,7 +4115,7 @@ struct BwtMergeSort
 
 				if ( actgparts >= maxgparts )
 				{
-					::libmaus::exception::LibMausException se;
+					::libmaus2::exception::LibMausException se;
 					se.getStream() << "acgtgparts=" << actgparts << " >= maxgparts=" << maxgparts << std::endl;
 					se.finish();
 					throw se;
@@ -4124,7 +4124,7 @@ struct BwtMergeSort
 				#endif
 				
 				// save interval on first gap array and number of suffixes on this interval
-				gmergepackets[actgparts++] = ::libmaus::suffixsort::GapMergePacket(hlow,hhigh,s);
+				gmergepackets[actgparts++] = ::libmaus2::suffixsort::GapMergePacket(hlow,hhigh,s);
 				
 				// std::cerr << "got packet " << gmergepackets[actgparts-1] << " firstblockgapfilesize=" << firstblockgapfilesize << std::endl;
 				
@@ -4146,13 +4146,13 @@ struct BwtMergeSort
 			#endif
 			
 			// compute prefix sums over number of suffixes per gblock
-			::libmaus::autoarray::AutoArray<uint64_t> spref(actgparts+1,false);
+			::libmaus2::autoarray::AutoArray<uint64_t> spref(actgparts+1,false);
 			for ( uint64_t i = 0; i < actgparts; ++i )
 				spref[i] = gmergepackets[i].s;
 			spref.prefixSums();
 			
 			// compute prefix sums over number of suffixes per block used for each gpart
-			::libmaus::autoarray::AutoArray < uint64_t > bwtusedcntsacc( (actgparts+1)*(gapfilenames.size()+1), false );
+			::libmaus2::autoarray::AutoArray < uint64_t > bwtusedcntsacc( (actgparts+1)*(gapfilenames.size()+1), false );
 			
 			#if defined(_OPENMP)
 			#pragma omp parallel for schedule(dynamic,1)
@@ -4167,11 +4167,11 @@ struct BwtMergeSort
 				uint64_t lspref = spref[z];
 				
 				// array of decoders
-				::libmaus::autoarray::AutoArray < gapfile_decoder_type::unique_ptr_type > gapdecs(gapfilenames.size());
+				::libmaus2::autoarray::AutoArray < gapfile_decoder_type::unique_ptr_type > gapdecs(gapfilenames.size());
 
 				for ( uint64_t j = 0; j < gapfilenames.size(); ++j )
 				{
-					::libmaus::huffman::KvInitResult kvinitresult;
+					::libmaus2::huffman::KvInitResult kvinitresult;
 					gapfile_decoder_type::unique_ptr_type tgapdecsj(
 						new gapfile_decoder_type(
 							gapfilenames[j],
@@ -4217,7 +4217,7 @@ struct BwtMergeSort
 			
 			// how many suffixes of each block do we use in each gpart?
 			// (turn prefix sums in count per block)
-			::libmaus::autoarray::AutoArray < uint64_t > bwtusedcnts( (gapfilenames.size()+1) * actgparts, false );
+			::libmaus2::autoarray::AutoArray < uint64_t > bwtusedcnts( (gapfilenames.size()+1) * actgparts, false );
 			for ( uint64_t block = 0; block < gapfilenames.size()+1; ++block )
 			{
 				uint64_t const * lbwtusedcntsacc = bwtusedcntsacc.begin() + block*(actgparts+1);
@@ -4240,15 +4240,15 @@ struct BwtMergeSort
 				std::ostringstream ostr;
 				ostr << outputfilenameprefix << "_" << std::setw(4) << std::setfill('0') << z << std::setw(0) << ".bwt";
 				std::string const gpartfrag = ostr.str();
-				::libmaus::util::TempFileRemovalContainer::addTempFile(gpartfrag);
+				::libmaus2::util::TempFileRemovalContainer::addTempFile(gpartfrag);
 				gpartfrags[z] = gpartfrag;
 			
 				#if 0
 				std::cerr << gmergepackets[z] << ",spref=" << spref[z] << std::endl;
 				#endif
 				uint64_t lspref = spref[z];
-				::libmaus::autoarray::AutoArray < gapfile_decoder_type::unique_ptr_type > gapdecoders(gapfilenames.size());
-				::libmaus::autoarray::AutoArray< uint64_t > gapcur(gapfilenames.size());
+				::libmaus2::autoarray::AutoArray < gapfile_decoder_type::unique_ptr_type > gapdecoders(gapfilenames.size());
+				::libmaus2::autoarray::AutoArray< uint64_t > gapcur(gapfilenames.size());
 
 				// set up gap file decoders at the proper offsets
 				for ( uint64_t j = 0; j < gapfilenames.size(); ++j )
@@ -4258,7 +4258,7 @@ struct BwtMergeSort
 					for ( uint64_t k = j+1; k < bwtfilenames.size(); ++k )
 						suflat += bwtusedcnts [ k*actgparts + z ];
 				
-					::libmaus::huffman::KvInitResult kvinitresult;
+					::libmaus2::huffman::KvInitResult kvinitresult;
 					gapfile_decoder_type::unique_ptr_type tgapdecodersj(
 						new gapfile_decoder_type(
 							gapfilenames[j],
@@ -4277,8 +4277,8 @@ struct BwtMergeSort
 						assert ( kvinitresult.kvtarget == 0 );
 				}				
 
-				::libmaus::autoarray::AutoArray < uint64_t > bwttowrite(bwtfilenames.size(),false);
-				::libmaus::autoarray::AutoArray < rl_decoder::unique_ptr_type > bwtdecoders(bwtfilenames.size());
+				::libmaus2::autoarray::AutoArray < uint64_t > bwttowrite(bwtfilenames.size(),false);
+				::libmaus2::autoarray::AutoArray < rl_decoder::unique_ptr_type > bwtdecoders(bwtfilenames.size());
 				
 				for ( uint64_t j = 0; j < bwtfilenames.size(); ++j )
 				{
@@ -4298,9 +4298,9 @@ struct BwtMergeSort
 				uint64_t const totalbwt = std::accumulate(bwttowrite.begin(),bwttowrite.end(),0ull);
 
 				#if defined(HUFRL)
-				::libmaus::huffman::RLEncoderStd bwtenc(gpartfrag,0                    ,totalbwt,rlencoderblocksize);
+				::libmaus2::huffman::RLEncoderStd bwtenc(gpartfrag,0                    ,totalbwt,rlencoderblocksize);
 				#else
-				::libmaus::gamma::GammaRLEncoder bwtenc(gpartfrag,albits /* alphabet */,totalbwt,rlencoderblocksize);
+				::libmaus2::gamma::GammaRLEncoder bwtenc(gpartfrag,albits /* alphabet */,totalbwt,rlencoderblocksize);
 				#endif
 				
 				// start writing loop
@@ -4373,14 +4373,14 @@ struct BwtMergeSort
 		uint64_t const gn
 	)
 	{
-		::libmaus::timing::RealTimeClock rtc;
+		::libmaus2::timing::RealTimeClock rtc;
 		
 		// merge sampled inverse suffix arrays		
 		std::cerr << "[V] merging sampled inverse suffix arrays...";
 		rtc.start();
-		::libmaus::aio::SynchronousGenericInput<uint64_t> SGIISAold(oldmergedisaname,16*1024);
-		::libmaus::aio::SynchronousGenericInput<uint64_t> SGIISAnew(newmergedisaname,16*1024);
-		::libmaus::aio::SynchronousGenericOutput<uint64_t> SGOISA(mergedmergedisaname,16*1024);
+		::libmaus2::aio::SynchronousGenericInput<uint64_t> SGIISAold(oldmergedisaname,16*1024);
+		::libmaus2::aio::SynchronousGenericInput<uint64_t> SGIISAnew(newmergedisaname,16*1024);
+		::libmaus2::aio::SynchronousGenericOutput<uint64_t> SGOISA(mergedmergedisaname,16*1024);
 		
 		// sum over old (RHS block) suffixes
 		uint64_t s = 0;
@@ -4432,23 +4432,23 @@ struct BwtMergeSort
 	}
 
 	static void saveGapFile(
-		::libmaus::autoarray::AutoArray<uint32_t> const & G,
+		::libmaus2::autoarray::AutoArray<uint32_t> const & G,
 		std::string const & gapfile
 	)
 	{
-		::libmaus::timing::RealTimeClock rtc;
+		::libmaus2::timing::RealTimeClock rtc;
 	
 		std::cerr << "[V] saving gap file...";
 		rtc.start();
 		#if defined(HUFGAP)
-		::libmaus::util::Histogram gaphist;
+		::libmaus2::util::Histogram gaphist;
 		for ( uint64_t i = 0; i < G.size(); ++i )
 			gaphist ( G[i] );
-		::libmaus::huffman::GapEncoder GE(gapfile,gaphist,G.size());
+		::libmaus2::huffman::GapEncoder GE(gapfile,gaphist,G.size());
 		GE.encode(G.begin(),G.end());
 		GE.flush();
 		#else
-		::libmaus::gamma::GammaGapEncoder GE(gapfile);
+		::libmaus2::gamma::GammaGapEncoder GE(gapfile);
 		GE.encode(G.begin(),G.end());
 		#endif
 		std::cerr << "done in time " << rtc.getElapsedSeconds() << std::endl;	
@@ -4460,7 +4460,7 @@ struct BwtMergeSort
 		std::string const & newmergedgtname
 	)
 	{
-		::libmaus::timing::RealTimeClock rtc;
+		::libmaus2::timing::RealTimeClock rtc;
 		rtc.start();
 		
 		std::vector< std::string > allfiles(gtpartnames.begin(),gtpartnames.end());
@@ -4468,15 +4468,15 @@ struct BwtMergeSort
 		
 		#if 0
 		// encoder for new gt stream
-		libmaus::bitio::BitVectorOutput GTHEFref(newmergedgtname);
-		libmaus::bitio::BitVectorInput BVI(allfiles);
-		uint64_t const tn = libmaus::bitio::BitVectorInput::getLength(allfiles);
+		libmaus2::bitio::BitVectorOutput GTHEFref(newmergedgtname);
+		libmaus2::bitio::BitVectorInput BVI(allfiles);
+		uint64_t const tn = libmaus2::bitio::BitVectorInput::getLength(allfiles);
 		for ( uint64_t i = 0; i < tn; ++i )
 			GTHEFref.writeBit(BVI.readBit());
 		GTHEFref.flush();
 		#endif
 
-		libmaus::bitio::BitVectorOutput GTHEF(newmergedgtname);
+		libmaus2::bitio::BitVectorOutput GTHEF(newmergedgtname);
 		
 		unsigned int prevbits = 0;
 		uint64_t prev = 0;
@@ -4484,10 +4484,10 @@ struct BwtMergeSort
 		// append part streams
 		for ( uint64_t z = 0; z < allfiles.size(); ++z )
 		{
-			uint64_t const n = libmaus::bitio::BitVectorInput::getLength(allfiles[z]);
+			uint64_t const n = libmaus2::bitio::BitVectorInput::getLength(allfiles[z]);
 			uint64_t const fullwords = n / 64;
 			uint64_t const restbits = n-fullwords*64;
-			libmaus::aio::SynchronousGenericInput<uint64_t> SGI(allfiles[z],8192);
+			libmaus2::aio::SynchronousGenericInput<uint64_t> SGI(allfiles[z],8192);
 			uint64_t v = 0;
 			
 			if ( !prevbits )
@@ -4571,10 +4571,10 @@ struct BwtMergeSort
 	
 	struct GapArrayComputationResult
 	{
-		::libmaus::autoarray::AutoArray<uint32_t> G;
+		::libmaus2::autoarray::AutoArray<uint32_t> G;
 		std::vector < std::string > gtpartnames;
 		uint64_t zactive;
-		::libmaus::autoarray::AutoArray<uint64_t> zabsblockpos;
+		::libmaus2::autoarray::AutoArray<uint64_t> zabsblockpos;
 		
 		GapArrayComputationResult()
 		: zactive(0)
@@ -4583,20 +4583,20 @@ struct BwtMergeSort
 		}
 		
 		GapArrayComputationResult(
-			::libmaus::autoarray::AutoArray<uint32_t> & rG, 
+			::libmaus2::autoarray::AutoArray<uint32_t> & rG, 
 			std::vector < std::string > const & rgtpartnames, 
 			uint64_t const rzactive,
-			::libmaus::autoarray::AutoArray<uint64_t> & rzabsblockpos
+			::libmaus2::autoarray::AutoArray<uint64_t> & rzabsblockpos
 		)
 		: G(rG), gtpartnames(rgtpartnames), zactive(rzactive), zabsblockpos(rzabsblockpos) {}
 	};
 
 	struct GapArrayByteComputationResult
 	{
-		libmaus::suffixsort::GapArrayByte::shared_ptr_type G;
+		libmaus2::suffixsort::GapArrayByte::shared_ptr_type G;
 		std::vector < std::string > gtpartnames;
 		uint64_t zactive;
-		::libmaus::autoarray::AutoArray<uint64_t> zabsblockpos;
+		::libmaus2::autoarray::AutoArray<uint64_t> zabsblockpos;
 		
 		GapArrayByteComputationResult()
 		: zactive(0)
@@ -4605,10 +4605,10 @@ struct BwtMergeSort
 		}
 		
 		GapArrayByteComputationResult(
-			libmaus::suffixsort::GapArrayByte::shared_ptr_type rG, 
+			libmaus2::suffixsort::GapArrayByte::shared_ptr_type rG, 
 			std::vector < std::string > const & rgtpartnames, 
 			uint64_t const rzactive,
-			::libmaus::autoarray::AutoArray<uint64_t> & rzabsblockpos
+			::libmaus2::autoarray::AutoArray<uint64_t> & rzabsblockpos
 		)
 		: G(rG), gtpartnames(rgtpartnames), zactive(rzactive), zabsblockpos(rzabsblockpos) {}
 	};
@@ -4619,7 +4619,7 @@ struct BwtMergeSort
 		std::vector<std::string> fn;
 		std::vector < std::string > gtpartnames;
 		uint64_t zactive;
-		::libmaus::autoarray::AutoArray<uint64_t> zabsblockpos;
+		::libmaus2::autoarray::AutoArray<uint64_t> zabsblockpos;
 		
 		SparseGapArrayComputationResult()
 		: zactive(0)
@@ -4631,29 +4631,29 @@ struct BwtMergeSort
 			std::vector < std::string > const & rfn,
 			std::vector < std::string > const & rgtpartnames, 
 			uint64_t const rzactive,
-			::libmaus::autoarray::AutoArray<uint64_t> & rzabsblockpos
+			::libmaus2::autoarray::AutoArray<uint64_t> & rzabsblockpos
 		)
 		: fn(rfn), gtpartnames(rgtpartnames), zactive(rzactive), zabsblockpos(rzabsblockpos) {}
 	};
 	
-	static libmaus::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type ensureWaveletTreeGenerated(::libmaus::suffixsort::BwtMergeBlockSortResult const & blockresults)
+	static libmaus2::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type ensureWaveletTreeGenerated(::libmaus2::suffixsort::BwtMergeBlockSortResult const & blockresults)
 	{
 		// generate wavelet tree from request if necessary
-		if ( ! libmaus::util::GetFileSize::fileExists(blockresults.getFiles().getHWT()) )
+		if ( ! libmaus2::util::GetFileSize::fileExists(blockresults.getFiles().getHWT()) )
 		{
-			libmaus::timing::RealTimeClock rtc; rtc.start();
+			libmaus2::timing::RealTimeClock rtc; rtc.start();
 			std::cerr << "[V] Generating HWT for gap file computation...";
-			assert ( libmaus::util::GetFileSize::fileExists(blockresults.getFiles().getHWTReq() ) );	
+			assert ( libmaus2::util::GetFileSize::fileExists(blockresults.getFiles().getHWTReq() ) );	
 			RlToHwtTermRequest::unique_ptr_type ureq(RlToHwtTermRequest::load(blockresults.getFiles().getHWTReq()));
-			libmaus::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type	ptr(ureq->dispatch());
+			libmaus2::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type	ptr(ureq->dispatch());
 			remove ( blockresults.getFiles().getHWTReq().c_str() );
 			std::cerr << "done, time " << rtc.getElapsedSeconds() << std::endl;
 			return UNIQUE_PTR_MOVE(ptr);			
 		}
 		else
 		{
-			libmaus::aio::CheckedInputStream CIS(blockresults.getFiles().getHWT());
-			libmaus::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type ptr(new libmaus::wavelet::ImpCompactHuffmanWaveletTree(CIS));
+			libmaus2::aio::CheckedInputStream CIS(blockresults.getFiles().getHWT());
+			libmaus2::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type ptr(new libmaus2::wavelet::ImpCompactHuffmanWaveletTree(CIS));
 			return UNIQUE_PTR_MOVE(ptr);
 		}
 	}
@@ -4665,24 +4665,24 @@ struct BwtMergeSort
 		uint64_t const cblocksize, // block size
 		uint64_t const nextblockstart, // start of next block (mod fs)
 		uint64_t const mergeprocrightend, // right end of merged area
-		::libmaus::suffixsort::BwtMergeBlockSortResult const & blockresults, // information on block
+		::libmaus2::suffixsort::BwtMergeBlockSortResult const & blockresults, // information on block
 		std::vector<std::string> const & mergedgtname, // previous gt file name
 		std::string const & newmergedgtname, // new gt file name
-		::libmaus::lf::DArray * const accD, // accumulated symbol freqs for block
-		std::vector < ::libmaus::suffixsort::BwtMergeZBlock > const & zblocks // lf starting points
+		::libmaus2::lf::DArray * const accD, // accumulated symbol freqs for block
+		std::vector < ::libmaus2::suffixsort::BwtMergeZBlock > const & zblocks // lf starting points
 	)
 	{
 		// gap array
-		::libmaus::autoarray::AutoArray<uint32_t> G(cblocksize+1);
+		::libmaus2::autoarray::AutoArray<uint32_t> G(cblocksize+1);
 		
 		// set up lf mapping
-		::libmaus::lf::DArray D(static_cast<std::string const &>(blockresults.getFiles().getHist()));
+		::libmaus2::lf::DArray D(static_cast<std::string const &>(blockresults.getFiles().getHist()));
 		accD->merge(D);
 		#if 0
 		bool const hwtdelayed = ensureWaveletTreeGenerated(blockresults);
 		#endif
-		::libmaus::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type ICHWL(ensureWaveletTreeGenerated(blockresults));
-		::libmaus::lf::ImpCompactHuffmanWaveletLF IHWL(ICHWL);
+		::libmaus2::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type ICHWL(ensureWaveletTreeGenerated(blockresults));
+		::libmaus2::lf::ImpCompactHuffmanWaveletLF IHWL(ICHWL);
 		IHWL.D = D.D;
 		assert ( cblocksize == IHWL.n );
 		
@@ -4696,36 +4696,36 @@ struct BwtMergeSort
 		 * array of absolute positions
 		 **/
 		uint64_t const zactive = zblocks.size();
-		::libmaus::autoarray::AutoArray<uint64_t> zabsblockpos(zactive+1,false);
+		::libmaus2::autoarray::AutoArray<uint64_t> zabsblockpos(zactive+1,false);
 		for ( uint64_t z = 0; z < zactive; ++z )
 			zabsblockpos[z] = zblocks[z].getZAbsPos();
 		zabsblockpos [ zactive ] = blockstart + cblocksize;
 
 		std::vector < std::string > gtpartnames(zactive);
 
-		::libmaus::timing::RealTimeClock rtc; 
+		::libmaus2::timing::RealTimeClock rtc; 
 		rtc.start();
 		#if defined(_OPENMP) && defined(LIBMAUS_HAVE_SYNC_OPS)
 		#pragma omp parallel for schedule(dynamic,1)
 		#endif
 		for ( int64_t z = 0; z < static_cast<int64_t>(zactive); ++z )
 		{
-			::libmaus::timing::RealTimeClock subsubrtc; subsubrtc.start();
+			::libmaus2::timing::RealTimeClock subsubrtc; subsubrtc.start();
 
-			::libmaus::suffixsort::BwtMergeZBlock const & zblock = zblocks[z];
+			::libmaus2::suffixsort::BwtMergeZBlock const & zblock = zblocks[z];
 			
-			std::string const gtpartname = newmergedgtname + "_" + ::libmaus::util::NumberSerialisation::formatNumber(z,4) + ".gt";
-			::libmaus::util::TempFileRemovalContainer::addTempFile(gtpartname);
+			std::string const gtpartname = newmergedgtname + "_" + ::libmaus2::util::NumberSerialisation::formatNumber(z,4) + ".gt";
+			::libmaus2::util::TempFileRemovalContainer::addTempFile(gtpartname);
 			gtpartnames[z] = gtpartname;
 			#if 0
-			::libmaus::huffman::HuffmanEncoderFileStd GTHEF(gtpartname);
+			::libmaus2::huffman::HuffmanEncoderFileStd GTHEF(gtpartname);
 			#endif
-			libmaus::bitio::BitVectorOutput GTHEF(gtpartname);
+			libmaus2::bitio::BitVectorOutput GTHEF(gtpartname);
 
 			#if 0
-			::libmaus::bitio::BitStreamFileDecoder gtfile(mergedgtname, (mergeprocrightend - zblock.getZAbsPos()) );
+			::libmaus2::bitio::BitStreamFileDecoder gtfile(mergedgtname, (mergeprocrightend - zblock.getZAbsPos()) );
 			#endif
-			libmaus::bitio::BitVectorInput gtfile(mergedgtname, (mergeprocrightend - zblock.getZAbsPos()) );
+			libmaus2::bitio::BitVectorInput gtfile(mergedgtname, (mergeprocrightend - zblock.getZAbsPos()) );
 			
 			typename input_types_type::circular_reverse_wrapper CRWR(fn,zblock.getZAbsPos() % fs);
 			uint64_t r = zblock.getZRank();
@@ -4761,7 +4761,7 @@ struct BwtMergeSort
 		MergeStrategyMergeGapRequest const & msmgr, // merge request
 		std::vector<std::string> const & mergedgtname, // previous gt file name
 		std::string const & newmergedgtname, // new gt file name
-		::libmaus::lf::DArray * const accD // accumulated symbol freqs for block
+		::libmaus2::lf::DArray * const accD // accumulated symbol freqs for block
 	)
 	{
 		uint64_t const into = msmgr.into;
@@ -4769,7 +4769,7 @@ struct BwtMergeSort
 		std::vector<MergeStrategyBlock::shared_ptr_type> const & children =
 			*(msmgr.pchildren);
 
-		::libmaus::suffixsort::BwtMergeBlockSortResult const & blockresults = children[into]->sortresult;
+		::libmaus2::suffixsort::BwtMergeBlockSortResult const & blockresults = children[into]->sortresult;
 
 		uint64_t const blockstart = blockresults.getBlockStart();
 		uint64_t const cblocksize = blockresults.getCBlockSize();
@@ -4778,7 +4778,7 @@ struct BwtMergeSort
 			children.at(children.size()-1)->sortresult.getBlockStart() +
 			children.at(children.size()-1)->sortresult.getCBlockSize();
 		// use gap object's zblocks vector
-		std::vector < ::libmaus::suffixsort::BwtMergeZBlock > const & zblocks = msmgr.zblocks;
+		std::vector < ::libmaus2::suffixsort::BwtMergeZBlock > const & zblocks = msmgr.zblocks;
 		
 		return computeGapArray(fn,fs,blockstart,cblocksize,nextblockstart,mergeprocrightend,
 			blockresults,mergedgtname,newmergedgtname,accD,zblocks);
@@ -4791,12 +4791,12 @@ struct BwtMergeSort
 		uint64_t const cblocksize, // block size
 		uint64_t const nextblockstart, // start of next block (mod fs)
 		uint64_t const mergeprocrightend, // right end of merged area
-		::libmaus::suffixsort::BwtMergeBlockSortResult const & blockresults, // information on block
+		::libmaus2::suffixsort::BwtMergeBlockSortResult const & blockresults, // information on block
 		std::vector<std::string> const & mergedgtname, // previous gt file name
 		std::string const & newmergedgtname, // new gt file name
 		std::string const & gapoverflowtmpfilename, // gap overflow tmp file
-		::libmaus::lf::DArray * const accD, // accumulated symbol freqs for block
-		std::vector < ::libmaus::suffixsort::BwtMergeZBlock > const & zblocks // lf starting points
+		::libmaus2::lf::DArray * const accD, // accumulated symbol freqs for block
+		std::vector < ::libmaus2::suffixsort::BwtMergeZBlock > const & zblocks // lf starting points
 	)
 	{
 		#if defined(_OPENMP)
@@ -4806,24 +4806,24 @@ struct BwtMergeSort
 		#endif
 
 		// gap array
-		::libmaus::suffixsort::GapArrayByte::shared_ptr_type pG(
-			new ::libmaus::suffixsort::GapArrayByte(
+		::libmaus2::suffixsort::GapArrayByte::shared_ptr_type pG(
+			new ::libmaus2::suffixsort::GapArrayByte(
 				cblocksize+1,
 				512, /* number of overflow words per thread */
 				numthreads,
 				gapoverflowtmpfilename
 			)
 		);
-		::libmaus::suffixsort::GapArrayByte & G = *pG;
+		::libmaus2::suffixsort::GapArrayByte & G = *pG;
 		
 		// set up lf mapping
-		::libmaus::lf::DArray D(static_cast<std::string const &>(blockresults.getFiles().getHist()));
+		::libmaus2::lf::DArray D(static_cast<std::string const &>(blockresults.getFiles().getHist()));
 		accD->merge(D);
 		#if 0
 		bool const hwtdelayed = ensureWaveletTreeGenerated(blockresults);
 		#endif
-		::libmaus::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type ICHWL(ensureWaveletTreeGenerated(blockresults));
-		::libmaus::lf::ImpCompactHuffmanWaveletLF IHWL(ICHWL);
+		::libmaus2::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type ICHWL(ensureWaveletTreeGenerated(blockresults));
+		::libmaus2::lf::ImpCompactHuffmanWaveletLF IHWL(ICHWL);
 		IHWL.D = D.D;
 		assert ( cblocksize == IHWL.n );
 		
@@ -4837,36 +4837,36 @@ struct BwtMergeSort
 		 * array of absolute positions
 		 **/
 		uint64_t const zactive = zblocks.size();
-		::libmaus::autoarray::AutoArray<uint64_t> zabsblockpos(zactive+1,false);
+		::libmaus2::autoarray::AutoArray<uint64_t> zabsblockpos(zactive+1,false);
 		for ( uint64_t z = 0; z < zactive; ++z )
 			zabsblockpos[z] = zblocks[z].getZAbsPos();
 		zabsblockpos [ zactive ] = blockstart + cblocksize;
 
 		std::vector < std::string > gtpartnames(zactive);
 
-		::libmaus::timing::RealTimeClock rtc; 
+		::libmaus2::timing::RealTimeClock rtc; 
 		rtc.start();
 		#if defined(_OPENMP) && defined(LIBMAUS_HAVE_SYNC_OPS)
 		#pragma omp parallel for schedule(dynamic,1)
 		#endif
 		for ( int64_t z = 0; z < static_cast<int64_t>(zactive); ++z )
 		{
-			::libmaus::timing::RealTimeClock subsubrtc; subsubrtc.start();
+			::libmaus2::timing::RealTimeClock subsubrtc; subsubrtc.start();
 
-			::libmaus::suffixsort::BwtMergeZBlock const & zblock = zblocks[z];
+			::libmaus2::suffixsort::BwtMergeZBlock const & zblock = zblocks[z];
 			
-			std::string const gtpartname = newmergedgtname + "_" + ::libmaus::util::NumberSerialisation::formatNumber(z,4) + ".gt";
-			::libmaus::util::TempFileRemovalContainer::addTempFile(gtpartname);
+			std::string const gtpartname = newmergedgtname + "_" + ::libmaus2::util::NumberSerialisation::formatNumber(z,4) + ".gt";
+			::libmaus2::util::TempFileRemovalContainer::addTempFile(gtpartname);
 			gtpartnames[z] = gtpartname;
 			#if 0
-			::libmaus::huffman::HuffmanEncoderFileStd GTHEF(gtpartname);
+			::libmaus2::huffman::HuffmanEncoderFileStd GTHEF(gtpartname);
 			#endif
-			libmaus::bitio::BitVectorOutput GTHEF(gtpartname);
+			libmaus2::bitio::BitVectorOutput GTHEF(gtpartname);
 
 			#if 0
-			::libmaus::bitio::BitStreamFileDecoder gtfile(mergedgtname, (mergeprocrightend - zblock.getZAbsPos()) );
+			::libmaus2::bitio::BitStreamFileDecoder gtfile(mergedgtname, (mergeprocrightend - zblock.getZAbsPos()) );
 			#endif
-			libmaus::bitio::BitVectorInput gtfile(mergedgtname, (mergeprocrightend - zblock.getZAbsPos()) );
+			libmaus2::bitio::BitVectorInput gtfile(mergedgtname, (mergeprocrightend - zblock.getZAbsPos()) );
 			
 			typename input_types_type::circular_reverse_wrapper CRWR(fn,zblock.getZAbsPos() % fs);
 			uint64_t r = zblock.getZRank();
@@ -4908,7 +4908,7 @@ struct BwtMergeSort
 		std::vector<std::string> const & mergedgtname, // previous gt file name
 		std::string const & newmergedgtname, // new gt file name
 		std::string const & gapoverflowtmpfilename, // gap overflow tmp file
-		::libmaus::lf::DArray * const accD // accumulated symbol freqs for block
+		::libmaus2::lf::DArray * const accD // accumulated symbol freqs for block
 	)
 	{
 		uint64_t const into = msmgr.into;
@@ -4916,7 +4916,7 @@ struct BwtMergeSort
 		std::vector<MergeStrategyBlock::shared_ptr_type> const & children =
 			*(msmgr.pchildren);
 
-		::libmaus::suffixsort::BwtMergeBlockSortResult const & blockresults = children[into]->sortresult;
+		::libmaus2::suffixsort::BwtMergeBlockSortResult const & blockresults = children[into]->sortresult;
 
 		uint64_t const blockstart = blockresults.getBlockStart();
 		uint64_t const cblocksize = blockresults.getCBlockSize();
@@ -4925,7 +4925,7 @@ struct BwtMergeSort
 			children.at(children.size()-1)->sortresult.getBlockStart() +
 			children.at(children.size()-1)->sortresult.getCBlockSize();
 		// use gap object's zblocks vector
-		std::vector < ::libmaus::suffixsort::BwtMergeZBlock > const & zblocks = msmgr.zblocks;
+		std::vector < ::libmaus2::suffixsort::BwtMergeZBlock > const & zblocks = msmgr.zblocks;
 		
 		return computeGapArrayByte(fn,fs,blockstart,cblocksize,nextblockstart,mergeprocrightend,
 			blockresults,mergedgtname,newmergedgtname,gapoverflowtmpfilename,accD,zblocks);
@@ -4935,13 +4935,13 @@ struct BwtMergeSort
 	{
 		uint64_t znext;
 		uint64_t znextcount;
-		libmaus::parallel::OMPLock lock;
+		libmaus2::parallel::OMPLock lock;
 		
 		ZNext(uint64_t const rznextcount) : znext(0), znextcount(rznextcount) {}
 		
 		bool getNext(uint64_t & next)
 		{
-			libmaus::parallel::ScopeLock slock(lock);
+			libmaus2::parallel::ScopeLock slock(lock);
 			
 			if ( znext == znextcount )
 				return false;
@@ -4960,15 +4960,15 @@ struct BwtMergeSort
 		uint64_t const cblocksize,
 		uint64_t const nextblockstart,
 		uint64_t const mergeprocrightend,
-		::libmaus::suffixsort::BwtMergeBlockSortResult const & blockresults,
+		::libmaus2::suffixsort::BwtMergeBlockSortResult const & blockresults,
 		std::vector<std::string> const & mergedgtname,
 		std::string const & newmergedgtname,
-		::libmaus::lf::DArray * const accD,
+		::libmaus2::lf::DArray * const accD,
 		//
 		std::string const & outputgapfilename,
 		std::string const & tmpfileprefix,
 		uint64_t const maxmem,
-		std::vector < ::libmaus::suffixsort::BwtMergeZBlock > const & zblocks
+		std::vector < ::libmaus2::suffixsort::BwtMergeZBlock > const & zblocks
 	)
 	{
 		#if defined(_OPENMP)
@@ -4982,22 +4982,22 @@ struct BwtMergeSort
 		// uint64_t const wordsperthread = 600;
 		uint64_t const parcheck = 64*1024;
 		
-		libmaus::autoarray::AutoArray< libmaus::autoarray::AutoArray<uint64_t> > GG(numthreads,false);
+		libmaus2::autoarray::AutoArray< libmaus2::autoarray::AutoArray<uint64_t> > GG(numthreads,false);
 		for ( uint64_t i = 0; i < numthreads; ++i )
-			GG[i] = libmaus::autoarray::AutoArray<uint64_t>(wordsperthread,false);
+			GG[i] = libmaus2::autoarray::AutoArray<uint64_t>(wordsperthread,false);
 		
-		libmaus::util::TempFileNameGenerator tmpgen(tmpfileprefix,3);
-		libmaus::gamma::SparseGammaGapMultiFileLevelSet SGGFS(tmpgen,numthreads);
+		libmaus2::util::TempFileNameGenerator tmpgen(tmpfileprefix,3);
+		libmaus2::gamma::SparseGammaGapMultiFileLevelSet SGGFS(tmpgen,numthreads);
 	
 		// set up lf mapping
-		::libmaus::lf::DArray D(static_cast<std::string const &>(blockresults.getFiles().getHist()));
+		::libmaus2::lf::DArray D(static_cast<std::string const &>(blockresults.getFiles().getHist()));
 		accD->merge(D);
 		#if 0
 		bool const hwtdelayed = 
 			ensureWaveletTreeGenerated(blockresults);
 		#endif
-		::libmaus::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type ICHWL(ensureWaveletTreeGenerated(blockresults));
-		::libmaus::lf::ImpCompactHuffmanWaveletLF IHWL(ICHWL);
+		::libmaus2::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type ICHWL(ensureWaveletTreeGenerated(blockresults));
+		::libmaus2::lf::ImpCompactHuffmanWaveletLF IHWL(ICHWL);
 		IHWL.D = D.D;
 		assert ( cblocksize == IHWL.n );
 		
@@ -5011,26 +5011,26 @@ struct BwtMergeSort
 		 * array of absolute positions
 		 **/
 		uint64_t const zactive = zblocks.size();
-		::libmaus::autoarray::AutoArray<uint64_t> zabsblockpos(zactive+1,false);
+		::libmaus2::autoarray::AutoArray<uint64_t> zabsblockpos(zactive+1,false);
 		for ( uint64_t z = 0; z < zactive; ++z )
 			zabsblockpos[z] = zblocks[z].getZAbsPos();
 		zabsblockpos [ zactive ] = blockstart + cblocksize;
 
 		std::vector < std::string > gtpartnames(zactive);
 
-		::libmaus::timing::RealTimeClock rtc; 
+		::libmaus2::timing::RealTimeClock rtc; 
 		rtc.start();
 		
 		ZNext znext(zactive);
 		
 		uint64_t termcnt = 0;
-		libmaus::parallel::OMPLock termcntlock;
+		libmaus2::parallel::OMPLock termcntlock;
 		
-		libmaus::parallel::PosixSemaphore qsem; // queue semaphore
-		libmaus::parallel::PosixSemaphore tsem; // term semaphore
-		libmaus::parallel::PosixSemaphore globsem; // meta semaphore for both above
-		libmaus::parallel::LockedBool termflag(false);
-		libmaus::parallel::LockedBool qterm(false);
+		libmaus2::parallel::PosixSemaphore qsem; // queue semaphore
+		libmaus2::parallel::PosixSemaphore tsem; // term semaphore
+		libmaus2::parallel::PosixSemaphore globsem; // meta semaphore for both above
+		libmaus2::parallel::LockedBool termflag(false);
+		libmaus2::parallel::LockedBool qterm(false);
 		
 		SGGFS.registerMergePackSemaphore(&qsem);
 		SGGFS.registerMergePackSemaphore(&globsem);
@@ -5056,16 +5056,16 @@ struct BwtMergeSort
 				uint64_t *       Gc = Ga;
 				uint64_t * const Ge = GG[tid].end();
 			
-				::libmaus::timing::RealTimeClock subsubrtc; subsubrtc.start();
+				::libmaus2::timing::RealTimeClock subsubrtc; subsubrtc.start();
 				
-				::libmaus::suffixsort::BwtMergeZBlock const & zblock = zblocks[z];
+				::libmaus2::suffixsort::BwtMergeZBlock const & zblock = zblocks[z];
 				
-				std::string const gtpartname = newmergedgtname + "_" + ::libmaus::util::NumberSerialisation::formatNumber(z,4) + ".gt";
-				::libmaus::util::TempFileRemovalContainer::addTempFile(gtpartname);
+				std::string const gtpartname = newmergedgtname + "_" + ::libmaus2::util::NumberSerialisation::formatNumber(z,4) + ".gt";
+				::libmaus2::util::TempFileRemovalContainer::addTempFile(gtpartname);
 				gtpartnames[z] = gtpartname;
-				libmaus::bitio::BitVectorOutput GTHEF(gtpartname);
+				libmaus2::bitio::BitVectorOutput GTHEF(gtpartname);
 
-				libmaus::bitio::BitVectorInput gtfile(mergedgtname, (mergeprocrightend - zblock.getZAbsPos()) );
+				libmaus2::bitio::BitVectorInput gtfile(mergedgtname, (mergeprocrightend - zblock.getZAbsPos()) );
 				
 				typename input_types_type::circular_reverse_wrapper CRWR(fn,zblock.getZAbsPos() % fs);
 				uint64_t r = zblock.getZRank();
@@ -5099,7 +5099,7 @@ struct BwtMergeSort
 					}
 
 					std::string const tfn = tmpgen.getFileName();
-					libmaus::gamma::SparseGammaGapBlockEncoder::encodeArray(Ga,Gc,tfn);
+					libmaus2::gamma::SparseGammaGapBlockEncoder::encodeArray(Ga,Gc,tfn);
 					SGGFS.putFile(std::vector<std::string>(1,tfn));		
 
 					while ( globsem.trywait() )
@@ -5134,7 +5134,7 @@ struct BwtMergeSort
 					}
 
 					std::string const tfn = tmpgen.getFileName();
-					libmaus::gamma::SparseGammaGapBlockEncoder::encodeArray(Ga,Gc,tfn);
+					libmaus2::gamma::SparseGammaGapBlockEncoder::encodeArray(Ga,Gc,tfn);
 					SGGFS.putFile(std::vector<std::string>(1,tfn));		
 
 					while ( globsem.trywait() )
@@ -5203,7 +5203,7 @@ struct BwtMergeSort
 		uint64_t const ihwtspace,
 		std::vector<std::string> const & mergedgtname, // previous gt file name
 		std::string const & newmergedgtname, // new gt file name
-		::libmaus::lf::DArray * const accD, // accumulated symbol freqs for block
+		::libmaus2::lf::DArray * const accD, // accumulated symbol freqs for block
 		std::string const & outputgapfilename,
 		std::string const & tmpfileprefix,
 		uint64_t const maxmem
@@ -5214,7 +5214,7 @@ struct BwtMergeSort
 		std::vector<MergeStrategyBlock::shared_ptr_type> const & children =
 			*(msmgr.pchildren);
 
-		::libmaus::suffixsort::BwtMergeBlockSortResult const & blockresults = children[into]->sortresult;
+		::libmaus2::suffixsort::BwtMergeBlockSortResult const & blockresults = children[into]->sortresult;
 
 		uint64_t const blockstart = blockresults.getBlockStart();
 		uint64_t const cblocksize = blockresults.getCBlockSize();
@@ -5222,7 +5222,7 @@ struct BwtMergeSort
 		uint64_t const mergeprocrightend =
 			children.at(children.size()-1)->sortresult.getBlockStart() +
 			children.at(children.size()-1)->sortresult.getCBlockSize();
-		std::vector < ::libmaus::suffixsort::BwtMergeZBlock > const & zblocks = msmgr.zblocks;
+		std::vector < ::libmaus2::suffixsort::BwtMergeZBlock > const & zblocks = msmgr.zblocks;
 		
 		return computeSparseGapArray(fn,fs,blockstart,cblocksize,nextblockstart,mergeprocrightend,
 			blockresults,mergedgtname,newmergedgtname,accD,
@@ -5266,7 +5266,7 @@ struct BwtMergeSort
 		remove ( mergereq.children[mergereq.children.size()-1]->sortresult.getFiles().getHWT().c_str() );
 		
 		// get result object
-		::libmaus::suffixsort::BwtMergeBlockSortResult & result = mergereq.sortresult;
+		::libmaus2::suffixsort::BwtMergeBlockSortResult & result = mergereq.sortresult;
 		// fill result structure
 		result.setBlockStart( mergereq.children[0]->sortresult.getBlockStart() );
 		result.setCBlockSize( 0 );
@@ -5287,12 +5287,12 @@ struct BwtMergeSort
 		
 			std::string const & sblockhist = mergereq.children[1]->sortresult.getFiles().getHist();
 			// load char histogram for last/second block (for merging)
-			::libmaus::lf::DArray::unique_ptr_type accD(new ::libmaus::lf::DArray(
+			::libmaus2::lf::DArray::unique_ptr_type accD(new ::libmaus2::lf::DArray(
 				sblockhist
 				)
 			);
 			// first block
-			::libmaus::suffixsort::BwtMergeBlockSortResult const & blockresults = 
+			::libmaus2::suffixsort::BwtMergeBlockSortResult const & blockresults = 
 				mergereq.children[0]->sortresult;
 
 			// start of first block
@@ -5324,21 +5324,21 @@ struct BwtMergeSort
 				ostr << tmpfilenamebase << "_renamed_" << std::setw(6) << std::setfill('0') << i << std::setw(0) << ".gt";
 				std::string const renamed = ostr.str();
 				oldgtnames.push_back(ostr.str());
-				::libmaus::util::TempFileRemovalContainer::addTempFile(renamed);
+				::libmaus2::util::TempFileRemovalContainer::addTempFile(renamed);
 				rename(blockresults.getFiles().getGT()[i].c_str(), renamed.c_str());
 			}
 
 			result.setGT(stringVectorAppend(GACR.gtpartnames,oldgtnames));
 
 			// merge sampled inverse suffix arrays, returns rank of position 0 (relative to block start)
-			libmaus::util::GetObject<uint32_t const *> mergeGO(GACR.G.begin());
+			libmaus2::util::GetObject<uint32_t const *> mergeGO(GACR.G.begin());
 			result.setBlockP0Rank( mergeIsa(
 				mergereq.children[1]->sortresult.getFiles().getSampledISA(), // old sampled isa
 				blockresults.getFiles().getSampledISA(), // new sampled isa
 				result.getFiles().getSampledISA(),blockstart,mergeGO/*GACR.G.begin()*/,cblocksize+1 /* GACR.G.size() */
 			) );
 			
-			::libmaus::timing::RealTimeClock rtc; rtc.start();
+			::libmaus2::timing::RealTimeClock rtc; rtc.start();
 			std::cerr << "[V] merging BWTs...";
 			
 			//
@@ -5357,7 +5357,7 @@ struct BwtMergeSort
 			P.push_back(0);
 			
 			// std::cerr << "(computing work packets...";
-			::libmaus::timing::RealTimeClock wprtc; wprtc.start();
+			::libmaus2::timing::RealTimeClock wprtc; wprtc.start();
 			while ( ilow != GACR.G.size() )
 			{
 				uint64_t s = 0;
@@ -5381,10 +5381,10 @@ struct BwtMergeSort
 					tmpfilenamebase 
 					// result.getFiles().getBWT() 
 					+ "_"
-					+ ::libmaus::util::NumberSerialisation::formatNumber(encfilenames.size(),6)
+					+ ::libmaus2::util::NumberSerialisation::formatNumber(encfilenames.size(),6)
 					+ ".bwt"
 				);
-				::libmaus::util::TempFileRemovalContainer::addTempFile(encfilenames.back());
+				::libmaus2::util::TempFileRemovalContainer::addTempFile(encfilenames.back());
 				ilow = ihigh;
 			}
 			assert ( wpacks.size() <= numthreads );
@@ -5395,15 +5395,15 @@ struct BwtMergeSort
 			#if !defined(HUFRL)
 			unsigned int const albits = rl_decoder::getAlBits(mergereq.children[0]->sortresult.getFiles().getBWT());
 			#endif
-			::libmaus::huffman::IndexDecoderDataArray IDD0(
+			::libmaus2::huffman::IndexDecoderDataArray IDD0(
 				mergereq.children[0]->sortresult.getFiles().getBWT());
-			::libmaus::huffman::IndexDecoderDataArray IDD1(
+			::libmaus2::huffman::IndexDecoderDataArray IDD1(
 				mergereq.children[1]->sortresult.getFiles().getBWT());
 			
-			::libmaus::huffman::IndexEntryContainerVector::unique_ptr_type IECV0 = ::libmaus::huffman::IndexLoader::loadAccIndex(
+			::libmaus2::huffman::IndexEntryContainerVector::unique_ptr_type IECV0 = ::libmaus2::huffman::IndexLoader::loadAccIndex(
 				mergereq.children[0]->sortresult.getFiles().getBWT()
 			);
-			::libmaus::huffman::IndexEntryContainerVector::unique_ptr_type IECV1 = ::libmaus::huffman::IndexLoader::loadAccIndex(
+			::libmaus2::huffman::IndexEntryContainerVector::unique_ptr_type IECV1 = ::libmaus2::huffman::IndexLoader::loadAccIndex(
 				mergereq.children[1]->sortresult.getFiles().getBWT()
 			);
 						
@@ -5431,9 +5431,9 @@ struct BwtMergeSort
 					uint64_t const outsuf = (ihigh-ilow)-(islast?1:0) + (P[b+1]-P[b]);
 
 					#if defined(HUFRL)
-					::libmaus::huffman::RLEncoderStd bwtenc(encfilename,0     ,outsuf,rlencoderblocksize);
+					::libmaus2::huffman::RLEncoderStd bwtenc(encfilename,0     ,outsuf,rlencoderblocksize);
 					#else
-					::libmaus::gamma::GammaRLEncoder bwtenc(encfilename,albits,outsuf,rlencoderblocksize);
+					::libmaus2::gamma::GammaRLEncoder bwtenc(encfilename,albits,outsuf,rlencoderblocksize);
 					#endif
 				
 					if ( islast )
@@ -5469,9 +5469,9 @@ struct BwtMergeSort
 			std::cerr << "[V] concatenating bwt parts...";			
 			rtc.start();
 			#if defined(HUFRL)
-			::libmaus::huffman::RLEncoderStd::concatenate(encfilenames,result.getFiles().getBWT());
+			::libmaus2::huffman::RLEncoderStd::concatenate(encfilenames,result.getFiles().getBWT());
 			#else
-			::libmaus::gamma::GammaRLEncoder::concatenate(encfilenames,result.getFiles().getBWT());
+			::libmaus2::gamma::GammaRLEncoder::concatenate(encfilenames,result.getFiles().getBWT());
 			#endif
 			std::cerr << "done, time " << rtc.getElapsedSeconds() << std::endl;
 			#endif
@@ -5503,8 +5503,8 @@ struct BwtMergeSort
 				// gap file name
 				if ( bb+1 < mergereq.children.size() )
 				{
-					std::string const newgapname = tmpfilenamebase + "_merging_" + ::libmaus::util::NumberSerialisation::formatNumber(bb,4) + ".gap";
-					::libmaus::util::TempFileRemovalContainer::addTempFile(newgapname);
+					std::string const newgapname = tmpfilenamebase + "_merging_" + ::libmaus2::util::NumberSerialisation::formatNumber(bb,4) + ".gap";
+					::libmaus2::util::TempFileRemovalContainer::addTempFile(newgapname);
 					gapfilenames.push_back(newgapname);
 				}
 
@@ -5513,11 +5513,11 @@ struct BwtMergeSort
 				for ( uint64_t i = 0; i < mergereq.children[bb]->sortresult.getFiles().getBWT().size(); ++i )
 				{
 					std::string const newbwtname = tmpfilenamebase + "_merging_" 
-						+ ::libmaus::util::NumberSerialisation::formatNumber(bb,4) 
+						+ ::libmaus2::util::NumberSerialisation::formatNumber(bb,4) 
 						+ "_"
-						+ ::libmaus::util::NumberSerialisation::formatNumber(i,4) 
+						+ ::libmaus2::util::NumberSerialisation::formatNumber(i,4) 
 						+ ".bwt";
-					::libmaus::util::TempFileRemovalContainer::addTempFile(newbwtname);
+					::libmaus2::util::TempFileRemovalContainer::addTempFile(newbwtname);
 					newbwtnames.push_back(newbwtname);
 				}
 				bwtfilenames.push_back(newbwtnames);
@@ -5537,7 +5537,7 @@ struct BwtMergeSort
 
 			// load char histogram for last block
 			std::string const & lblockhist = mergereq.children.back()->sortresult.getFiles().getHist();
-			::libmaus::lf::DArray::unique_ptr_type accD(new ::libmaus::lf::DArray(lblockhist));
+			::libmaus2::lf::DArray::unique_ptr_type accD(new ::libmaus2::lf::DArray(lblockhist));
 
 			/**
 			 * iteratively merge blocks together
@@ -5547,14 +5547,14 @@ struct BwtMergeSort
 				// block we merge into
 				uint64_t const bx = mergereq.children.size()-bb-2;
 				std::cerr << "[V] merging blocks " << bx+1 << " to end into " << bx << std::endl;
-				::libmaus::suffixsort::BwtMergeBlockSortResult const & blockresults = 
+				::libmaus2::suffixsort::BwtMergeBlockSortResult const & blockresults = 
 					mergereq.children[bx]->sortresult;
 
 				// output files for this iteration
-				std::string const newmergedgtname = tmpfilenamebase + "_merged_" + ::libmaus::util::NumberSerialisation::formatNumber(bx,4) + ".gt";
-				::libmaus::util::TempFileRemovalContainer::addTempFile(newmergedgtname);
-				std::string const newmergedisaname = tmpfilenamebase + "_merged_" + ::libmaus::util::NumberSerialisation::formatNumber(bx,4) + ".sampledisa";
-				::libmaus::util::TempFileRemovalContainer::addTempFile(newmergedisaname);
+				std::string const newmergedgtname = tmpfilenamebase + "_merged_" + ::libmaus2::util::NumberSerialisation::formatNumber(bx,4) + ".gt";
+				::libmaus2::util::TempFileRemovalContainer::addTempFile(newmergedgtname);
+				std::string const newmergedisaname = tmpfilenamebase + "_merged_" + ::libmaus2::util::NumberSerialisation::formatNumber(bx,4) + ".sampledisa";
+				::libmaus2::util::TempFileRemovalContainer::addTempFile(newmergedisaname);
 				// gap file
 				std::string const gapfile = gapfilenames[bx];
 
@@ -5575,7 +5575,7 @@ struct BwtMergeSort
 				saveGapFile(GACR.G,gapfile);
 
 				// merge sampled inverse suffix arrays, returns rank of position 0 (relative to block start)
-				libmaus::util::GetObject<uint32_t const *> mergeGO(GACR.G.begin());
+				libmaus2::util::GetObject<uint32_t const *> mergeGO(GACR.G.begin());
 				result.setBlockP0Rank( mergeIsa(mergedisaname,blockresults.getFiles().getSampledISA(),newmergedisaname,blockstart,mergeGO /*GACR.G.begin()*/,cblocksize+1 /*GACR.G.size()*/) );
 				
 				#if 0
@@ -5596,7 +5596,7 @@ struct BwtMergeSort
 						<< ".gt";
 					std::string const renamed = ostr.str();
 					oldgtnames.push_back(ostr.str());
-					::libmaus::util::TempFileRemovalContainer::addTempFile(renamed);
+					::libmaus2::util::TempFileRemovalContainer::addTempFile(renamed);
 					rename(blockresults.getFiles().getGT()[i].c_str(), renamed.c_str());
 				}
 
@@ -5627,7 +5627,7 @@ struct BwtMergeSort
 			accD->serialise(static_cast<std::string const & >(result.getFiles().getHist()));
 
 			std::cerr << "[V] merging parts...";
-			::libmaus::timing::RealTimeClock mprtc;
+			::libmaus2::timing::RealTimeClock mprtc;
 			mprtc.start();
 			result.setBWT(parallelGapFragMerge(
 				bwtfilenames,
@@ -5647,7 +5647,7 @@ struct BwtMergeSort
 
 		#if 0
 		std::cerr << "[V] computing term symbol hwt...";
-		::libmaus::timing::RealTimeClock mprtc;
+		::libmaus2::timing::RealTimeClock mprtc;
 		mprtc.start();
 		if ( input_types_type::utf8Wavelet() )
 			RlToHwtBase<true>::rlToHwtTerm(result.getFiles().getBWT(),result.getFiles().getHWT(),tmpfilenamebase + "_wt",chist,bwtterm,result.getBlockP0Rank());
@@ -5656,8 +5656,8 @@ struct BwtMergeSort
 		std::cerr << "done, time " << mprtc.getElapsedSeconds() << std::endl;
 		#endif
 
-		libmaus::util::TempFileRemovalContainer::addTempFile(result.getFiles().getHWTReq());
-		libmaus::aio::CheckedOutputStream hwtreqCOS(result.getFiles().getHWTReq());
+		libmaus2::util::TempFileRemovalContainer::addTempFile(result.getFiles().getHWTReq());
+		libmaus2::aio::CheckedOutputStream hwtreqCOS(result.getFiles().getHWTReq());
 		RlToHwtTermRequest::serialise(
 			hwtreqCOS,
 			result.getFiles().getBWT(),
@@ -5702,7 +5702,7 @@ struct BwtMergeSort
 		remove ( mergereq.children[mergereq.children.size()-1]->sortresult.getFiles().getHWT().c_str() );
 		
 		// get result object
-		::libmaus::suffixsort::BwtMergeBlockSortResult & result = mergereq.sortresult;
+		::libmaus2::suffixsort::BwtMergeBlockSortResult & result = mergereq.sortresult;
 		// fill result structure
 		result.setBlockStart( mergereq.children[0]->sortresult.getBlockStart() );
 		result.setCBlockSize( 0 );
@@ -5723,12 +5723,12 @@ struct BwtMergeSort
 		
 			std::string const & sblockhist = mergereq.children[1]->sortresult.getFiles().getHist();
 			// load char histogram for last/second block (for merging)
-			::libmaus::lf::DArray::unique_ptr_type accD(new ::libmaus::lf::DArray(
+			::libmaus2::lf::DArray::unique_ptr_type accD(new ::libmaus2::lf::DArray(
 				sblockhist
 				)
 			);
 			// first block
-			::libmaus::suffixsort::BwtMergeBlockSortResult const & blockresults = 
+			::libmaus2::suffixsort::BwtMergeBlockSortResult const & blockresults = 
 				mergereq.children[0]->sortresult;
 
 			// start of first block
@@ -5761,16 +5761,16 @@ struct BwtMergeSort
 				ostr << tmpfilenamebase << "_renamed_" << std::setw(6) << std::setfill('0') << i << std::setw(0) << ".gt";
 				std::string const renamed = ostr.str();
 				oldgtnames.push_back(ostr.str());
-				::libmaus::util::TempFileRemovalContainer::addTempFile(renamed);
+				::libmaus2::util::TempFileRemovalContainer::addTempFile(renamed);
 				rename(blockresults.getFiles().getGT()[i].c_str(), renamed.c_str());
 			}
 
 			result.setGT(stringVectorAppend(GACR.gtpartnames,oldgtnames));
 
 			// merge sampled inverse suffix arrays, returns rank of position 0 (relative to block start)
-			libmaus::suffixsort::GapArrayByteDecoder::unique_ptr_type pgap0dec(GACR.G->getDecoder());
-			libmaus::suffixsort::GapArrayByteDecoderBuffer::unique_ptr_type pgap0decbuf(new libmaus::suffixsort::GapArrayByteDecoderBuffer(*pgap0dec,8192));
-			// libmaus::suffixsort::GapArrayByteDecoderBuffer::iterator gap0decbufit = pgap0decbuf->begin();
+			libmaus2::suffixsort::GapArrayByteDecoder::unique_ptr_type pgap0dec(GACR.G->getDecoder());
+			libmaus2::suffixsort::GapArrayByteDecoderBuffer::unique_ptr_type pgap0decbuf(new libmaus2::suffixsort::GapArrayByteDecoderBuffer(*pgap0dec,8192));
+			// libmaus2::suffixsort::GapArrayByteDecoderBuffer::iterator gap0decbufit = pgap0decbuf->begin();
 			result.setBlockP0Rank( mergeIsa(
 				mergereq.children[1]->sortresult.getFiles().getSampledISA(), // old sampled isa
 				blockresults.getFiles().getSampledISA(), // new sampled isa
@@ -5779,7 +5779,7 @@ struct BwtMergeSort
 			pgap0decbuf.reset();
 			pgap0dec.reset();
 			
-			::libmaus::timing::RealTimeClock rtc; rtc.start();
+			::libmaus2::timing::RealTimeClock rtc; rtc.start();
 			std::cerr << "[V] merging BWTs...";
 			
 			//
@@ -5798,10 +5798,10 @@ struct BwtMergeSort
 			P.push_back(0);
 			
 			// std::cerr << "(computing work packets...";
-			libmaus::suffixsort::GapArrayByteDecoder::unique_ptr_type pgap1dec(GACR.G->getDecoder());
-			libmaus::suffixsort::GapArrayByteDecoderBuffer::unique_ptr_type pgap1decbuf(new libmaus::suffixsort::GapArrayByteDecoderBuffer(*pgap1dec,8192));
-			libmaus::suffixsort::GapArrayByteDecoderBuffer::iterator gap1decbufit = pgap1decbuf->begin();
-			::libmaus::timing::RealTimeClock wprtc; wprtc.start();
+			libmaus2::suffixsort::GapArrayByteDecoder::unique_ptr_type pgap1dec(GACR.G->getDecoder());
+			libmaus2::suffixsort::GapArrayByteDecoderBuffer::unique_ptr_type pgap1decbuf(new libmaus2::suffixsort::GapArrayByteDecoderBuffer(*pgap1dec,8192));
+			libmaus2::suffixsort::GapArrayByteDecoderBuffer::iterator gap1decbufit = pgap1decbuf->begin();
+			::libmaus2::timing::RealTimeClock wprtc; wprtc.start();
 			while ( ilow != (cblocksize+1) )
 			{
 				uint64_t s = 0;
@@ -5826,9 +5826,9 @@ struct BwtMergeSort
 				#if defined(GAP_ARRAY_BYTE_DEBUG)
 				{
 					// check obtained prefix sum
-					libmaus::suffixsort::GapArrayByteDecoder::unique_ptr_type pgap2dec(GACR.G->getDecoder(ilow));
-					libmaus::suffixsort::GapArrayByteDecoderBuffer::unique_ptr_type pgap2decbuf(new libmaus::suffixsort::GapArrayByteDecoderBuffer(*pgap2dec,8192));
-					libmaus::suffixsort::GapArrayByteDecoderBuffer::iterator gap2decbufit = pgap2decbuf->begin();
+					libmaus2::suffixsort::GapArrayByteDecoder::unique_ptr_type pgap2dec(GACR.G->getDecoder(ilow));
+					libmaus2::suffixsort::GapArrayByteDecoderBuffer::unique_ptr_type pgap2decbuf(new libmaus2::suffixsort::GapArrayByteDecoderBuffer(*pgap2dec,8192));
+					libmaus2::suffixsort::GapArrayByteDecoderBuffer::iterator gap2decbufit = pgap2decbuf->begin();
 					
 					uint64_t a = 0;
 					for ( uint64_t ia = ilow; ia < ihigh; ++ia )
@@ -5844,10 +5844,10 @@ struct BwtMergeSort
 					tmpfilenamebase 
 					// result.getFiles().getBWT() 
 					+ "_"
-					+ ::libmaus::util::NumberSerialisation::formatNumber(encfilenames.size(),6)
+					+ ::libmaus2::util::NumberSerialisation::formatNumber(encfilenames.size(),6)
 					+ ".bwt"
 				);
-				::libmaus::util::TempFileRemovalContainer::addTempFile(encfilenames.back());
+				::libmaus2::util::TempFileRemovalContainer::addTempFile(encfilenames.back());
 				ilow = ihigh;
 			}
 			assert ( wpacks.size() <= numthreads );
@@ -5860,15 +5860,15 @@ struct BwtMergeSort
 			#if !defined(HUFRL)
 			unsigned int const albits = rl_decoder::getAlBits(mergereq.children[0]->sortresult.getFiles().getBWT());
 			#endif
-			::libmaus::huffman::IndexDecoderDataArray IDD0(
+			::libmaus2::huffman::IndexDecoderDataArray IDD0(
 				mergereq.children[0]->sortresult.getFiles().getBWT());
-			::libmaus::huffman::IndexDecoderDataArray IDD1(
+			::libmaus2::huffman::IndexDecoderDataArray IDD1(
 				mergereq.children[1]->sortresult.getFiles().getBWT());
 			
-			::libmaus::huffman::IndexEntryContainerVector::unique_ptr_type IECV0 = ::libmaus::huffman::IndexLoader::loadAccIndex(
+			::libmaus2::huffman::IndexEntryContainerVector::unique_ptr_type IECV0 = ::libmaus2::huffman::IndexLoader::loadAccIndex(
 				mergereq.children[0]->sortresult.getFiles().getBWT()
 			);
-			::libmaus::huffman::IndexEntryContainerVector::unique_ptr_type IECV1 = ::libmaus::huffman::IndexLoader::loadAccIndex(
+			::libmaus2::huffman::IndexEntryContainerVector::unique_ptr_type IECV1 = ::libmaus2::huffman::IndexLoader::loadAccIndex(
 				mergereq.children[1]->sortresult.getFiles().getBWT()
 			);
 						
@@ -5896,14 +5896,14 @@ struct BwtMergeSort
 					uint64_t const outsuf = (ihigh-ilow)-(islast?1:0) + (P[b+1]-P[b]);
 
 					#if defined(HUFRL)
-					::libmaus::huffman::RLEncoderStd bwtenc(encfilename,0     ,outsuf,rlencoderblocksize);
+					::libmaus2::huffman::RLEncoderStd bwtenc(encfilename,0     ,outsuf,rlencoderblocksize);
 					#else
-					::libmaus::gamma::GammaRLEncoder bwtenc(encfilename,albits,outsuf,rlencoderblocksize);
+					::libmaus2::gamma::GammaRLEncoder bwtenc(encfilename,albits,outsuf,rlencoderblocksize);
 					#endif
 
-					libmaus::suffixsort::GapArrayByteDecoder::unique_ptr_type pgap3dec(GACR.G->getDecoder(ilow));
-					libmaus::suffixsort::GapArrayByteDecoderBuffer::unique_ptr_type pgap3decbuf(new libmaus::suffixsort::GapArrayByteDecoderBuffer(*pgap3dec,8192));
-					libmaus::suffixsort::GapArrayByteDecoderBuffer::iterator gap3decbufit = pgap3decbuf->begin();
+					libmaus2::suffixsort::GapArrayByteDecoder::unique_ptr_type pgap3dec(GACR.G->getDecoder(ilow));
+					libmaus2::suffixsort::GapArrayByteDecoderBuffer::unique_ptr_type pgap3decbuf(new libmaus2::suffixsort::GapArrayByteDecoderBuffer(*pgap3dec,8192));
+					libmaus2::suffixsort::GapArrayByteDecoderBuffer::iterator gap3decbufit = pgap3decbuf->begin();
 				
 					if ( islast )
 					{
@@ -5945,9 +5945,9 @@ struct BwtMergeSort
 			std::cerr << "[V] concatenating bwt parts...";			
 			rtc.start();
 			#if defined(HUFRL)
-			::libmaus::huffman::RLEncoderStd::concatenate(encfilenames,result.getFiles().getBWT());
+			::libmaus2::huffman::RLEncoderStd::concatenate(encfilenames,result.getFiles().getBWT());
 			#else
-			::libmaus::gamma::GammaRLEncoder::concatenate(encfilenames,result.getFiles().getBWT());
+			::libmaus2::gamma::GammaRLEncoder::concatenate(encfilenames,result.getFiles().getBWT());
 			#endif
 			std::cerr << "done, time " << rtc.getElapsedSeconds() << std::endl;
 			#endif
@@ -5979,8 +5979,8 @@ struct BwtMergeSort
 				// gap file name
 				if ( bb+1 < mergereq.children.size() )
 				{
-					std::string const newgapname = tmpfilenamebase + "_merging_" + ::libmaus::util::NumberSerialisation::formatNumber(bb,4) + ".gap";
-					::libmaus::util::TempFileRemovalContainer::addTempFile(newgapname);
+					std::string const newgapname = tmpfilenamebase + "_merging_" + ::libmaus2::util::NumberSerialisation::formatNumber(bb,4) + ".gap";
+					::libmaus2::util::TempFileRemovalContainer::addTempFile(newgapname);
 					gapfilenames.push_back(newgapname);
 				}
 
@@ -5989,11 +5989,11 @@ struct BwtMergeSort
 				for ( uint64_t i = 0; i < mergereq.children[bb]->sortresult.getFiles().getBWT().size(); ++i )
 				{
 					std::string const newbwtname = tmpfilenamebase + "_merging_" 
-						+ ::libmaus::util::NumberSerialisation::formatNumber(bb,4) 
+						+ ::libmaus2::util::NumberSerialisation::formatNumber(bb,4) 
 						+ "_"
-						+ ::libmaus::util::NumberSerialisation::formatNumber(i,4) 
+						+ ::libmaus2::util::NumberSerialisation::formatNumber(i,4) 
 						+ ".bwt";
-					::libmaus::util::TempFileRemovalContainer::addTempFile(newbwtname);
+					::libmaus2::util::TempFileRemovalContainer::addTempFile(newbwtname);
 					newbwtnames.push_back(newbwtname);
 				}
 				bwtfilenames.push_back(newbwtnames);
@@ -6013,7 +6013,7 @@ struct BwtMergeSort
 
 			// load char histogram for last block
 			std::string const & lblockhist = mergereq.children.back()->sortresult.getFiles().getHist();
-			::libmaus::lf::DArray::unique_ptr_type accD(new ::libmaus::lf::DArray(lblockhist));
+			::libmaus2::lf::DArray::unique_ptr_type accD(new ::libmaus2::lf::DArray(lblockhist));
 
 			/**
 			 * iteratively merge blocks together
@@ -6023,16 +6023,16 @@ struct BwtMergeSort
 				// block we merge into
 				uint64_t const bx = mergereq.children.size()-bb-2;
 				std::cerr << "[V] merging blocks " << bx+1 << " to end into " << bx << std::endl;
-				::libmaus::suffixsort::BwtMergeBlockSortResult const & blockresults = 
+				::libmaus2::suffixsort::BwtMergeBlockSortResult const & blockresults = 
 					mergereq.children[bx]->sortresult;
 
 				// output files for this iteration
-				std::string const newmergedgtname = tmpfilenamebase + "_merged_" + ::libmaus::util::NumberSerialisation::formatNumber(bx,4) + ".gt";
-				::libmaus::util::TempFileRemovalContainer::addTempFile(newmergedgtname);
-				std::string const newmergedisaname = tmpfilenamebase + "_merged_" + ::libmaus::util::NumberSerialisation::formatNumber(bx,4) + ".sampledisa";
-				::libmaus::util::TempFileRemovalContainer::addTempFile(newmergedisaname);
-				std::string const newmergedgapoverflow = tmpfilenamebase + "_merged_" + ::libmaus::util::NumberSerialisation::formatNumber(bx,4) + ".gapoverflow";
-				::libmaus::util::TempFileRemovalContainer::addTempFile(newmergedgapoverflow);
+				std::string const newmergedgtname = tmpfilenamebase + "_merged_" + ::libmaus2::util::NumberSerialisation::formatNumber(bx,4) + ".gt";
+				::libmaus2::util::TempFileRemovalContainer::addTempFile(newmergedgtname);
+				std::string const newmergedisaname = tmpfilenamebase + "_merged_" + ::libmaus2::util::NumberSerialisation::formatNumber(bx,4) + ".sampledisa";
+				::libmaus2::util::TempFileRemovalContainer::addTempFile(newmergedisaname);
+				std::string const newmergedgapoverflow = tmpfilenamebase + "_merged_" + ::libmaus2::util::NumberSerialisation::formatNumber(bx,4) + ".gapoverflow";
+				::libmaus2::util::TempFileRemovalContainer::addTempFile(newmergedgapoverflow);
 				// gap file
 				std::string const gapfile = gapfilenames[bx];
 
@@ -6058,9 +6058,9 @@ struct BwtMergeSort
 				#endif
 
 				// merge sampled inverse suffix arrays, returns rank of position 0 (relative to block start)
-				// libmaus::util::GetObject<uint32_t const *> mergeGO(GACR.G.begin());
-				libmaus::suffixsort::GapArrayByteDecoder::unique_ptr_type pgap0dec(GACR.G->getDecoder());
-				libmaus::suffixsort::GapArrayByteDecoderBuffer::unique_ptr_type pgap0decbuf(new libmaus::suffixsort::GapArrayByteDecoderBuffer(*pgap0dec,8192));
+				// libmaus2::util::GetObject<uint32_t const *> mergeGO(GACR.G.begin());
+				libmaus2::suffixsort::GapArrayByteDecoder::unique_ptr_type pgap0dec(GACR.G->getDecoder());
+				libmaus2::suffixsort::GapArrayByteDecoderBuffer::unique_ptr_type pgap0decbuf(new libmaus2::suffixsort::GapArrayByteDecoderBuffer(*pgap0dec,8192));
 				result.setBlockP0Rank( mergeIsa(mergedisaname,blockresults.getFiles().getSampledISA(),newmergedisaname,blockstart,*pgap0decbuf/*mergeGO*/ /*GACR.G.begin()*/,cblocksize+1 /*GACR.G.size()*/) );
 				
 				#if 0
@@ -6081,7 +6081,7 @@ struct BwtMergeSort
 						<< ".gt";
 					std::string const renamed = ostr.str();
 					oldgtnames.push_back(ostr.str());
-					::libmaus::util::TempFileRemovalContainer::addTempFile(renamed);
+					::libmaus2::util::TempFileRemovalContainer::addTempFile(renamed);
 					rename(blockresults.getFiles().getGT()[i].c_str(), renamed.c_str());
 				}
 
@@ -6112,7 +6112,7 @@ struct BwtMergeSort
 			accD->serialise(static_cast<std::string const & >(result.getFiles().getHist()));
 
 			std::cerr << "[V] merging parts...";
-			::libmaus::timing::RealTimeClock mprtc;
+			::libmaus2::timing::RealTimeClock mprtc;
 			mprtc.start();
 			result.setBWT(parallelGapFragMerge(
 				bwtfilenames,
@@ -6132,7 +6132,7 @@ struct BwtMergeSort
 
 		#if 0
 		std::cerr << "[V] computing term symbol hwt...";
-		::libmaus::timing::RealTimeClock mprtc;
+		::libmaus2::timing::RealTimeClock mprtc;
 		mprtc.start();
 		if ( input_types_type::utf8Wavelet() )
 			RlToHwtBase<true>::rlToHwtTerm(result.getFiles().getBWT(),result.getFiles().getHWT(),tmpfilenamebase + "_wt",chist,bwtterm,result.getBlockP0Rank());
@@ -6141,8 +6141,8 @@ struct BwtMergeSort
 		std::cerr << "done, time " << mprtc.getElapsedSeconds() << std::endl;
 		#endif
 
-		libmaus::util::TempFileRemovalContainer::addTempFile(result.getFiles().getHWTReq());
-		libmaus::aio::CheckedOutputStream hwtreqCOS(result.getFiles().getHWTReq());
+		libmaus2::util::TempFileRemovalContainer::addTempFile(result.getFiles().getHWTReq());
+		libmaus2::aio::CheckedOutputStream hwtreqCOS(result.getFiles().getHWTReq());
 		RlToHwtTermRequest::serialise(
 			hwtreqCOS,
 			result.getFiles().getBWT(),
@@ -6188,7 +6188,7 @@ struct BwtMergeSort
 		remove ( mergereq.children[mergereq.children.size()-1]->sortresult.getFiles().getHWT().c_str() );
 		
 		// get result object
-		::libmaus::suffixsort::BwtMergeBlockSortResult & result = mergereq.sortresult;
+		::libmaus2::suffixsort::BwtMergeBlockSortResult & result = mergereq.sortresult;
 		// fill result structure
 		result.setBlockStart( mergereq.children[0]->sortresult.getBlockStart() );
 		result.setCBlockSize ( 0 );
@@ -6211,7 +6211,7 @@ struct BwtMergeSort
 				// gap file name
 				if ( bb+1 < mergereq.children.size() )
 				{
-					std::string const newgapname = tmpfilenamebase + "_merging_" + ::libmaus::util::NumberSerialisation::formatNumber(bb,4) + ".gap";
+					std::string const newgapname = tmpfilenamebase + "_merging_" + ::libmaus2::util::NumberSerialisation::formatNumber(bb,4) + ".gap";
 					gapfilenameprefixes.push_back(newgapname);	
 					gapfilenames.push_back(std::vector<std::string>());
 				}
@@ -6221,11 +6221,11 @@ struct BwtMergeSort
 				for ( uint64_t i = 0; i < mergereq.children[bb]->sortresult.getFiles().getBWT().size(); ++i )
 				{
 					std::string const newbwtname = tmpfilenamebase + "_merging_" 
-						+ ::libmaus::util::NumberSerialisation::formatNumber(bb,4) 
+						+ ::libmaus2::util::NumberSerialisation::formatNumber(bb,4) 
 						+ "_"
-						+ ::libmaus::util::NumberSerialisation::formatNumber(i,4) 
+						+ ::libmaus2::util::NumberSerialisation::formatNumber(i,4) 
 						+ ".bwt";
-					::libmaus::util::TempFileRemovalContainer::addTempFile(newbwtname);
+					::libmaus2::util::TempFileRemovalContainer::addTempFile(newbwtname);
 					newbwtnames.push_back(newbwtname);
 				}
 				bwtfilenames.push_back(newbwtnames);
@@ -6246,7 +6246,7 @@ struct BwtMergeSort
 
 			// load char histogram for last block
 			std::string const & lblockhist = mergereq.children.back()->sortresult.getFiles().getHist();
-			::libmaus::lf::DArray::unique_ptr_type accD(new ::libmaus::lf::DArray(lblockhist));
+			::libmaus2::lf::DArray::unique_ptr_type accD(new ::libmaus2::lf::DArray(lblockhist));
 
 			/**
 			 * iteratively merge blocks together
@@ -6258,14 +6258,14 @@ struct BwtMergeSort
 				// block we merge into
 				uint64_t const bx = mergereq.children.size()-bb-2;
 				std::cerr << "[V] merging blocks " << bx+1 << " to end into " << bx << std::endl;
-				::libmaus::suffixsort::BwtMergeBlockSortResult const & blockresults = 
+				::libmaus2::suffixsort::BwtMergeBlockSortResult const & blockresults = 
 					mergereq.children[bx]->sortresult;
 
 				// output files for this iteration
-				std::string const newmergedgtname = tmpfilenamebase + "_merged_" + ::libmaus::util::NumberSerialisation::formatNumber(bx,4) + ".gt";
-				::libmaus::util::TempFileRemovalContainer::addTempFile(newmergedgtname);
-				std::string const newmergedisaname = tmpfilenamebase + "_merged_" + ::libmaus::util::NumberSerialisation::formatNumber(bx,4) + ".sampledisa";
-				::libmaus::util::TempFileRemovalContainer::addTempFile(newmergedisaname);
+				std::string const newmergedgtname = tmpfilenamebase + "_merged_" + ::libmaus2::util::NumberSerialisation::formatNumber(bx,4) + ".gt";
+				::libmaus2::util::TempFileRemovalContainer::addTempFile(newmergedgtname);
+				std::string const newmergedisaname = tmpfilenamebase + "_merged_" + ::libmaus2::util::NumberSerialisation::formatNumber(bx,4) + ".sampledisa";
+				::libmaus2::util::TempFileRemovalContainer::addTempFile(newmergedisaname);
 				// gap file
 				std::string const gapfilenameprefix = gapfilenameprefixes[bx];
 
@@ -6286,7 +6286,7 @@ struct BwtMergeSort
 				gapfilenames[bx] = GACR.fn;
 
 				// merge sampled inverse suffix arrays, returns rank of position 0 (relative to block start)
-				libmaus::gamma::GammaGapDecoder GGD(gapfilenames[bx]);
+				libmaus2::gamma::GammaGapDecoder GGD(gapfilenames[bx]);
 				result.setBlockP0Rank( mergeIsa(mergedisaname,blockresults.getFiles().getSampledISA(),newmergedisaname,blockstart,GGD,cblocksize+1 /*GACR.G.size()*/) );
 				
 				// concatenate gt vectors
@@ -6305,7 +6305,7 @@ struct BwtMergeSort
 						<< ".gt";
 					std::string const renamed = ostr.str();
 					oldgtnames.push_back(ostr.str());
-					::libmaus::util::TempFileRemovalContainer::addTempFile(renamed);
+					::libmaus2::util::TempFileRemovalContainer::addTempFile(renamed);
 					rename(blockresults.getFiles().getGT()[i].c_str(), renamed.c_str());
 				}
 
@@ -6334,7 +6334,7 @@ struct BwtMergeSort
 			accD->serialise(static_cast<std::string const & >(result.getFiles().getHist()));
 
 			std::cerr << "[V] merging parts...";
-			::libmaus::timing::RealTimeClock mprtc;
+			::libmaus2::timing::RealTimeClock mprtc;
 			mprtc.start();
 			result.setBWT(
 				parallelGapFragMerge(bwtfilenames,gapfilenames,tmpfilenamebase+"_gpart",numthreads,
@@ -6352,7 +6352,7 @@ struct BwtMergeSort
 
 		#if 0
 		std::cerr << "[V] computing term symbol hwt...";
-		::libmaus::timing::RealTimeClock mprtc;
+		::libmaus2::timing::RealTimeClock mprtc;
 		mprtc.start();
 		if ( input_types_type::utf8Wavelet() )
 			RlToHwtBase<true>::rlToHwtTerm(result.getFiles().getBWT(),result.getFiles().getHWT(),tmpfilenamebase + "_wt",chist,bwtterm,result.getBlockP0Rank());
@@ -6361,8 +6361,8 @@ struct BwtMergeSort
 		std::cerr << "done, time " << mprtc.getElapsedSeconds() << std::endl;
 		#endif
 
-		libmaus::util::TempFileRemovalContainer::addTempFile(result.getFiles().getHWTReq());
-		libmaus::aio::CheckedOutputStream hwtreqCOS(result.getFiles().getHWTReq());
+		libmaus2::util::TempFileRemovalContainer::addTempFile(result.getFiles().getHWTReq());
+		libmaus2::aio::CheckedOutputStream hwtreqCOS(result.getFiles().getHWTReq());
 		RlToHwtTermRequest::serialise(hwtreqCOS,
 			result.getFiles().getBWT(),
 			result.getFiles().getHWT(),
@@ -6386,12 +6386,12 @@ struct BwtMergeSort
 	{
 		// sort sampled inverse suffix array file
 		std::string const mergeisatmp = mergedisaname+".tmp";
-		::libmaus::util::TempFileRemovalContainer::addTempFile(mergeisatmp);
+		::libmaus2::util::TempFileRemovalContainer::addTempFile(mergeisatmp);
 		std::string const mergeisatmpout = mergedisaname+".tmp.out";
-		::libmaus::util::TempFileRemovalContainer::addTempFile(mergeisatmpout);
+		::libmaus2::util::TempFileRemovalContainer::addTempFile(mergeisatmpout);
 		// uint64_t const blockmem = 5*blocksize;
 		// uint64_t const blockels = (blockmem + 2*sizeof(uint64_t)-1)/(2*sizeof(uint64_t));
-		::libmaus::sorting::PairFileSorting::sortPairFile(
+		::libmaus2::sorting::PairFileSorting::sortPairFile(
 			std::vector<std::string>(1,mergedisaname),mergeisatmp,true /* second comp */,
 			true,true,mergeisatmpout,blockmem/2/*par*/,true /* parallel */);
 		remove ( (mergeisatmp).c_str() );
@@ -6401,15 +6401,15 @@ struct BwtMergeSort
 
 	static uint64_t readBlockRanksSize(std::string const & mergedisaname)
 	{
-		return ::libmaus::util::GetFileSize::getFileSize(mergedisaname)/(2*sizeof(uint64_t));		
+		return ::libmaus2::util::GetFileSize::getFileSize(mergedisaname)/(2*sizeof(uint64_t));		
 	}
 
-	static ::libmaus::autoarray::AutoArray< std::pair<uint64_t,uint64_t> > readBlockRanks(std::string const & mergedisaname)
+	static ::libmaus2::autoarray::AutoArray< std::pair<uint64_t,uint64_t> > readBlockRanks(std::string const & mergedisaname)
 	{
 		// read sampled isa
 		uint64_t const nsisa = readBlockRanksSize(mergedisaname);
-		::libmaus::autoarray::AutoArray< std::pair<uint64_t,uint64_t> > blockranks(nsisa,false);
-		::libmaus::aio::SynchronousGenericInput<uint64_t>::unique_ptr_type SGIsisa(new ::libmaus::aio::SynchronousGenericInput<uint64_t>(mergedisaname,16*1024));
+		::libmaus2::autoarray::AutoArray< std::pair<uint64_t,uint64_t> > blockranks(nsisa,false);
+		::libmaus2::aio::SynchronousGenericInput<uint64_t>::unique_ptr_type SGIsisa(new ::libmaus2::aio::SynchronousGenericInput<uint64_t>(mergedisaname,16*1024));
 		for ( uint64_t i = 0; i < nsisa; ++i )
 		{
 			int64_t const r = SGIsisa->get();
@@ -6432,12 +6432,12 @@ struct BwtMergeSort
 		uint64_t const lfblockmult
 	)
 	{
-		::libmaus::parallel::OMPLock cerrlock;
+		::libmaus2::parallel::OMPLock cerrlock;
 		// number of sampled suffix array elements
 		uint64_t const nsa = (fs + sasamplingrate - 1) / sasamplingrate;
 		
 		// check that this matches what we have in the file
-		assert ( ::libmaus::util::GetFileSize::getFileSize(mergedsaname) / (sizeof(uint64_t)) ==  nsa + 2 );
+		assert ( ::libmaus2::util::GetFileSize::getFileSize(mergedsaname) / (sizeof(uint64_t)) ==  nsa + 2 );
 		
 		if ( nsa && nsa-1 )
 		{
@@ -6447,7 +6447,7 @@ struct BwtMergeSort
 			uint64_t const sacheckpacks = ( checkpos + sacheckblocksize - 1 ) / sacheckblocksize;
 			
 			std::cerr << "[V] checking suffix array on text...";
-			::libmaus::parallel::SynchronousCounter<uint64_t> SC;
+			::libmaus2::parallel::SynchronousCounter<uint64_t> SC;
 			int64_t lastperc = -1;
 			#if defined(_OPENMP)
 			#pragma omp parallel for schedule(dynamic,1)
@@ -6460,7 +6460,7 @@ struct BwtMergeSort
 				
 				// std::cerr << "low=" << low << " high=" << high << " nsa=" << nsa << " cnt=" << cnt << std::endl;
 
-				::libmaus::aio::SynchronousGenericInput<uint64_t> SGIsa(mergedsaname,16*1024,low+2,cnt+1);
+				::libmaus2::aio::SynchronousGenericInput<uint64_t> SGIsa(mergedsaname,16*1024,low+2,cnt+1);
 				
 				typename input_types_type::circular_suffix_comparator CSC(fn,fs);
 				
@@ -6501,7 +6501,7 @@ struct BwtMergeSort
 	static void computeSampledSA(
 		std::string const & fn,
 		uint64_t const fs,
-		::libmaus::lf::ImpCompactHuffmanWaveletLF const & IHWT,
+		::libmaus2::lf::ImpCompactHuffmanWaveletLF const & IHWT,
 		std::string const & mergedisaname,
 		std::string const & outfn,
 		std::string const & tmpfilenamebase,
@@ -6515,7 +6515,7 @@ struct BwtMergeSort
 		// read size of sampled isa
 		uint64_t const nsisa = readBlockRanksSize(mergedisaname);
 
-		::libmaus::aio::SynchronousGenericInput<uint64_t>::unique_ptr_type SGIsisasa(new ::libmaus::aio::SynchronousGenericInput<uint64_t>(mergedisaname,16*1024));
+		::libmaus2::aio::SynchronousGenericInput<uint64_t>::unique_ptr_type SGIsisasa(new ::libmaus2::aio::SynchronousGenericInput<uint64_t>(mergedisaname,16*1024));
 		int64_t const fr = SGIsisasa->get(); assert ( fr != -1 );
 		int64_t const fp = SGIsisasa->get(); assert ( fp != -1 );
 		
@@ -6526,21 +6526,21 @@ struct BwtMergeSort
 		
 		::std::vector< std::string > satempfilenames(numthreads);
 		::std::vector< std::string > isatempfilenames(numthreads);
-		::libmaus::autoarray::AutoArray < ::libmaus::aio::SynchronousGenericOutput<uint64_t>::unique_ptr_type > SAF(numthreads);
-		::libmaus::autoarray::AutoArray < ::libmaus::aio::SynchronousGenericOutput<uint64_t>::unique_ptr_type > ISAF(numthreads);
+		::libmaus2::autoarray::AutoArray < ::libmaus2::aio::SynchronousGenericOutput<uint64_t>::unique_ptr_type > SAF(numthreads);
+		::libmaus2::autoarray::AutoArray < ::libmaus2::aio::SynchronousGenericOutput<uint64_t>::unique_ptr_type > ISAF(numthreads);
 		for ( uint64_t i = 0; i < numthreads; ++i )
 		{
-			satempfilenames[i] = ( tmpfilenamebase + ".sampledsa_" + ::libmaus::util::NumberSerialisation::formatNumber(i,6) );
-			::libmaus::util::TempFileRemovalContainer::addTempFile(satempfilenames[i]);
-			::libmaus::aio::SynchronousGenericOutput<uint64_t>::unique_ptr_type tSAFi(
-				new ::libmaus::aio::SynchronousGenericOutput<uint64_t>(satempfilenames[i],8*1024)
+			satempfilenames[i] = ( tmpfilenamebase + ".sampledsa_" + ::libmaus2::util::NumberSerialisation::formatNumber(i,6) );
+			::libmaus2::util::TempFileRemovalContainer::addTempFile(satempfilenames[i]);
+			::libmaus2::aio::SynchronousGenericOutput<uint64_t>::unique_ptr_type tSAFi(
+				new ::libmaus2::aio::SynchronousGenericOutput<uint64_t>(satempfilenames[i],8*1024)
 			);
 			SAF[i] = UNIQUE_PTR_MOVE(tSAFi);
 
-			isatempfilenames[i] = ( tmpfilenamebase + ".sampledisa_" + ::libmaus::util::NumberSerialisation::formatNumber(i,6) );
-			::libmaus::util::TempFileRemovalContainer::addTempFile(isatempfilenames[i]);
-			::libmaus::aio::SynchronousGenericOutput<uint64_t>::unique_ptr_type tISAFi(
-				new ::libmaus::aio::SynchronousGenericOutput<uint64_t>(isatempfilenames[i],8*1024)
+			isatempfilenames[i] = ( tmpfilenamebase + ".sampledisa_" + ::libmaus2::util::NumberSerialisation::formatNumber(i,6) );
+			::libmaus2::util::TempFileRemovalContainer::addTempFile(isatempfilenames[i]);
+			::libmaus2::aio::SynchronousGenericOutput<uint64_t>::unique_ptr_type tISAFi(
+				new ::libmaus2::aio::SynchronousGenericOutput<uint64_t>(isatempfilenames[i],8*1024)
 			);
 			ISAF[i] = UNIQUE_PTR_MOVE(tISAFi);
 		}
@@ -6615,15 +6615,15 @@ struct BwtMergeSort
 		std::cerr << "done." << std::endl;
 		
 		std::cerr << "[V] sorting and merging sampled suffix array parts...";
-		std::string const mergedsaname = ::libmaus::util::OutputFileNameTools::clipOff(outfn,".bwt") + ".sa";
+		std::string const mergedsaname = ::libmaus2::util::OutputFileNameTools::clipOff(outfn,".bwt") + ".sa";
 		{
-		::libmaus::aio::CheckedOutputStream::unique_ptr_type pmergedsa(new ::libmaus::aio::CheckedOutputStream(mergedsaname));
+		::libmaus2::aio::CheckedOutputStream::unique_ptr_type pmergedsa(new ::libmaus2::aio::CheckedOutputStream(mergedsaname));
 		// write sampling rate
-		::libmaus::serialize::Serialize<uint64_t>::serialize(*pmergedsa,sasamplingrate);
-		::libmaus::serialize::Serialize<uint64_t>::serialize(*pmergedsa,(fs + sasamplingrate-1)/sasamplingrate);
+		::libmaus2::serialize::Serialize<uint64_t>::serialize(*pmergedsa,sasamplingrate);
+		::libmaus2::serialize::Serialize<uint64_t>::serialize(*pmergedsa,(fs + sasamplingrate-1)/sasamplingrate);
 		std::string const mergesatmp = mergedsaname + ".tmp";
-		::libmaus::util::TempFileRemovalContainer::addTempFile(mergesatmp);
-		::libmaus::sorting::PairFileSorting::sortPairFile(
+		::libmaus2::util::TempFileRemovalContainer::addTempFile(mergesatmp);
+		::libmaus2::sorting::PairFileSorting::sortPairFile(
 			satempfilenames,mergesatmp,
 			false /* second comp */,
 			false /* keep first */,
@@ -6640,14 +6640,14 @@ struct BwtMergeSort
 		std::cerr << "done." << std::endl;		
 
 		std::cerr << "[V] sorting and merging sampled inverse suffix array parts...";
-		std::string const mergedisaoutname = ::libmaus::util::OutputFileNameTools::clipOff(outfn,".bwt") + ".isa";
-		::libmaus::aio::CheckedOutputStream::unique_ptr_type pmergedisa(new ::libmaus::aio::CheckedOutputStream(mergedisaoutname));
+		std::string const mergedisaoutname = ::libmaus2::util::OutputFileNameTools::clipOff(outfn,".bwt") + ".isa";
+		::libmaus2::aio::CheckedOutputStream::unique_ptr_type pmergedisa(new ::libmaus2::aio::CheckedOutputStream(mergedisaoutname));
 		// write sampling rate
-		::libmaus::serialize::Serialize<uint64_t>::serialize(*pmergedisa,isasamplingrate);
-		::libmaus::serialize::Serialize<uint64_t>::serialize(*pmergedisa,(fs+isasamplingrate-1)/isasamplingrate);
+		::libmaus2::serialize::Serialize<uint64_t>::serialize(*pmergedisa,isasamplingrate);
+		::libmaus2::serialize::Serialize<uint64_t>::serialize(*pmergedisa,(fs+isasamplingrate-1)/isasamplingrate);
 		std::string const mergeisatmp = mergedisaoutname + ".tmp";
-		::libmaus::util::TempFileRemovalContainer::addTempFile(mergeisatmp);
-		::libmaus::sorting::PairFileSorting::sortPairFile(
+		::libmaus2::util::TempFileRemovalContainer::addTempFile(mergeisatmp);
+		::libmaus2::sorting::PairFileSorting::sortPairFile(
 			isatempfilenames,mergeisatmp,
 			false /* second comp */,
 			false /* keep first */,
@@ -6757,12 +6757,12 @@ struct BwtMergeSort
 	
 	struct HashHistogram
 	{
-		libmaus::autoarray::AutoArray<uint64_t> L;
-		libmaus::util::ExtendingSimpleCountingHash<uint64_t,uint64_t> H;
-		libmaus::autoarray::AutoArray< std::pair<uint64_t,uint64_t> > P;
+		libmaus2::autoarray::AutoArray<uint64_t> L;
+		libmaus2::util::ExtendingSimpleCountingHash<uint64_t,uint64_t> H;
+		libmaus2::autoarray::AutoArray< std::pair<uint64_t,uint64_t> > P;
 		uint64_t p;
 		
-		HashHistogram(uint64_t const lowsize = 256, uint64_t const bigsize = (1ull<<16) ) : L(lowsize), H(libmaus::math::nextTwoPow(bigsize)), P(64ull*1024ull), p(0) {}
+		HashHistogram(uint64_t const lowsize = 256, uint64_t const bigsize = (1ull<<16) ) : L(lowsize), H(libmaus2::math::nextTwoPow(bigsize)), P(64ull*1024ull), p(0) {}
 		
 		void clear()
 		{
@@ -6796,8 +6796,8 @@ struct BwtMergeSort
 			for ( uint64_t i = 0; i < L.size(); ++i )
 				if ( L[i] )
 					nonzero++;
-			for ( libmaus::util::ExtendingSimpleCountingHash<uint64_t,uint64_t>::key_type const * k = H.begin(); k != H.end(); ++k )
-				if ( *k != libmaus::util::ExtendingSimpleCountingHash<uint64_t,uint64_t>::unused() )
+			for ( libmaus2::util::ExtendingSimpleCountingHash<uint64_t,uint64_t>::key_type const * k = H.begin(); k != H.end(); ++k )
+				if ( *k != libmaus2::util::ExtendingSimpleCountingHash<uint64_t,uint64_t>::unused() )
 					nonzero++;
 					
 			if ( P.size() < nonzero )
@@ -6809,8 +6809,8 @@ struct BwtMergeSort
 				if ( L[i] )
 					P[p++] = std::pair<uint64_t,uint64_t>(i,L[i]);
 					
-			for ( libmaus::util::ExtendingSimpleCountingHash<uint64_t,uint64_t>::key_type const * k = H.begin(); k != H.end(); ++k )
-				if ( *k != libmaus::util::ExtendingSimpleCountingHash<uint64_t,uint64_t>::unused() )
+			for ( libmaus2::util::ExtendingSimpleCountingHash<uint64_t,uint64_t>::key_type const * k = H.begin(); k != H.end(); ++k )
+				if ( *k != libmaus2::util::ExtendingSimpleCountingHash<uint64_t,uint64_t>::unused() )
 					P[p++] = std::pair<uint64_t,uint64_t>(*k,H.cntbegin() [ (k-H.begin()) ] );
 					
 			std::sort(P.begin(),P.begin()+p);
@@ -6821,7 +6821,7 @@ struct BwtMergeSort
 	{
 		typedef typename input_types_type::linear_wrapper stream_type;
 		typedef typename input_types_type::base_input_stream::char_type char_type;
-		typedef typename ::libmaus::util::UnsignedCharVariant<char_type>::type unsigned_char_type;
+		typedef typename ::libmaus2::util::UnsignedCharVariant<char_type>::type unsigned_char_type;
 		
 		uint64_t const fs = ghigh-glow;
 		
@@ -6840,7 +6840,7 @@ struct BwtMergeSort
 		// uint64_t const numfrags = (fs + symsperfrag - 1)/symsperfrag;
 		uint64_t const loops = (symsperfrag + loopsize -1)/loopsize;
 
-		::libmaus::autoarray::AutoArray<unsigned_char_type> GB(loopsize*numthreads,false);
+		::libmaus2::autoarray::AutoArray<unsigned_char_type> GB(loopsize*numthreads,false);
 
 		#if defined(_OPENMP)
 		#pragma omp parallel for
@@ -6883,7 +6883,7 @@ struct BwtMergeSort
 	{
 		typedef typename input_types_type::linear_wrapper stream_type;
 		typedef typename input_types_type::base_input_stream::char_type char_type;
-		typedef typename ::libmaus::util::UnsignedCharVariant<char_type>::type unsigned_char_type;
+		typedef typename ::libmaus2::util::UnsignedCharVariant<char_type>::type unsigned_char_type;
 		
 		uint64_t const fs = ghigh-glow;
 		
@@ -6896,7 +6896,7 @@ struct BwtMergeSort
 		uint64_t const symsperfrag = (fs + numthreads - 1)/numthreads;
 		uint64_t const numfrags = (fs + symsperfrag - 1)/symsperfrag;
 
-		libmaus::util::HistogramSet HS(numfrags,256);
+		libmaus2::util::HistogramSet HS(numfrags,256);
 
 		#if defined(_OPENMP)
 		#pragma omp parallel for
@@ -6911,8 +6911,8 @@ struct BwtMergeSort
 			stream_type CIS(fn);
 			CIS.seekg(low);
 
-			::libmaus::autoarray::AutoArray<unsigned_char_type> B(16*1024,false);
-			libmaus::util::Histogram & H = HS[t];
+			::libmaus2::autoarray::AutoArray<unsigned_char_type> B(16*1024,false);
+			libmaus2::util::Histogram & H = HS[t];
 			
 			while ( todo )
 			{
@@ -6925,8 +6925,8 @@ struct BwtMergeSort
 			}
 		}
 
-		::libmaus::util::Histogram::unique_ptr_type PH(HS.merge());
-		::libmaus::util::Histogram & H(*PH);
+		::libmaus2::util::Histogram::unique_ptr_type PH(HS.merge());
+		::libmaus2::util::Histogram & H(*PH);
 
 		return H.getByType<int64_t>();
 	}
@@ -6941,18 +6941,18 @@ struct BwtMergeSort
 		return (b < fullblocks) ? blocksize : (blocksize-1);
 	}
 				
-	static int computeBwt(::libmaus::util::ArgInfo const & arginfo)
+	static int computeBwt(::libmaus2::util::ArgInfo const & arginfo)
 	{
-		libmaus::timing::RealTimeClock bwtclock;
+		libmaus2::timing::RealTimeClock bwtclock;
 		bwtclock.start();
 	
 		#if defined(FERAMANZGEN_MEMORY_DEBUG)
 		uint64_t mcnt = 0;
 		#endif
 		
-		::libmaus::util::TempFileRemovalContainer::setup();
+		::libmaus2::util::TempFileRemovalContainer::setup();
 		uint64_t const rlencoderblocksize = 16*1024;
-		::libmaus::parallel::OMPLock cerrlock;
+		::libmaus2::parallel::OMPLock cerrlock;
 
 		#if defined(_OPENMP)
 		uint64_t const numthreads = omp_get_max_threads();
@@ -6970,21 +6970,21 @@ struct BwtMergeSort
 		std::string const chistfilename = tmpfilenamebase + ".chist";
 		// file name of serialised huffman tree
 		std::string const huftreefilename = tmpfilenamebase + ".huftree";
-		::libmaus::util::TempFileRemovalContainer::addTempFile(chistfilename);
-		::libmaus::util::TempFileRemovalContainer::addTempFile(huftreefilename);
+		::libmaus2::util::TempFileRemovalContainer::addTempFile(chistfilename);
+		::libmaus2::util::TempFileRemovalContainer::addTempFile(huftreefilename);
 		// output file name
 		std::string const outfn = arginfo.getValue<std::string>("outputfilename",tmpfilenamebase+".bwt");
 		// final inverse suffix array sampling rate
-		uint64_t const isasamplingrate = ::libmaus::math::nextTwoPow(arginfo.getValue<uint64_t>("isasamplingrate",getDefaultIsaSamplingRate()));
+		uint64_t const isasamplingrate = ::libmaus2::math::nextTwoPow(arginfo.getValue<uint64_t>("isasamplingrate",getDefaultIsaSamplingRate()));
 		// final suffix array sampling rate
-		uint64_t const sasamplingrate = ::libmaus::math::nextTwoPow(arginfo.getValue<uint64_t>("sasamplingrate",getDefaultSaSamplingRate()));
+		uint64_t const sasamplingrate = ::libmaus2::math::nextTwoPow(arginfo.getValue<uint64_t>("sasamplingrate",getDefaultSaSamplingRate()));
 
 		// file name		
 		std::string const fn = arginfo.getRestArg<std::string>(0);
 		// check whether file exists
-		if ( ! ::libmaus::util::GetFileSize::fileExists(fn) )
+		if ( ! ::libmaus2::util::GetFileSize::fileExists(fn) )
 		{
-			::libmaus::exception::LibMausException se;
+			::libmaus2::exception::LibMausException se;
 			se.getStream() << "File " << fn << " does not exist or cannot be opened." << std::endl;
 			se.finish();
 			throw se;
@@ -6996,7 +6996,7 @@ struct BwtMergeSort
 		/* check that file is not empty */
 		if ( ! fs )
 		{
-			::libmaus::exception::LibMausException se;
+			::libmaus2::exception::LibMausException se;
 			se.getStream() << "File " << fn << " is empty." << std::endl;
 			se.finish();
 			throw se;		
@@ -7028,16 +7028,16 @@ struct BwtMergeSort
 		assert ( fullblocks * blocksize + redblocks * (blocksize-1) == fs );
 		
 		// next power of two
-		uint64_t const blocksizenexttwo = ::libmaus::math::nextTwoPow(blocksize);
+		uint64_t const blocksizenexttwo = ::libmaus2::math::nextTwoPow(blocksize);
 		// prev power of two
 		uint64_t const blocksizeprevtwo = (blocksize == blocksizenexttwo) ? blocksize : (blocksizenexttwo / 2);
 		
 		// ISA sampling rate during block merging
-		uint64_t const preisasamplingrate = std::min(::libmaus::math::nextTwoPow(arginfo.getValue<uint64_t>("preisasamplingrate",256*1024)),blocksizeprevtwo);
+		uint64_t const preisasamplingrate = std::min(::libmaus2::math::nextTwoPow(arginfo.getValue<uint64_t>("preisasamplingrate",256*1024)),blocksizeprevtwo);
 
 			
 		#if defined(FERAMANZGEN_MEMORY_DEBUG)
-		std::cerr << "[M"<< (mcnt++) << "] " << libmaus::util::MemUsage() << " " << libmaus::autoarray::AutoArrayMemUsage() << std::endl;
+		std::cerr << "[M"<< (mcnt++) << "] " << libmaus2::util::MemUsage() << " " << libmaus2::autoarray::AutoArrayMemUsage() << std::endl;
 		#endif
 		
 		std::cerr << "[V] sorting file " << fn << " of size " << fs << " with block size " << blocksize << " (" << numblocks << " blocks)" << " and " << numthreads << " threads" << std::endl;
@@ -7049,7 +7049,7 @@ struct BwtMergeSort
 		#if 0
 		std::vector<int64_t> minblockperiods(numblocks);
 		// compute periods
-		libmaus::parallel::OMPLock block;
+		libmaus2::parallel::OMPLock block;
 		#if defined(_OPENMP)
 		#pragma omp parallel for schedule(dynamic,1)
 		#endif
@@ -7066,14 +7066,14 @@ struct BwtMergeSort
 
 			uint64_t const readlen = 3 * blocksize;
 			circular_wrapper textstr(fn,blockstart);
-			libmaus::autoarray::AutoArray<char_type> A(readlen,false);
+			libmaus2::autoarray::AutoArray<char_type> A(readlen,false);
 			textstr.read(&A[0],A.size());
 
 			block.lock();
 			std::cerr << "\r" << std::string(80,' ') << "\r[Checking " << (bb+1) << "/" << numblocks << "]\r";
 			block.unlock();
 
-			libmaus::util::BorderArray<uint32_t> SBA(A.begin(),A.size());
+			libmaus2::util::BorderArray<uint32_t> SBA(A.begin(),A.size());
 			
 			uint64_t minper = std::numeric_limits<uint64_t>::max();
 			for ( uint64_t i = (blocksize-1); i < A.size(); ++i )
@@ -7107,10 +7107,10 @@ struct BwtMergeSort
 
 		std::cerr << "[V] computing LCP between block suffixes and the following block start: ";
 		std::vector<uint64_t> largelcpblocks;
-		libmaus::parallel::OMPLock largelcpblockslock;
+		libmaus2::parallel::OMPLock largelcpblockslock;
 		uint64_t const largelcpthres = 16*1024;
 		std::vector<uint64_t> boundedlcpblockvalues(numblocks);
-		libmaus::parallel::SynchronousCounter<uint64_t> largelcpblockscomputed(0);
+		libmaus2::parallel::SynchronousCounter<uint64_t> largelcpblockscomputed(0);
 		#if defined(_OPENMP)
 		#pragma omp parallel for schedule(dynamic,1)
 		#endif
@@ -7131,12 +7131,12 @@ struct BwtMergeSort
 
 			if ( blcp >= largelcpthres )
 			{
-				libmaus::parallel::ScopeLock slock(largelcpblockslock);
+				libmaus2::parallel::ScopeLock slock(largelcpblockslock);
 				largelcpblocks.push_back(b);
 			}
 
 			{
-			libmaus::parallel::ScopeLock slock(largelcpblockslock);
+			libmaus2::parallel::ScopeLock slock(largelcpblockslock);
 			uint64_t const finished = ++largelcpblockscomputed;
 			std::cerr << "(" << static_cast<double>(finished)/numblocks << ")";
 			}
@@ -7168,16 +7168,16 @@ struct BwtMergeSort
 		
 		// exit(0);
 
-		::libmaus::suffixsort::BwtMergeTempFileNameSetVector blocktmpnames(tmpfilenamebase, numblocks, numthreads /* bwt */, numthreads /* gt */);
+		::libmaus2::suffixsort::BwtMergeTempFileNameSetVector blocktmpnames(tmpfilenamebase, numblocks, numthreads /* bwt */, numthreads /* gt */);
 
 		#if defined(FERAMANZGEN_MEMORY_DEBUG)
-		std::cerr << "[M"<< (mcnt++) << "] " << libmaus::util::MemUsage() << " " << libmaus::autoarray::AutoArrayMemUsage() << std::endl;
+		std::cerr << "[M"<< (mcnt++) << "] " << libmaus2::util::MemUsage() << " " << libmaus2::autoarray::AutoArrayMemUsage() << std::endl;
 		#endif
 
 		std::cerr << "[V] computing symbol frequences" << std::endl;
 		std::map<int64_t,uint64_t> chistnoterm;	
 		// std::vector< std::map<int64_t,uint64_t> > blockfreqvec(numblocks);
-		libmaus::timing::RealTimeClock rtc;
+		libmaus2::timing::RealTimeClock rtc;
 		for ( uint64_t bb = 0; bb < numblocks; ++bb )
 		{
 			// block id
@@ -7191,9 +7191,9 @@ struct BwtMergeSort
 				getBlockSymFreqs(fn,blockstart,blockstart+cblocksize);
 			
 			std::string const freqstmpfilename = blocktmpnames[b].getHist() + ".freqs";
-			libmaus::util::TempFileRemovalContainer::addTempFile(freqstmpfilename);	
-			libmaus::aio::CheckedOutputStream freqCOS(freqstmpfilename);
-			libmaus::util::NumberMapSerialisation::serialiseMap(freqCOS,blockfreqs);
+			libmaus2::util::TempFileRemovalContainer::addTempFile(freqstmpfilename);	
+			libmaus2::aio::CheckedOutputStream freqCOS(freqstmpfilename);
+			libmaus2::util::NumberMapSerialisation::serialiseMap(freqCOS,blockfreqs);
 			freqCOS.flush();
 			freqCOS.close();
 			
@@ -7228,11 +7228,11 @@ struct BwtMergeSort
 		uint64_t const maxsym = chist.size() ? chist.rbegin()->first : 0;
 
 		#if defined(FERAMANZGEN_MEMORY_DEBUG)
-		std::cerr << "[M"<< (mcnt++) << "] " << libmaus::util::MemUsage() << " " << libmaus::autoarray::AutoArrayMemUsage() << std::endl;
+		std::cerr << "[M"<< (mcnt++) << "] " << libmaus2::util::MemUsage() << " " << libmaus2::autoarray::AutoArrayMemUsage() << std::endl;
 		#endif
 		
-		libmaus::aio::CheckedOutputStream::unique_ptr_type chistCOS(new libmaus::aio::CheckedOutputStream(chistfilename));
-		(*chistCOS) << ::libmaus::util::NumberMapSerialisation::serialiseMap(chist);
+		libmaus2::aio::CheckedOutputStream::unique_ptr_type chistCOS(new libmaus2::aio::CheckedOutputStream(chistfilename));
+		(*chistCOS) << ::libmaus2::util::NumberMapSerialisation::serialiseMap(chist);
 		chistCOS->flush();
 		chistCOS->close();
 		chistCOS.reset();
@@ -7242,26 +7242,26 @@ struct BwtMergeSort
 		std::cerr << "[V] bwtterm=" << bwtterm << std::endl;
 
 		#if defined(FERAMANZGEN_MEMORY_DEBUG)
-		std::cerr << "[M"<< (mcnt++) << "] " << libmaus::util::MemUsage() << " " << libmaus::autoarray::AutoArrayMemUsage() << std::endl;
+		std::cerr << "[M"<< (mcnt++) << "] " << libmaus2::util::MemUsage() << " " << libmaus2::autoarray::AutoArrayMemUsage() << std::endl;
 		#endif
 
-		libmaus::huffman::HuffmanTree::unique_ptr_type uhnode(new libmaus::huffman::HuffmanTree(chist.begin(),chist.size(),false,true,true));
+		libmaus2::huffman::HuffmanTree::unique_ptr_type uhnode(new libmaus2::huffman::HuffmanTree(chist.begin(),chist.size(),false,true,true));
 		
-		libmaus::aio::CheckedOutputStream::unique_ptr_type huftreeCOS(new libmaus::aio::CheckedOutputStream(huftreefilename));
+		libmaus2::aio::CheckedOutputStream::unique_ptr_type huftreeCOS(new libmaus2::aio::CheckedOutputStream(huftreefilename));
 		uhnode->serialise(*huftreeCOS);
 		huftreeCOS->flush();
 		huftreeCOS->close();
 		huftreeCOS.reset();
 
 		#if defined(FERAMANZGEN_MEMORY_DEBUG)
-		std::cerr << "[M"<< (mcnt++) << "] " << libmaus::util::MemUsage() << " " << libmaus::autoarray::AutoArrayMemUsage() << std::endl;
+		std::cerr << "[M"<< (mcnt++) << "] " << libmaus2::util::MemUsage() << " " << libmaus2::autoarray::AutoArrayMemUsage() << std::endl;
 		#endif
 		
-		::libmaus::huffman::HuffmanTree::EncodeTable::unique_ptr_type EC(
-			new ::libmaus::huffman::HuffmanTree::EncodeTable(*uhnode));
+		::libmaus2::huffman::HuffmanTree::EncodeTable::unique_ptr_type EC(
+			new ::libmaus2::huffman::HuffmanTree::EncodeTable(*uhnode));
 
 		#if defined(FERAMANZGEN_MEMORY_DEBUG)
-		std::cerr << "[M"<< (mcnt++) << "] " << libmaus::util::MemUsage() << " " << libmaus::autoarray::AutoArrayMemUsage() << std::endl;
+		std::cerr << "[M"<< (mcnt++) << "] " << libmaus2::util::MemUsage() << " " << libmaus2::autoarray::AutoArrayMemUsage() << std::endl;
 		#endif
 
 		std::vector < MergeStrategyBlock::shared_ptr_type > stratleafs(numblocks);
@@ -7280,9 +7280,9 @@ struct BwtMergeSort
 			// symbol frequency map
 			// std::map<int64_t,uint64_t> const & blockfreqs = blockfreqvec[b];
 			std::string const freqstmpfilename = blocktmpnames[b].getHist() + ".freqs";
-			libmaus::aio::CheckedInputStream freqCIS(freqstmpfilename);
+			libmaus2::aio::CheckedInputStream freqCIS(freqstmpfilename);
 			std::map<int64_t,uint64_t> const blockfreqs = 
-				libmaus::util::NumberMapSerialisation::deserialiseMap<libmaus::aio::CheckedInputStream,int64_t,uint64_t>(freqCIS);
+				libmaus2::util::NumberMapSerialisation::deserialiseMap<libmaus2::aio::CheckedInputStream,int64_t,uint64_t>(freqCIS);
 			freqCIS.close();
 			remove(freqstmpfilename.c_str());
 			// 
@@ -7301,7 +7301,7 @@ struct BwtMergeSort
 			);
 			
 			/* set up and register sort request */
-			::libmaus::suffixsort::BwtMergeZBlockRequestVector zreqvec;
+			::libmaus2::suffixsort::BwtMergeZBlockRequestVector zreqvec;
 			dynamic_cast<MergeStrategyBaseBlock *>(PMSB.get())->sortreq = 
 				BwtMergeBlockSortRequest(
 					input_types_type::getType(),
@@ -7325,7 +7325,7 @@ struct BwtMergeSort
 			stratleafs[b] = PMSB;
 
 			#if defined(FERAMANZGEN_MEMORY_DEBUG)
-			std::cerr << "[M"<< (mcnt++) << "] " << libmaus::util::MemUsage() << " " << libmaus::autoarray::AutoArrayMemUsage() << std::endl;
+			std::cerr << "[M"<< (mcnt++) << "] " << libmaus2::util::MemUsage() << " " << libmaus2::autoarray::AutoArrayMemUsage() << std::endl;
 			#endif
 		}
 
@@ -7333,7 +7333,7 @@ struct BwtMergeSort
 		EC.reset();
 
 		#if defined(FERAMANZGEN_MEMORY_DEBUG)
-		std::cerr << "[M"<< (mcnt++) << "] " << libmaus::util::MemUsage() << " " << libmaus::autoarray::AutoArrayMemUsage() << std::endl;
+		std::cerr << "[M"<< (mcnt++) << "] " << libmaus2::util::MemUsage() << " " << libmaus2::autoarray::AutoArrayMemUsage() << std::endl;
 		#endif
 
 
@@ -7346,7 +7346,7 @@ struct BwtMergeSort
 		MergeStrategyBlock::shared_ptr_type mergetree = constructMergeTree(stratleafs,mem,numthreads,wordsperthread);
 		
 		#if defined(FERAMANZGEN_MEMORY_DEBUG)
-		std::cerr << "[M"<< (mcnt++) << "] " << libmaus::util::MemUsage() << " " << libmaus::autoarray::AutoArrayMemUsage() << std::endl;
+		std::cerr << "[M"<< (mcnt++) << "] " << libmaus2::util::MemUsage() << " " << libmaus2::autoarray::AutoArrayMemUsage() << std::endl;
 		#endif
 
 		// inner node queue
@@ -7355,7 +7355,7 @@ struct BwtMergeSort
 		std::cerr << "[V] sorting blocks" << std::endl;
 
 		#if defined(FERAMANZGEN_MEMORY_DEBUG)
-		std::cerr << "[M"<< (mcnt++) << "] " << libmaus::util::MemUsage() << " " << libmaus::autoarray::AutoArrayMemUsage() << std::endl;
+		std::cerr << "[M"<< (mcnt++) << "] " << libmaus2::util::MemUsage() << " " << libmaus2::autoarray::AutoArrayMemUsage() << std::endl;
 		#endif
 		
 		// sort single blocks
@@ -7367,20 +7367,20 @@ struct BwtMergeSort
 		std::cerr << "[V] sorted blocks" << std::endl;
 		
 		#if defined(FERAMANZGEN_MEMORY_DEBUG)
-		std::cerr << "[M"<< (mcnt++) << "] " << libmaus::util::MemUsage() << " " << libmaus::autoarray::AutoArrayMemUsage() << std::endl;
+		std::cerr << "[M"<< (mcnt++) << "] " << libmaus2::util::MemUsage() << " " << libmaus2::autoarray::AutoArrayMemUsage() << std::endl;
 		#endif
 
 		#if 0
 		uint64_t maxhwtsize = 0;
 		for ( uint64_t i = 0; i < stratleafs.size(); ++i )
-			maxhwtsize = std::max(maxhwtsize,::libmaus::util::GetFileSize::getFileSize(stratleafs[i]->sortresult.getFiles().getHWT()));
+			maxhwtsize = std::max(maxhwtsize,::libmaus2::util::GetFileSize::getFileSize(stratleafs[i]->sortresult.getFiles().getHWT()));
 		#endif
 		
 		std::cerr << "[V] filling gap request objects" << std::endl;
 		mergetree->fillGapRequestObjects(numthreads);
 
 		#if defined(FERAMANZGEN_MEMORY_DEBUG)
-		std::cerr << "[M"<< (mcnt++) << "] " << libmaus::util::MemUsage() << " " << libmaus::autoarray::AutoArrayMemUsage() << std::endl;
+		std::cerr << "[M"<< (mcnt++) << "] " << libmaus2::util::MemUsage() << " " << libmaus2::autoarray::AutoArrayMemUsage() << std::endl;
 		#endif
 		
 		std::cerr << "[V]" << std::string(80,'-') << std::endl;
@@ -7452,7 +7452,7 @@ struct BwtMergeSort
 				itodo.push_back(p->parent);
 				
 			#if defined(FERAMANZGEN_MEMORY_DEBUG)
-			std::cerr << "[M"<< (mcnt++) << "] " << libmaus::util::MemUsage() << " " << libmaus::autoarray::AutoArrayMemUsage() << std::endl;
+			std::cerr << "[M"<< (mcnt++) << "] " << libmaus2::util::MemUsage() << " " << libmaus2::autoarray::AutoArrayMemUsage() << std::endl;
 			#endif
 		}
 
@@ -7462,21 +7462,21 @@ struct BwtMergeSort
 
 		uint64_t const memperthread = (mem + numthreads-1)/numthreads;
 
-		::libmaus::suffixsort::BwtMergeBlockSortResult const mergeresult = mergetree->sortresult;
+		::libmaus2::suffixsort::BwtMergeBlockSortResult const mergeresult = mergetree->sortresult;
 		
 		#if defined(HUFRL)
-		::libmaus::huffman::RLEncoderStd::concatenate(mergeresult.getFiles().getBWT(),outfn,true /* removeinput */);
+		::libmaus2::huffman::RLEncoderStd::concatenate(mergeresult.getFiles().getBWT(),outfn,true /* removeinput */);
 		#else
-		::libmaus::gamma::GammaRLEncoder::concatenate(mergeresult.getFiles().getBWT(),outfn,true /* removeinput */);
+		::libmaus2::gamma::GammaRLEncoder::concatenate(mergeresult.getFiles().getBWT(),outfn,true /* removeinput */);
 		#endif
 		//rename ( mergeresult.getFiles().getBWT().c_str(), outfn.c_str() );
 		
 		std::cerr << "[V] BWT computed in time " << bwtclock.formatTime(bwtclock.getElapsedSeconds()) << std::endl;
 
 		// serialise character histogram
-		std::string const outhist = ::libmaus::util::OutputFileNameTools::clipOff(outfn,".bwt") + ".hist";
-		::libmaus::aio::CheckedOutputStream::unique_ptr_type Phistout(new ::libmaus::aio::CheckedOutputStream(outhist));
-		::libmaus::util::NumberMapSerialisation::serialiseMap(*Phistout,chistnoterm);
+		std::string const outhist = ::libmaus2::util::OutputFileNameTools::clipOff(outfn,".bwt") + ".hist";
+		::libmaus2::aio::CheckedOutputStream::unique_ptr_type Phistout(new ::libmaus2::aio::CheckedOutputStream(outhist));
+		::libmaus2::util::NumberMapSerialisation::serialiseMap(*Phistout,chistnoterm);
 		Phistout->flush();
 		Phistout->close();
 		Phistout.reset();
@@ -7485,7 +7485,7 @@ struct BwtMergeSort
 		remove ( mergeresult.getFiles().getHWTReq().c_str() );
 		
 		// remove hwt (null op)
-		std::string const debhwt = ::libmaus::util::OutputFileNameTools::clipOff(outfn,".bwt") + ".hwt" + ".deb";
+		std::string const debhwt = ::libmaus2::util::OutputFileNameTools::clipOff(outfn,".bwt") + ".hwt" + ".deb";
 		rename ( mergeresult.getFiles().getHWT().c_str(), debhwt.c_str() );
 		remove ( debhwt.c_str() );
 		
@@ -7496,18 +7496,18 @@ struct BwtMergeSort
 		if ( ! bwtonly )
 		{	
 			std::cerr << "[V] computing Huffman shaped wavelet tree of final BWT...";	
-			std::string const outhwt = ::libmaus::util::OutputFileNameTools::clipOff(outfn,".bwt") + ".hwt";
-			libmaus::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type pICHWT;
+			std::string const outhwt = ::libmaus2::util::OutputFileNameTools::clipOff(outfn,".bwt") + ".hwt";
+			libmaus2::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type pICHWT;
 			if ( input_types_type::utf8Wavelet() )
 			{
-				libmaus::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type tICHWT(
+				libmaus2::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type tICHWT(
 					RlToHwtBase<true>::rlToHwt(outfn, outhwt, tmpfilenamebase+"_finalhwttmp")
 				);
 				pICHWT = UNIQUE_PTR_MOVE(tICHWT);
 			}
 			else
 			{
-				libmaus::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type tICHWT(
+				libmaus2::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type tICHWT(
 					RlToHwtBase<false>::rlToHwt(outfn, outhwt, tmpfilenamebase+"_finalhwttmp")
 				);		
 				pICHWT = UNIQUE_PTR_MOVE(tICHWT);
@@ -7515,7 +7515,7 @@ struct BwtMergeSort
 			std::cerr << "done, " << std::endl;
 			
 			std::cerr << "[V] loading Huffman shaped wavelet tree of final BWT...";	
-			::libmaus::lf::ImpCompactHuffmanWaveletLF IHWT(pICHWT);
+			::libmaus2::lf::ImpCompactHuffmanWaveletLF IHWT(pICHWT);
 			std::cerr << "done." << std::endl;
 
 			// sort the sampled isa file	
@@ -7540,18 +7540,18 @@ int main(int argc, char * argv[])
 {
 	try
 	{
-		::libmaus::util::ArgInfo const arginfo(argc,argv);
-		libmaus::timing::RealTimeClock rtc; rtc.start();
+		::libmaus2::util::ArgInfo const arginfo(argc,argv);
+		libmaus2::timing::RealTimeClock rtc; rtc.start();
 
 		#if defined(_OPENMP)
 		unsigned int const maxthreads = omp_get_max_threads();
-		unsigned int const numthreads = arginfo.getValue<unsigned int>("numthreads", BwtMergeSort<libmaus::suffixsort::ByteInputTypes>::getDefaultNumThreads());
+		unsigned int const numthreads = arginfo.getValue<unsigned int>("numthreads", BwtMergeSort<libmaus2::suffixsort::ByteInputTypes>::getDefaultNumThreads());
 		omp_set_num_threads(numthreads);
 		#endif
 		
 		if ( arginfo.helpRequested() || ! arginfo.restargs.size() )
 		{
-			::libmaus::exception::LibMausException se;
+			::libmaus2::exception::LibMausException se;
 			
 			std::ostream & str = se.getStream();
 			
@@ -7562,14 +7562,14 @@ int main(int argc, char * argv[])
 			str << "options:" << std::endl;
 			str << "inputtype=[<bytestream>] (bytestream,compactstream,pac,pacterm,lz4,utf-8)" << std::endl;
 			str << "outputfilename=[<"<< arginfo.getDefaultTmpFileName()+".bwt" << ">] (name of output .bwt file)" << std::endl;
-			str << "sasamplingrate=[" << BwtMergeSort<libmaus::suffixsort::ByteInputTypes>::getDefaultSaSamplingRate() << "] sampling rate for sampled suffix array"<< std::endl;
-			str << "isasamplingrate=[" << BwtMergeSort<libmaus::suffixsort::ByteInputTypes>::getDefaultIsaSamplingRate() << "] sampling rate for sampled inverse suffix array"<< std::endl;
-			// str << "blocksize=[" << BwtMergeSort<libmaus::suffixsort::ByteInputTypes>::getDefaultBlockSize(BwtMergeSort<libmaus::suffixsort::ByteInputTypes>::getDefaultMem(),numthreads) << "] block size" << std::endl;
-			str << "mem=[" << BwtMergeSort<libmaus::suffixsort::ByteInputTypes>::getDefaultMem() << "] memory target" << std::endl;
+			str << "sasamplingrate=[" << BwtMergeSort<libmaus2::suffixsort::ByteInputTypes>::getDefaultSaSamplingRate() << "] sampling rate for sampled suffix array"<< std::endl;
+			str << "isasamplingrate=[" << BwtMergeSort<libmaus2::suffixsort::ByteInputTypes>::getDefaultIsaSamplingRate() << "] sampling rate for sampled inverse suffix array"<< std::endl;
+			// str << "blocksize=[" << BwtMergeSort<libmaus2::suffixsort::ByteInputTypes>::getDefaultBlockSize(BwtMergeSort<libmaus2::suffixsort::ByteInputTypes>::getDefaultMem(),numthreads) << "] block size" << std::endl;
+			str << "mem=[" << BwtMergeSort<libmaus2::suffixsort::ByteInputTypes>::getDefaultMem() << "] memory target" << std::endl;
 			#if defined(_OPENMP)
-			str << "numthreads=[" << BwtMergeSort<libmaus::suffixsort::ByteInputTypes>::getDefaultNumThreads() << "] number of threads" << std::endl;
+			str << "numthreads=[" << BwtMergeSort<libmaus2::suffixsort::ByteInputTypes>::getDefaultNumThreads() << "] number of threads" << std::endl;
 			#endif
-			str << "bwtonly=[" << BwtMergeSort<libmaus::suffixsort::ByteInputTypes>::getDefaultBWTOnly() << "] compute BWT only (no sampled suffix array and reverse)" << std::endl;
+			str << "bwtonly=[" << BwtMergeSort<libmaus2::suffixsort::ByteInputTypes>::getDefaultBWTOnly() << "] compute BWT only (no sampled suffix array and reverse)" << std::endl;
 			// blocksize
 			
 			se.finish();
@@ -7580,33 +7580,33 @@ int main(int argc, char * argv[])
 		std::string const inputtype = arginfo.getValue<std::string>("inputtype","bytestream");
 		
 		if ( inputtype == "compactstream" )
-			BwtMergeSort<libmaus::suffixsort::CompactInputTypes>::computeBwt(arginfo);
+			BwtMergeSort<libmaus2::suffixsort::CompactInputTypes>::computeBwt(arginfo);
 		else if ( inputtype == "pac" )
-			BwtMergeSort<libmaus::suffixsort::PacInputTypes>::computeBwt(arginfo);
+			BwtMergeSort<libmaus2::suffixsort::PacInputTypes>::computeBwt(arginfo);
 		else if ( inputtype == "pacterm" )
-			BwtMergeSort<libmaus::suffixsort::PacTermInputTypes>::computeBwt(arginfo);
+			BwtMergeSort<libmaus2::suffixsort::PacTermInputTypes>::computeBwt(arginfo);
 		else if ( inputtype == "lz4" )
-			BwtMergeSort<libmaus::suffixsort::Lz4InputTypes>::computeBwt(arginfo);
+			BwtMergeSort<libmaus2::suffixsort::Lz4InputTypes>::computeBwt(arginfo);
 		else if ( inputtype == "utf-8" )
 		{
 			// compute index of file for random access, if it does not already exist
 			std::string const fn = arginfo.getRestArg<std::string>(0);
 			std::string const idxfn = fn + ".idx";
-			if ( ! ::libmaus::util::GetFileSize::fileExists(idxfn) )
+			if ( ! ::libmaus2::util::GetFileSize::fileExists(idxfn) )
 			{
-				::libmaus::util::Utf8BlockIndex::unique_ptr_type index(::libmaus::util::Utf8BlockIndex::constructFromUtf8File(fn));
-				::libmaus::aio::CheckedOutputStream COS(idxfn);
+				::libmaus2::util::Utf8BlockIndex::unique_ptr_type index(::libmaus2::util::Utf8BlockIndex::constructFromUtf8File(fn));
+				::libmaus2::aio::CheckedOutputStream COS(idxfn);
 				index->serialise(COS);
 				COS.flush();
 				COS.close();
 			}
-			BwtMergeSort<libmaus::suffixsort::Utf8InputTypes>::computeBwt(arginfo);
+			BwtMergeSort<libmaus2::suffixsort::Utf8InputTypes>::computeBwt(arginfo);
 		}
 		else if ( inputtype == "bytestream" )
-			BwtMergeSort<libmaus::suffixsort::ByteInputTypes>::computeBwt(arginfo);			
+			BwtMergeSort<libmaus2::suffixsort::ByteInputTypes>::computeBwt(arginfo);			
 		else
 		{
-			libmaus::exception::LibMausException se;
+			libmaus2::exception::LibMausException se;
 			se.getStream() << "Unknown input type " << inputtype << std::endl;
 			se.finish();
 			throw se;
@@ -7616,7 +7616,7 @@ int main(int argc, char * argv[])
 		omp_set_num_threads(maxthreads);		
 		#endif
 		
-		std::cerr << "[M] " << libmaus::util::MemUsage() << " runtime " << rtc.formatTime(rtc.getElapsedSeconds()) << std::endl;
+		std::cerr << "[M] " << libmaus2::util::MemUsage() << " runtime " << rtc.formatTime(rtc.getElapsedSeconds()) << std::endl;
 	}
 	catch(std::exception const & ex)
 	{

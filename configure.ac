@@ -22,30 +22,30 @@ AC_LANG_PUSH([C++])
 AC_HEADER_STDC
 AC_LANG_POP
 
-AC_ARG_WITH([libmaus],
-            [AS_HELP_STRING([--with-libmaus@<:@=PATH@:>@], [path to installed libmaus library @<:@default=@:>@])],
-            [with_libmaus=${withval}],
-            [with_libmaus=])
+AC_ARG_WITH([libmaus2],
+            [AS_HELP_STRING([--with-libmaus2@<:@=PATH@:>@], [path to installed libmaus2 library @<:@default=@:>@])],
+            [with_libmaus2=${withval}],
+            [with_libmaus2=])
 
-if test ! -z "${with_libmaus}" ; then
+if test ! -z "${with_libmaus2}" ; then
 	PKGCONFIGPATHSAVE="${PKG_CONFIG_PATH}"
 	if test -z "${PKG_CONFIG_PATH}" ; then
-		export PKG_CONFIG_PATH="${with_libmaus}/lib/pkgconfig"
+		export PKG_CONFIG_PATH="${with_libmaus2}/lib/pkgconfig"
 	else
-		export PKG_CONFIG_PATH="${with_libmaus}/lib/pkgconfig:${PKG_CONFIG_PATH}"
+		export PKG_CONFIG_PATH="${with_libmaus2}/lib/pkgconfig:${PKG_CONFIG_PATH}"
 	fi
 fi
 
-PKG_CHECK_MODULES([libmaus],[libmaus >= 0.0.185])
+PKG_CHECK_MODULES([libmaus2],[libmaus2 >= 2.0.10])
 
-if test ! -z "${with_libmaus}" ; then
+if test ! -z "${with_libmaus2}" ; then
 	if test ! -z "${PKGCONFIGPATHSAVE}" ; then
 		export PKG_CONFIG_PATH="${PKGCONFIGPATHSAVE}"
 	fi
 fi
 
-CPPFLAGS="${CPPFLAGS} ${libmaus_CFLAGS}"
-LIBS="${LIBS} ${libmaus_LIBS}"
+CPPFLAGS="${CPPFLAGS} ${libmaus2_CFLAGS}"
+LIBS="${LIBS} ${libmaus2_LIBS}"
 
 if test "${CXX}" = "g++" ; then
 	CPPFLAGS="${CPPFLAGS} -W -Wall"

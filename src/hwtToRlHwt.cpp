@@ -16,32 +16,32 @@
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 **/
-#include <libmaus/huffman/RLDecoder.hpp>
-#include <libmaus/util/ArgInfo.hpp>
-#include <libmaus/util/utf8.hpp>
-#include <libmaus/util/NumberMapSerialisation.hpp>
-#include <libmaus/util/OutputFileNameTools.hpp>
-#include <libmaus/util/TempFileRemovalContainer.hpp>
-#include <libmaus/huffman/HuffmanTree.hpp>
-#include <libmaus/rank/RunLengthBitVectorGenerator.hpp>
-#include <libmaus/aio/CheckedInputOutputStream.hpp>
-#include <libmaus/wavelet/ImpCompactHuffmanWaveletTree.hpp>
+#include <libmaus2/huffman/RLDecoder.hpp>
+#include <libmaus2/util/ArgInfo.hpp>
+#include <libmaus2/util/utf8.hpp>
+#include <libmaus2/util/NumberMapSerialisation.hpp>
+#include <libmaus2/util/OutputFileNameTools.hpp>
+#include <libmaus2/util/TempFileRemovalContainer.hpp>
+#include <libmaus2/huffman/HuffmanTree.hpp>
+#include <libmaus2/rank/RunLengthBitVectorGenerator.hpp>
+#include <libmaus2/aio/CheckedInputOutputStream.hpp>
+#include <libmaus2/wavelet/ImpCompactHuffmanWaveletTree.hpp>
 #include <iostream>
 
-void hwtToRlHwt(::libmaus::util::ArgInfo const & arginfo)
+void hwtToRlHwt(::libmaus2::util::ArgInfo const & arginfo)
 {
 	uint64_t const rlblocksize = arginfo.getValueUnsignedNumeric<uint64_t>("blocksize",64*1024);
 	bool const recreate = arginfo.getValue<unsigned int>("recreate",true);
 
 	std::string const infn = arginfo.getRestArg<std::string>(0);	
-        std::string const rlhwtname = libmaus::util::OutputFileNameTools::clipOff(infn,".bwt") + ".rlhwt";
+        std::string const rlhwtname = libmaus2::util::OutputFileNameTools::clipOff(infn,".bwt") + ".rlhwt";
         
-        if ( (! libmaus::util::GetFileSize::fileExists(rlhwtname)) || recreate )
+        if ( (! libmaus2::util::GetFileSize::fileExists(rlhwtname)) || recreate )
         {
-		std::string const histfn = libmaus::util::OutputFileNameTools::clipOff(infn,".bwt") + ".hist";
+		std::string const histfn = libmaus2::util::OutputFileNameTools::clipOff(infn,".bwt") + ".hist";
 
-		libmaus::aio::CheckedInputStream histstr(histfn);
-		std::map<int64_t,uint64_t> const hist = ::libmaus::util::NumberMapSerialisation::deserialiseMap<std::istream,int64_t,uint64_t>(histstr);
+		libmaus2::aio::CheckedInputStream histstr(histfn);
+		std::map<int64_t,uint64_t> const hist = ::libmaus2::util::NumberMapSerialisation::deserialiseMap<std::istream,int64_t,uint64_t>(histstr);
 		std::vector<uint64_t> syms;
 		uint64_t n = 0;
 
@@ -52,8 +52,8 @@ void hwtToRlHwt(::libmaus::util::ArgInfo const & arginfo)
 			n += ita->second;
 		}
 
-		libmaus::huffman::HuffmanTree H(syms);
-		libmaus::huffman::HuffmanTree::EncodeTable E(H);
+		libmaus2::huffman::HuffmanTree H(syms);
+		libmaus2::huffman::HuffmanTree::EncodeTable E(H);
 		
 		std::vector<uint64_t> nodebitcnts(H.inner());
 		
@@ -81,12 +81,12 @@ void hwtToRlHwt(::libmaus::util::ArgInfo const & arginfo)
 
 		std::string const tmpfileprefix = arginfo.getDefaultTmpFileName();
 		std::string const rlfnprefix = tmpfileprefix + "_rl";
-		libmaus::util::TempFileRemovalContainer::setup();
+		libmaus2::util::TempFileRemovalContainer::setup();
 		std::vector<std::string> rlfilenames(H.inner());
 		std::vector<std::string> rlidxfilenames(H.inner());
-		libmaus::autoarray::AutoArray<libmaus::aio::CheckedOutputStream::unique_ptr_type> rloutfiles(H.inner());
-		libmaus::autoarray::AutoArray<libmaus::aio::CheckedInputOutputStream::unique_ptr_type> rlidxoutfiles(H.inner());
-		libmaus::autoarray::AutoArray<libmaus::rank::RunLengthBitVectorGenerator::unique_ptr_type> rlgens(H.inner());
+		libmaus2::autoarray::AutoArray<libmaus2::aio::CheckedOutputStream::unique_ptr_type> rloutfiles(H.inner());
+		libmaus2::autoarray::AutoArray<libmaus2::aio::CheckedInputOutputStream::unique_ptr_type> rlidxoutfiles(H.inner());
+		libmaus2::autoarray::AutoArray<libmaus2::rank::RunLengthBitVectorGenerator::unique_ptr_type> rlgens(H.inner());
 		for ( uint64_t i = 0; i < H.inner(); ++i )
 		{
 			std::ostringstream fnostr;
@@ -94,21 +94,21 @@ void hwtToRlHwt(::libmaus::util::ArgInfo const & arginfo)
 			rlfilenames[i] = fnostr.str() + ".rl";
 			rlidxfilenames[i] = fnostr.str() + ".rlidx";
 			
-			libmaus::util::TempFileRemovalContainer::addTempFile(rlfilenames[i]);
-			libmaus::util::TempFileRemovalContainer::addTempFile(rlidxfilenames[i]);
+			libmaus2::util::TempFileRemovalContainer::addTempFile(rlfilenames[i]);
+			libmaus2::util::TempFileRemovalContainer::addTempFile(rlidxfilenames[i]);
 			
-			libmaus::aio::CheckedOutputStream::unique_ptr_type trl(
-				new libmaus::aio::CheckedOutputStream(rlfilenames[i])
+			libmaus2::aio::CheckedOutputStream::unique_ptr_type trl(
+				new libmaus2::aio::CheckedOutputStream(rlfilenames[i])
 			);
 			rloutfiles[i] = UNIQUE_PTR_MOVE(trl);
 			
-			libmaus::aio::CheckedInputOutputStream::unique_ptr_type trlidx(
-				new libmaus::aio::CheckedInputOutputStream(rlidxfilenames[i])
+			libmaus2::aio::CheckedInputOutputStream::unique_ptr_type trlidx(
+				new libmaus2::aio::CheckedInputOutputStream(rlidxfilenames[i])
 			);
 			rlidxoutfiles[i] = UNIQUE_PTR_MOVE(trlidx);
 			
-			libmaus::rank::RunLengthBitVectorGenerator::unique_ptr_type tgen(
-				new libmaus::rank::RunLengthBitVectorGenerator(
+			libmaus2::rank::RunLengthBitVectorGenerator::unique_ptr_type tgen(
+				new libmaus2::rank::RunLengthBitVectorGenerator(
 					*rloutfiles[i],
 					*rlidxoutfiles[i],
 					nodebitcnts[i],
@@ -119,7 +119,7 @@ void hwtToRlHwt(::libmaus::util::ArgInfo const & arginfo)
 			rlgens[i] = UNIQUE_PTR_MOVE(tgen);
 		}
 		
-		libmaus::huffman::RLDecoder dec(std::vector<std::string>(1,infn));
+		libmaus2::huffman::RLDecoder dec(std::vector<std::string>(1,infn));
 		int64_t sym = -1;
 		uint64_t fin = 0;
 		while ( (sym=dec.get()) >= 0 )
@@ -168,21 +168,21 @@ void hwtToRlHwt(::libmaus::util::ArgInfo const & arginfo)
 			remove(rlidxfilenames[i].c_str());
 		}
 		
-		libmaus::aio::CheckedOutputStream rlhwtCOS(rlhwtname);
+		libmaus2::aio::CheckedOutputStream rlhwtCOS(rlhwtname);
 		
 		uint64_t p = 0;
-		p += ::libmaus::util::NumberSerialisation::serialiseNumber(rlhwtCOS,n);
+		p += ::libmaus2::util::NumberSerialisation::serialiseNumber(rlhwtCOS,n);
 		p += H.serialise(rlhwtCOS);
-		p += ::libmaus::util::NumberSerialisation::serialiseNumber(rlhwtCOS,H.inner());
+		p += ::libmaus2::util::NumberSerialisation::serialiseNumber(rlhwtCOS,H.inner());
 		
 		std::vector<uint64_t> nodepos(H.inner());
 		for ( uint64_t i = 0; i < H.inner(); ++i )
 		{
 			nodepos[i] = p;
 
-			uint64_t const fs = libmaus::util::GetFileSize::getFileSize(rlfilenames[i]);
-			libmaus::aio::CheckedInputStream CIS(rlfilenames[i]);
-			libmaus::util::GetFileSize::copy(CIS,rlhwtCOS,fs);
+			uint64_t const fs = libmaus2::util::GetFileSize::getFileSize(rlfilenames[i]);
+			libmaus2::aio::CheckedInputStream CIS(rlfilenames[i]);
+			libmaus2::util::GetFileSize::copy(CIS,rlhwtCOS,fs);
 			
 			p += fs;
 			
@@ -190,8 +190,8 @@ void hwtToRlHwt(::libmaus::util::ArgInfo const & arginfo)
 		}
 
 		uint64_t const ip = p;        
-		p += ::libmaus::util::NumberSerialisation::serialiseNumberVector(rlhwtCOS,nodepos);
-		p += ::libmaus::util::NumberSerialisation::serialiseNumber(rlhwtCOS,ip);
+		p += ::libmaus2::util::NumberSerialisation::serialiseNumberVector(rlhwtCOS,nodepos);
+		p += ::libmaus2::util::NumberSerialisation::serialiseNumber(rlhwtCOS,ip);
 			
 		rlhwtCOS.flush();
 		rlhwtCOS.close();
@@ -203,8 +203,8 @@ void hwtToRlHwt(::libmaus::util::ArgInfo const & arginfo)
 	
 	if ( verify )
 	{
-		libmaus::aio::CheckedInputStream rlhwtCIS(rlhwtname);
-		libmaus::wavelet::ImpCompactRLHuffmanWaveletTree ICRLHWT(rlhwtCIS);
+		libmaus2::aio::CheckedInputStream rlhwtCIS(rlhwtname);
+		libmaus2::wavelet::ImpCompactRLHuffmanWaveletTree ICRLHWT(rlhwtCIS);
 		#if defined(_OPENMP)
 		uint64_t const numthreads = omp_get_max_threads();
 		#else
@@ -219,15 +219,15 @@ void hwtToRlHwt(::libmaus::util::ArgInfo const & arginfo)
 				<< " (" << avg / 8.0 << " bytes)"
 				<< std::endl;
 
-			libmaus::util::Histogram::unique_ptr_type hist(ICRLHWT.dicts[i]->getRunLengthHistogram());
+			libmaus2::util::Histogram::unique_ptr_type hist(ICRLHWT.dicts[i]->getRunLengthHistogram());
 			hist->printFrac(std::cerr);
 		}
 		
 		uint64_t const n = ICRLHWT.size();
 		uint64_t const packsize = (n + numthreads - 1)/numthreads;
 		uint64_t const numpacks = (n + packsize-1)/packsize;
-		libmaus::parallel::SynchronousCounter<uint64_t> fin(0);
-		libmaus::timing::RealTimeClock rtc;
+		libmaus2::parallel::SynchronousCounter<uint64_t> fin(0);
+		libmaus2::timing::RealTimeClock rtc;
 		rtc.start();
 		
 		#if defined(_OPENMP)
@@ -238,7 +238,7 @@ void hwtToRlHwt(::libmaus::util::ArgInfo const & arginfo)
 			uint64_t const low = t * packsize;
 			uint64_t const high = std::min(low+packsize,n);
 
-			libmaus::huffman::RLDecoder debdec(std::vector<std::string>(1,infn),low);
+			libmaus2::huffman::RLDecoder debdec(std::vector<std::string>(1,infn),low);
 			
 			for ( uint64_t i = low; i < high; ++i )
 			{
@@ -270,11 +270,11 @@ int main(int argc, char * argv[])
 {
 	try
 	{
-		::libmaus::util::ArgInfo const arginfo(argc,argv);
+		::libmaus2::util::ArgInfo const arginfo(argc,argv);
 		
 		if ( arginfo.helpRequested() || arginfo.restargs.size() < 1 )
 		{
-			::libmaus::exception::LibMausException se;
+			::libmaus2::exception::LibMausException se;
 			std::ostream & str = se.getStream();
 			str << "usage: " << argv[0] << " <in.bwt>" << std::endl;
 			str << std::endl;

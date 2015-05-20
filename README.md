@@ -16,12 +16,12 @@ The bwtb3m source code is hosted on github:
 Compilation of bwtb3m
 ---------------------
 
-bwtb3m needs libmaus [https://github.com/gt1/libmaus] . When libmaus
+bwtb3m needs libmaus2 [https://github.com/gt1/libmaus2] . When libmaus2
 is installed in ${LIBMAUSPREFIX} then bwtb3m can be compiled and
 installed in ${HOME}/bwtb3m using
 
 	- autoreconf -i -f
-	- ./configure --with-libmaus=${LIBMAUSPREFIX} \
+	- ./configure --with-libmaus2=${LIBMAUSPREFIX} \
 		--prefix=${HOME}/bwtb3m
 	- make install
 

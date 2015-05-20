@@ -18,13 +18,13 @@
 */
 #include <config.h>
 
-#include <libmaus/aio/CheckedInputStream.hpp>
-#include <libmaus/fm/BidirectionalDnaIndexTemplate.hpp>
-#include <libmaus/fastx/StreamFastAReader.hpp>
-#include <libmaus/fastx/StreamFastQReader.hpp>
-#include <libmaus/util/ArgInfo.hpp>
-#include <libmaus/bambam/BamWriter.hpp>
-#include <libmaus/bambam/ProgramHeaderLineSet.hpp>
+#include <libmaus2/aio/CheckedInputStream.hpp>
+#include <libmaus2/fm/BidirectionalDnaIndexTemplate.hpp>
+#include <libmaus2/fastx/StreamFastAReader.hpp>
+#include <libmaus2/fastx/StreamFastQReader.hpp>
+#include <libmaus2/util/ArgInfo.hpp>
+#include <libmaus2/bambam/BamWriter.hpp>
+#include <libmaus2/bambam/ProgramHeaderLineSet.hpp>
 
 template<typename pattern_type>
 std::string getQuality(pattern_type const & pattern)
@@ -33,17 +33,17 @@ std::string getQuality(pattern_type const & pattern)
 }
 
 template<>
-std::string getQuality(libmaus::fastx::Pattern const & pattern)
+std::string getQuality(libmaus2::fastx::Pattern const & pattern)
 {
 	return std::string(pattern.spattern.size(),'H');
 }
 
 template<typename _reader_type>
-int allHamDna(libmaus::util::ArgInfo const & arginfo)
+int allHamDna(libmaus2::util::ArgInfo const & arginfo)
 {
 	typedef _reader_type reader_type;
 
-	libmaus::aio::CheckedInputStream CIS(arginfo.restargs[1]);
+	libmaus2::aio::CheckedInputStream CIS(arginfo.restargs[1]);
 
 	std::istringstream maxmisistr(arginfo.restargs[2]);
 	uint64_t maxmis;
@@ -55,21 +55,21 @@ int allHamDna(libmaus::util::ArgInfo const & arginfo)
 	}
 
 	std::cerr << "[V] loading index...";
-	libmaus::fm::BidirectionalDnaIndexImpCompactHuffmanWaveletTree index(arginfo.restargs[0]);
+	libmaus2::fm::BidirectionalDnaIndexImpCompactHuffmanWaveletTree index(arginfo.restargs[0]);
 	std::cerr << "done." << std::endl;
 	
 	std::string const & basename = index.basename;
 	std::string const fainame = basename + ".fa.fai";
 	
-	if ( ! libmaus::util::GetFileSize::fileExists(fainame) )
+	if ( ! libmaus2::util::GetFileSize::fileExists(fainame) )
 	{
 		std::cerr << "[E] file " << fainame << " does not exist." << std::endl;
 		return EXIT_FAILURE;
 	}
 	
-	std::vector<libmaus::bambam::Chromosome> chromosomes;
+	std::vector<libmaus2::bambam::Chromosome> chromosomes;
 	{
-		libmaus::aio::CheckedInputStream CIS(fainame);
+		libmaus2::aio::CheckedInputStream CIS(fainame);
 
 		while ( CIS )
 		{
@@ -78,7 +78,7 @@ int allHamDna(libmaus::util::ArgInfo const & arginfo)
 			
 			if ( line.size() )
 			{
-				std::deque<std::string> tokens = libmaus::util::stringFunctions::tokenize(line,std::string("\t"));
+				std::deque<std::string> tokens = libmaus2::util::stringFunctions::tokenize(line,std::string("\t"));
 				if ( tokens.size() == 5 )
 				{
 					std::string const & name = tokens[0];
@@ -93,7 +93,7 @@ int allHamDna(libmaus::util::ArgInfo const & arginfo)
 					}
 					
 					chromosomes.push_back(
-						libmaus::bambam::Chromosome(name,len)
+						libmaus2::bambam::Chromosome(name,len)
 					);
 				}
 			}
@@ -102,7 +102,7 @@ int allHamDna(libmaus::util::ArgInfo const & arginfo)
 	
 	reader_type FAin(CIS);
 	typename reader_type::pattern_type pat;
-	std::vector< std::pair<uint64_t, libmaus::fm::BidirectionalIndexInterval > > VBI;
+	std::vector< std::pair<uint64_t, libmaus2::fm::BidirectionalIndexInterval > > VBI;
 	std::vector<uint64_t> const seqstart = index.getSeqStartPositions();
 	
 	if ( seqstart.size() % 2 )
@@ -131,7 +131,7 @@ int allHamDna(libmaus::util::ArgInfo const & arginfo)
 		}
 	}
 
-	libmaus::bambam::BamHeader header;
+	libmaus2::bambam::BamHeader header;
 	for ( uint64_t i = 0; i < chromosomes.size(); ++i )
 		header.addChromosome(
 			chromosomes[i].getNameString(),chromosomes[i].getLength()
@@ -139,17 +139,17 @@ int allHamDna(libmaus::util::ArgInfo const & arginfo)
 	header.initSetup();
 
 	// add PG line to header
-	header.text = ::libmaus::bambam::ProgramHeaderLineSet::addProgramLine(
+	header.text = ::libmaus2::bambam::ProgramHeaderLineSet::addProgramLine(
 		header.text,
 		"allHamDna", // ID
 		"allHamDna", // PN
 		arginfo.commandline, // CL
-		::libmaus::bambam::ProgramHeaderLineSet(header.text).getLastIdInChain(), // PP
+		::libmaus2::bambam::ProgramHeaderLineSet(header.text).getLastIdInChain(), // PP
 		std::string(PACKAGE_VERSION) // VN			
 	);
 
-	libmaus::bambam::BamWriter wr(std::cout,header);
-	::libmaus::bambam::MdStringComputationContext mdcontext;
+	libmaus2::bambam::BamWriter wr(std::cout,header);
+	::libmaus2::bambam::MdStringComputationContext mdcontext;
 	
 	while ( FAin.getNextPatternUnlocked(pat) )
 	{
@@ -171,7 +171,7 @@ int allHamDna(libmaus::util::ArgInfo const & arginfo)
 		for ( uint64_t i = 0; i < VBI.size(); ++i )
 		{
 			uint64_t const mismatches = VBI[i].first;
-			libmaus::fm::BidirectionalIndexInterval const & interval = VBI[i].second;
+			libmaus2::fm::BidirectionalIndexInterval const & interval = VBI[i].second;
 			
 			for ( uint64_t j = 0; j < interval.siz; ++j )
 			{
@@ -196,14 +196,14 @@ int allHamDna(libmaus::util::ArgInfo const & arginfo)
 
 					wr.encodeAlignment(
 						pat.sid,refid_f,pos_f,0,
-						second ? libmaus::bambam::BamFlagBase::LIBMAUS_BAMBAM_FSECONDARY : 0, // flags
+						second ? libmaus2::bambam::BamFlagBase::LIBMAUS2_BAMBAM_FSECONDARY : 0, // flags
 						cigar,-1,-1,0,query,quality
 					);
 					wr.putAuxNumber("NM",'i',mismatches);
 					
 					std::string const text = index.getTextUnmapped(rank_f,pat.spattern.size());
 					std::pair<uint8_t const *,uint64_t> algn = wr.getAlignment();
-					::libmaus::bambam::BamAlignmentDecoderBase::calculateMd(
+					::libmaus2::bambam::BamAlignmentDecoderBase::calculateMd(
 						algn.first,algn.second,mdcontext,text.begin(),false);
 					
 					wr.putAuxString("MD", mdcontext.md.begin());
@@ -235,16 +235,16 @@ int allHamDna(libmaus::util::ArgInfo const & arginfo)
 					
 					wr.encodeAlignment(
 						pat.sid,refid_r,pos_r,0,
-						libmaus::bambam::BamFlagBase::LIBMAUS_BAMBAM_FREVERSE | 
-						(second ? libmaus::bambam::BamFlagBase::LIBMAUS_BAMBAM_FSECONDARY : 0), // flags
-						cigar,-1,-1,0,libmaus::fastx::reverseComplementUnmapped(query),rquality
+						libmaus2::bambam::BamFlagBase::LIBMAUS2_BAMBAM_FREVERSE | 
+						(second ? libmaus2::bambam::BamFlagBase::LIBMAUS2_BAMBAM_FSECONDARY : 0), // flags
+						cigar,-1,-1,0,libmaus2::fastx::reverseComplementUnmapped(query),rquality
 					);
 					wr.putAuxNumber("NM",'i',mismatches);
 
 					std::string const pretext = index.getTextUnmapped(rank_r,pat.spattern.size());
-					std::string const text = libmaus::fastx::reverseComplementUnmapped(pretext);
+					std::string const text = libmaus2::fastx::reverseComplementUnmapped(pretext);
 					std::pair<uint8_t const *,uint64_t> algn = wr.getAlignment();
-					::libmaus::bambam::BamAlignmentDecoderBase::calculateMd(
+					::libmaus2::bambam::BamAlignmentDecoderBase::calculateMd(
 						algn.first,algn.second,mdcontext,pretext.begin(),false);
 
 					wr.putAuxString("MD", mdcontext.md.begin());
@@ -279,7 +279,7 @@ int main(int argc, char * argv[])
 {
 	try
 	{
-		libmaus::util::ArgInfo const arginfo(argc, argv);
+		libmaus2::util::ArgInfo const arginfo(argc, argv);
 		
 		if ( arginfo.restargs.size() < 3 )
 		{
@@ -287,7 +287,7 @@ int main(int argc, char * argv[])
 			return EXIT_FAILURE;
 		}
 
-		libmaus::aio::CheckedInputStream CIS(arginfo.restargs[1]);
+		libmaus2::aio::CheckedInputStream CIS(arginfo.restargs[1]);
 		bool fastq;
 		if ( CIS.peek() >= 0 && CIS.peek() == '>' )
 			fastq = false;
@@ -301,9 +301,9 @@ int main(int argc, char * argv[])
 		CIS.close();
 		
 		if ( fastq )
-			return allHamDna<libmaus::fastx::StreamFastQReaderWrapper>(arginfo);
+			return allHamDna<libmaus2::fastx::StreamFastQReaderWrapper>(arginfo);
 		else
-			return allHamDna<libmaus::fastx::StreamFastAReaderWrapper>(arginfo);
+			return allHamDna<libmaus2::fastx::StreamFastAReaderWrapper>(arginfo);
 	}
 	catch(std::exception const & ex)
 	{

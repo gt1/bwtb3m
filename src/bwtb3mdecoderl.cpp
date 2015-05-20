@@ -16,26 +16,26 @@
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 **/
-#include <libmaus/huffman/RLDecoder.hpp>
-#include <libmaus/util/ArgInfo.hpp>
-#include <libmaus/util/utf8.hpp>
+#include <libmaus2/huffman/RLDecoder.hpp>
+#include <libmaus2/util/ArgInfo.hpp>
+#include <libmaus2/util/utf8.hpp>
 #include <iostream>
 
-void bwtb3mdecode(::libmaus::util::ArgInfo const & arginfo)
+void bwtb3mdecode(::libmaus2::util::ArgInfo const & arginfo)
 {
 	std::string const infn = arginfo.getRestArg<std::string>(0);
-	libmaus::huffman::RLDecoder dec(std::vector<std::string>(1,infn));
+	libmaus2::huffman::RLDecoder dec(std::vector<std::string>(1,infn));
 	std::string const inputtype = arginfo.getUnparsedValue("inputtype","bytestream");
 	
 	if ( inputtype == "bytestream" )
 	{
 		std::pair<int64_t,uint64_t> P;
-		libmaus::aio::SynchronousGenericOutput<uint8_t> SGO(std::cout,64*1024);
+		libmaus2::aio::SynchronousGenericOutput<uint8_t> SGO(std::cout,64*1024);
 		while ( (P = dec.decodeRun()).first >= 0 )
 		{
 			if ( P.first >= 256 )
 			{
-				::libmaus::exception::LibMausException se;
+				::libmaus2::exception::LibMausException se;
 				se.getStream() << "unsupported character value " << P.first << " for inputtype=bytestream" << std::endl;
 				se.finish();
 				throw se;
@@ -49,18 +49,18 @@ void bwtb3mdecode(::libmaus::util::ArgInfo const & arginfo)
 	else if ( inputtype == "utf-8" )
 	{
 		std::pair<int64_t,uint64_t> P;
-		libmaus::aio::SynchronousGenericOutput<uint8_t> SGO(std::cout,64*1024);
+		libmaus2::aio::SynchronousGenericOutput<uint8_t> SGO(std::cout,64*1024);
 		while ( (P = dec.decodeRun()).first >= 0 )
 		{
 			for ( uint64_t i = 0; i < P.second; ++i )
-				libmaus::util::UTF8::encodeUTF8(P.first,SGO);
+				libmaus2::util::UTF8::encodeUTF8(P.first,SGO);
 		}
 		
 		SGO.flush();
 	}
 	else
 	{
-		::libmaus::exception::LibMausException se;
+		::libmaus2::exception::LibMausException se;
 		se.getStream() << "input type " << inputtype << " is currently not supported for bwtb3mdecode" << std::endl;
 		se.finish();
 		throw se;
@@ -71,11 +71,11 @@ int main(int argc, char * argv[])
 {
 	try
 	{
-		::libmaus::util::ArgInfo const arginfo(argc,argv);
+		::libmaus2::util::ArgInfo const arginfo(argc,argv);
 		
 		if ( arginfo.helpRequested() || arginfo.restargs.size() < 1 )
 		{
-			::libmaus::exception::LibMausException se;
+			::libmaus2::exception::LibMausException se;
 			std::ostream & str = se.getStream();
 			str << "usage: " << argv[0] << " <in.bwt>" << std::endl;
 			str << std::endl;

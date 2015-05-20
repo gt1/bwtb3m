@@ -20,19 +20,19 @@
 #include "config.h"
 #endif
 
-#include <libmaus/lz/Lz4CompressStream.hpp>
-#include <libmaus/util/ArgInfo.hpp>
+#include <libmaus2/lz/Lz4CompressStream.hpp>
+#include <libmaus2/util/ArgInfo.hpp>
 
 unsigned int getDefaultBlockSize()
 {
 	return 64*1024;
 }
 
-void bytestreamToLz4(libmaus::util::ArgInfo const & arginfo)
+void bytestreamToLz4(libmaus2::util::ArgInfo const & arginfo)
 {
 	uint64_t const blocksize = arginfo.getValueUnsignedNumeric<uint64_t>("blocksize",getDefaultBlockSize());
-	libmaus::autoarray::AutoArray<char> B(8*1024,false);
-	libmaus::lz::Lz4CompressStream lzout(std::cout,blocksize);
+	libmaus2::autoarray::AutoArray<char> B(8*1024,false);
+	libmaus2::lz::Lz4CompressStream lzout(std::cout,blocksize);
 	while ( std::cin )
 	{
 		std::cin.read(B.begin(),B.size());
@@ -48,11 +48,11 @@ int main(int argc, char * argv[])
 {
 	try
 	{
-		libmaus::util::ArgInfo const arginfo(argc,argv);
+		libmaus2::util::ArgInfo const arginfo(argc,argv);
 		
 		if ( arginfo.helpRequested() )
 		{
-			::libmaus::exception::LibMausException se;
+			::libmaus2::exception::LibMausException se;
 			
 			std::ostream & str = se.getStream();
 			

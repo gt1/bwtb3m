@@ -18,16 +18,16 @@
 */
 #include <config.h>
 
-#include <libmaus/aio/CheckedInputStream.hpp>
-#include <libmaus/fastx/acgtnMap.hpp>
-#include <libmaus/fastx/StreamFastAReader.hpp>
-#include <libmaus/fastx/StreamFastQReader.hpp>
-#include <libmaus/lf/ImpCompactHuffmanWaveletLF.hpp>
-#include <libmaus/lz/BufferedGzipStream.hpp>
-#include <libmaus/suffixtree/CompressedSuffixTree.hpp>
-#include <libmaus/util/ArgInfo.hpp>
-#include <libmaus/util/stringFunctions.hpp>
-#include <libmaus/util/ToUpperTable.hpp>
+#include <libmaus2/aio/CheckedInputStream.hpp>
+#include <libmaus2/fastx/acgtnMap.hpp>
+#include <libmaus2/fastx/StreamFastAReader.hpp>
+#include <libmaus2/fastx/StreamFastQReader.hpp>
+#include <libmaus2/lf/ImpCompactHuffmanWaveletLF.hpp>
+#include <libmaus2/lz/BufferedGzipStream.hpp>
+#include <libmaus2/suffixtree/CompressedSuffixTree.hpp>
+#include <libmaus2/util/ArgInfo.hpp>
+#include <libmaus2/util/stringFunctions.hpp>
+#include <libmaus2/util/ToUpperTable.hpp>
 
 void evaluateAcc(std::ostream & out, std::vector<uint64_t> const & acccols, std::vector<uint64_t> vacc)
 {
@@ -57,7 +57,7 @@ void evaluateAcc(std::ostream & out, std::vector<uint64_t> const & acccols, std:
  */
 template<typename _lf_type>
 int probeScanDnaHwt(
-	libmaus::util::ArgInfo const & arginfo, unsigned int const probelen, std::string const suffix,
+	libmaus2::util::ArgInfo const & arginfo, unsigned int const probelen, std::string const suffix,
 	std::vector<uint64_t> const & acccols
 )
 {
@@ -70,8 +70,8 @@ int probeScanDnaHwt(
 	std::cerr << "done." << std::endl;
 
 	// open queries
-	libmaus::fastx::StreamFastAReaderWrapper queriesIn(std::cin);
-	libmaus::fastx::StreamFastAReaderWrapper::pattern_type pattern;
+	libmaus2::fastx::StreamFastAReaderWrapper queriesIn(std::cin);
+	libmaus2::fastx::StreamFastAReaderWrapper::pattern_type pattern;
 
 	// read next query
 	while ( queriesIn.getNextPatternUnlocked(pattern) )
@@ -93,7 +93,7 @@ int probeScanDnaHwt(
 				// forward
 				std::string fquery = pattern.spattern.substr(i,probelen);
 				// reverse complement
-				std::string rquery = libmaus::fastx::reverseComplementUnmapped(fquery);
+				std::string rquery = libmaus2::fastx::reverseComplementUnmapped(fquery);
 
 				// suffix array intervals
 				std::pair<uint64_t,uint64_t> fnode(0ull,LF.getN());
@@ -101,8 +101,8 @@ int probeScanDnaHwt(
 				// backward search
 				for ( uint64_t j = 0; j < probelen; ++j )
 				{
-					fnode = LF.step(libmaus::fastx::mapChar(fquery[probelen-j-1])+1,fnode.first,fnode.second);
-					rnode = LF.step(libmaus::fastx::mapChar(rquery[probelen-j-1])+1,rnode.first,rnode.second);
+					fnode = LF.step(libmaus2::fastx::mapChar(fquery[probelen-j-1])+1,fnode.first,fnode.second);
+					rnode = LF.step(libmaus2::fastx::mapChar(rquery[probelen-j-1])+1,rnode.first,rnode.second);
 				}
 				
 				uint64_t lcnt;
@@ -138,7 +138,7 @@ int probeScanDnaHwt(
  */
 template<typename uint_type>
 int probeScanDna(
-	libmaus::util::ArgInfo const & arginfo, unsigned int const probelen,
+	libmaus2::util::ArgInfo const & arginfo, unsigned int const probelen,
 	std::vector<uint64_t> const & acccols
 )
 {
@@ -161,8 +161,8 @@ int probeScanDna(
 	}
 
 	std::cerr << "[V] reading queries...";
-	libmaus::fastx::StreamFastAReaderWrapper queriesIn(std::cin);
-	libmaus::fastx::StreamFastAReaderWrapper::pattern_type pattern;
+	libmaus2::fastx::StreamFastAReaderWrapper queriesIn(std::cin);
+	libmaus2::fastx::StreamFastAReaderWrapper::pattern_type pattern;
 	std::vector < std::pair<std::string,std::string> > queries;
 
 	std::vector<uint_type> kmers;
@@ -174,7 +174,7 @@ int probeScanDna(
 
 		// unify symbols
 		for ( uint64_t i = 0; i < pat.size(); ++i )
-			pat[i] = libmaus::fastx::remapChar(libmaus::fastx::mapChar(pat[i]));
+			pat[i] = libmaus2::fastx::remapChar(libmaus2::fastx::mapChar(pat[i]));
 		
 		if ( pat.size() < probelen )
 			continue;
@@ -184,38 +184,38 @@ int probeScanDna(
 		for ( std::string::size_type i = 0; i < probelen-1; ++i )
 		{
 			m <<= 3;
-			m |= libmaus::fastx::mapChar(pat[i]);
+			m |= libmaus2::fastx::mapChar(pat[i]);
 		}
 
 		for ( std::string::size_type i = probelen-1; i < pat.size(); ++i )
 		{
 			m <<= 3;
 			m &= mask;
-			m |= libmaus::fastx::mapChar(pat[i]);
+			m |= libmaus2::fastx::mapChar(pat[i]);
 
 			kmers.push_back(m);
 		}
 		
-		pat = libmaus::fastx::reverseComplementUnmapped(pat);
+		pat = libmaus2::fastx::reverseComplementUnmapped(pat);
 
 		// reverse complement k-mers
 		uint_type r = 0;
 		for ( std::string::size_type i = 0; i < probelen-1; ++i )
 		{
 			r <<= 3;
-			r |= libmaus::fastx::mapChar(pat[i]);
+			r |= libmaus2::fastx::mapChar(pat[i]);
 		}
 
 		for ( std::string::size_type i = probelen-1; i < pat.size(); ++i )
 		{
 			r <<= 3;
 			r &= mask;
-			r |= libmaus::fastx::mapChar(pat[i]);
+			r |= libmaus2::fastx::mapChar(pat[i]);
 
 			kmers.push_back(r);
 		}
 
-		pat = libmaus::fastx::reverseComplementUnmapped(pat);
+		pat = libmaus2::fastx::reverseComplementUnmapped(pat);
 	}
 	std::cerr << "done." << std::endl;
 	
@@ -228,7 +228,7 @@ int probeScanDna(
 	std::cerr << "done, number is " << kmers.size() << std::endl;
 
 	std::cerr << "[V] producing lookup table for " << lookupbits << " bits...";
-	libmaus::autoarray::AutoArray< std::pair<uint32_t,uint32_t> > Alookup( 1ull << lookupbits );
+	libmaus2::autoarray::AutoArray< std::pair<uint32_t,uint32_t> > Alookup( 1ull << lookupbits );
 	uint64_t l = 0;
 	while ( l != kmers.size() )
 	{
@@ -245,10 +245,10 @@ int probeScanDna(
 	std::cerr << "done." << std::endl;
 
 	// open reference file
-	libmaus::aio::CheckedInputStream gzCIS(arginfo.restargs.at(0));
-	libmaus::lz::BufferedGzipStream gzin(gzCIS);
-	libmaus::fastx::StreamFastAReaderWrapper refin(gzin);
-	libmaus::util::ToUpperTable toup;
+	libmaus2::aio::CheckedInputStream gzCIS(arginfo.restargs.at(0));
+	libmaus2::lz::BufferedGzipStream gzin(gzCIS);
+	libmaus2::fastx::StreamFastAReaderWrapper refin(gzin);
+	libmaus2::util::ToUpperTable toup;
 
 	// kmer counts
 	std::vector<uint64_t> cnts(kmers.size());
@@ -269,13 +269,13 @@ int probeScanDna(
 		for ( uint64_t i = 0; i < probelen-1; ++i )
 		{
 			v <<= 3;
-			v |= libmaus::fastx::mapChar(text[i]);
+			v |= libmaus2::fastx::mapChar(text[i]);
 		}
 		for ( uint64_t i = probelen-1; i < text.size() ; ++i )
 		{
 			v <<= 3;
 			v &= mask;		
-			v |= libmaus::fastx::mapChar(text[i]);
+			v |= libmaus2::fastx::mapChar(text[i]);
 			
 			uint64_t const il =  Alookup[ v >> probeshiftbits ].first;
 			uint64_t const ih = Alookup[ v >> probeshiftbits ].second;
@@ -322,37 +322,37 @@ int probeScanDna(
 			for ( std::string::size_type i = 0; i < probelen-1; ++i )
 			{
 				m <<= 3;
-				m |= libmaus::fastx::mapChar(pat[i]);
+				m |= libmaus2::fastx::mapChar(pat[i]);
 			}
 
 			for ( std::string::size_type i = probelen-1; i < pat.size(); ++i )
 			{
 				m <<= 3;
 				m &= mask;
-				m |= libmaus::fastx::mapChar(pat[i]);
+				m |= libmaus2::fastx::mapChar(pat[i]);
 
 				lkmersf.push_back(m);
 			}
 			
-			pat = libmaus::fastx::reverseComplementUnmapped(pat);
+			pat = libmaus2::fastx::reverseComplementUnmapped(pat);
 
 			uint_type r = 0;
 			for ( std::string::size_type i = 0; i < probelen-1; ++i )
 			{
 				r <<= 3;
-				r |= libmaus::fastx::mapChar(pat[i]);
+				r |= libmaus2::fastx::mapChar(pat[i]);
 			}
 
 			for ( std::string::size_type i = probelen-1; i < pat.size(); ++i )
 			{
 				r <<= 3;
 				r &= mask;
-				r |= libmaus::fastx::mapChar(pat[i]);
+				r |= libmaus2::fastx::mapChar(pat[i]);
 
 				lkmersr.push_back(r);
 			}
 
-			pat = libmaus::fastx::reverseComplementUnmapped(pat);
+			pat = libmaus2::fastx::reverseComplementUnmapped(pat);
 		
 			std::reverse(lkmersr.begin(),lkmersr.end());
 
@@ -423,7 +423,7 @@ int probeScanDna(
 
 static std::vector<uint64_t> parseAccCols(std::string const & scols)
 {
-	std::deque<std::string> const stokens = libmaus::util::stringFunctions::tokenize(scols,std::string(","));
+	std::deque<std::string> const stokens = libmaus2::util::stringFunctions::tokenize(scols,std::string(","));
 	std::vector<uint64_t> acccols;
 	
 	for ( uint64_t i = 0; i < stokens.size(); ++i )
@@ -436,7 +436,7 @@ static std::vector<uint64_t> parseAccCols(std::string const & scols)
 		{
 			if ( !isdigit(static_cast<unsigned char>(stoken[j])) )
 			{
-				libmaus::exception::LibMausException lme;
+				libmaus2::exception::LibMausException lme;
 				lme.getStream() << "Cannot parse " << stoken << " as a number." << std::endl;
 				lme.finish();
 				throw lme;
@@ -458,7 +458,7 @@ int main(int argc, char * argv[])
 {
 	try
 	{
-		libmaus::util::ArgInfo const arginfo(argc, argv);
+		libmaus2::util::ArgInfo const arginfo(argc, argv);
 		
 		if ( arginfo.restargs.size() < 1 )
 		{
@@ -481,7 +481,7 @@ int main(int argc, char * argv[])
 				return probeScanDna<uint64_t>(arginfo,probelen,acccols);
 			#if defined(LIBMAUS_HAVE_UNSIGNED_INT128)
 			else if ( 3*probelen <= 128 )
-				return probeScanDna<libmaus::uint128_t>(arginfo,probelen,acccols);
+				return probeScanDna<libmaus2::uint128_t>(arginfo,probelen,acccols);
 			#endif
 			else
 			{
@@ -491,11 +491,11 @@ int main(int argc, char * argv[])
 		}
 		else if ( mode == "rlhwt" )
 		{
-			return probeScanDnaHwt<libmaus::lf::ImpCompactRLHuffmanWaveletLF>(arginfo,probelen,".rlhwt",acccols);
+			return probeScanDnaHwt<libmaus2::lf::ImpCompactRLHuffmanWaveletLF>(arginfo,probelen,".rlhwt",acccols);
 		}
 		else if ( mode == "hwt" )
 		{
-			return probeScanDnaHwt<libmaus::lf::ImpCompactHuffmanWaveletLF>(arginfo,probelen,".hwt",acccols);
+			return probeScanDnaHwt<libmaus2::lf::ImpCompactHuffmanWaveletLF>(arginfo,probelen,".hwt",acccols);
 		}
 	}
 	catch(std::exception const & ex)
