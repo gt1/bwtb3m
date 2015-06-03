@@ -479,7 +479,7 @@ int main(int argc, char * argv[])
 		{
 			if ( 3*probelen <= 64 )
 				return probeScanDna<uint64_t>(arginfo,probelen,acccols);
-			#if defined(LIBMAUS_HAVE_UNSIGNED_INT128)
+			#if defined(LIBMAUS2_HAVE_UNSIGNED_INT128)
 			else if ( 3*probelen <= 128 )
 				return probeScanDna<libmaus2::uint128_t>(arginfo,probelen,acccols);
 			#endif

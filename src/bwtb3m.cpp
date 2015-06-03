@@ -4705,7 +4705,7 @@ struct BwtMergeSort
 
 		::libmaus2::timing::RealTimeClock rtc; 
 		rtc.start();
-		#if defined(_OPENMP) && defined(LIBMAUS_HAVE_SYNC_OPS)
+		#if defined(_OPENMP) && defined(LIBMAUS2_HAVE_SYNC_OPS)
 		#pragma omp parallel for schedule(dynamic,1)
 		#endif
 		for ( int64_t z = 0; z < static_cast<int64_t>(zactive); ++z )
@@ -4741,7 +4741,7 @@ struct BwtMergeSort
 
 				r = IHWL.step(sym,r) + ((sym == firstblocklast)?gtf:0);
 			
-				#if defined(LIBMAUS_HAVE_SYNC_OPS)
+				#if defined(LIBMAUS2_HAVE_SYNC_OPS)
 				__sync_fetch_and_add(G.begin()+r,1);
 				#else
 				G[r]++;
@@ -4846,7 +4846,7 @@ struct BwtMergeSort
 
 		::libmaus2::timing::RealTimeClock rtc; 
 		rtc.start();
-		#if defined(_OPENMP) && defined(LIBMAUS_HAVE_SYNC_OPS)
+		#if defined(_OPENMP) && defined(LIBMAUS2_HAVE_SYNC_OPS)
 		#pragma omp parallel for schedule(dynamic,1)
 		#endif
 		for ( int64_t z = 0; z < static_cast<int64_t>(zactive); ++z )
