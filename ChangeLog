@@ -1,3 +1,9 @@
+bwtb3m (0.0.4-1) unstable; urgency=medium
+
+  * fix for ChangeLog 
+
+ -- German Tischler <gt1@sanger.ac.uk>  Mon, 08 Jun 2015 13:44:44 +0200
+
 bwtb3m (0.0.3-1) unstable; urgency=medium
 
   * update for libmaus2
