@@ -78,7 +78,7 @@ int main(int argc, char * argv[])
 		> succinct_lcp_type;
 
 		std::cerr << "[V] Loading inverse sampled suffix array...";
-		::libmaus2::aio::CheckedInputStream isain(isaname);
+		::libmaus2::aio::InputStreamInstance isain(isaname);
 		::libmaus2::fm::SampledISA< ::libmaus2::lf::ImpCompactHuffmanWaveletLF > ISA(&IHWLF,isain);
 		std::cerr << "done." << std::endl;
 				
@@ -110,12 +110,12 @@ int main(int argc, char * argv[])
 		if ( showavg )
 		{
 			std::cerr << "[V] Loading sa...";
-			::libmaus2::aio::CheckedInputStream sain(saname);
+			::libmaus2::aio::InputStreamInstance sain(saname);
 			::libmaus2::fm::SimpleSampledSA< ::libmaus2::lf::ImpCompactHuffmanWaveletLF > SA(&IHWLF,sain);
 			std::cerr << "done." << std::endl;
 
 			std::cerr << "[V] Loading succinct LCP...";
-			::libmaus2::aio::CheckedInputStream lcpCIS(lcpname);
+			::libmaus2::aio::InputStreamInstance lcpCIS(lcpname);
 			succinct_lcp_type const SLCP(lcpCIS,SA);
 			std::cerr << "done." << std::endl;
 		
@@ -156,12 +156,12 @@ int main(int argc, char * argv[])
 		if ( checklcp )
 		{
 			std::cerr << "[V] Loading sa...";
-			::libmaus2::aio::CheckedInputStream sain(saname);
+			::libmaus2::aio::InputStreamInstance sain(saname);
 			::libmaus2::fm::SimpleSampledSA< ::libmaus2::lf::ImpCompactHuffmanWaveletLF > SA(&IHWLF,sain);
 			std::cerr << "done." << std::endl;
 
 			std::cerr << "[V] Loading succinct LCP...";
-			::libmaus2::aio::CheckedInputStream lcpCIS(lcpname);
+			::libmaus2::aio::InputStreamInstance lcpCIS(lcpname);
 			succinct_lcp_type const SLCP(lcpCIS,SA);
 			std::cerr << "done." << std::endl;
 

@@ -3177,6 +3177,8 @@ struct BaseBlockSortThread : public libmaus2::parallel::PosixThread
 
 				if ( next < V.size() )
 				{
+					if ( V[next]->directSortSpace() > freemem )
+						std::cerr << "unable to sort block " << next << ", memory required " << V[next]->directSortSpace() << " > " << freemem << std::endl;
 					assert ( V[next]->directSortSpace() <= freemem );
 					freemem -= V[next]->directSortSpace();
 					pack = next++;				
@@ -6168,6 +6170,7 @@ struct BwtMergeSort
 		std::string const fn,
 		uint64_t const fs,
 		std::string const tmpfilenamebase,
+		std::string const sparsetmpfilenamebase,
 		uint64_t const rlencoderblocksize,
 		uint64_t const lfblockmult,
 		uint64_t const numthreads,
@@ -6280,7 +6283,8 @@ struct BwtMergeSort
 					fn,fs,*(mergereq.gaprequests[bx]),
 					mergereq.children[mergereq.gaprequests[bx]->into]->getIHWTSpaceBytes(),
 					mergedgtname,newmergedgtname,accD.get(),
-					gapfilenameprefix,tmpfilenamebase+"_sparsegap",
+					gapfilenameprefix,
+					sparsetmpfilenamebase+"_sparsegap",
 					mem
 				);
 				gapfilenames[bx] = GACR.fn;
@@ -6965,7 +6969,9 @@ struct BwtMergeSort
 		// total memory available
 		uint64_t const mem = std::max(static_cast<uint64_t>(1),arginfo.getValueUnsignedNumeric<uint64_t>("mem",getDefaultMem()));
 		// base for tmp file names
-		std::string const tmpfilenamebase = arginfo.getDefaultTmpFileName();
+		std::string const tmpfilenamebase = arginfo.getUnparsedValue("tmpprefix",arginfo.getDefaultTmpFileName());
+		// base for spare tmp file names
+		std::string const sparsetmpfilenamebase = arginfo.getUnparsedValue("sparsetmpprefix",tmpfilenamebase);
 		// file name of serialised character histogram
 		std::string const chistfilename = tmpfilenamebase + ".chist";
 		// file name of serialised huffman tree
@@ -7404,6 +7410,8 @@ struct BwtMergeSort
 
 			std::ostringstream tmpstr;
 			tmpstr << tmpfilenamebase << "_" << std::setfill('0') << std::setw(6) << (mtmpid++);
+			std::ostringstream sparsetmpstr;
+			sparsetmpstr << sparsetmpfilenamebase << "_" << std::setfill('0') << std::setw(6) << (mtmpid++);
 			
 			if ( dynamic_cast<MergeStrategyMergeInternalBlock *>(p) )
 			{
@@ -7437,6 +7445,7 @@ struct BwtMergeSort
 					*(dynamic_cast<MergeStrategyMergeExternalBlock *>(p)),
 					fn,fs,
 					tmpstr.str(),
+					sparsetmpstr.str(),
 					rlencoderblocksize,
 					lfblockmult,
 					numthreads,
@@ -7493,7 +7502,13 @@ struct BwtMergeSort
 		for ( uint64_t i = 0; i < mergeresult.getFiles().getGT().size(); ++i )
 			remove ( mergeresult.getFiles().getGT()[i].c_str() );
 		
-		if ( ! bwtonly )
+		if ( bwtonly )
+		{
+			std::string const mergedisaname = mergeresult.getFiles().getSampledISA();
+			std::string const outisa = ::libmaus2::util::OutputFileNameTools::clipOff(outfn,".bwt") + ".preisa";
+			rename(mergedisaname.c_str(),outisa.c_str());
+		}
+		else
 		{	
 			std::cerr << "[V] computing Huffman shaped wavelet tree of final BWT...";	
 			std::string const outhwt = ::libmaus2::util::OutputFileNameTools::clipOff(outfn,".bwt") + ".hwt";
@@ -7570,6 +7585,8 @@ int main(int argc, char * argv[])
 			str << "numthreads=[" << BwtMergeSort<libmaus2::suffixsort::ByteInputTypes>::getDefaultNumThreads() << "] number of threads" << std::endl;
 			#endif
 			str << "bwtonly=[" << BwtMergeSort<libmaus2::suffixsort::ByteInputTypes>::getDefaultBWTOnly() << "] compute BWT only (no sampled suffix array and reverse)" << std::endl;
+			str << std::string("tmpprefix=[") + arginfo.getDefaultTmpFileName() + " (prefix for tmp files)" << std::endl;
+			str << "sparsetmpprefix=[tmpprefix] (prefix for sparse gap tmp files)" << std::endl;
 			// blocksize
 			
 			se.finish();

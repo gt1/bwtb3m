@@ -40,7 +40,7 @@ void hwtToRlHwt(::libmaus2::util::ArgInfo const & arginfo)
         {
 		std::string const histfn = libmaus2::util::OutputFileNameTools::clipOff(infn,".bwt") + ".hist";
 
-		libmaus2::aio::CheckedInputStream histstr(histfn);
+		libmaus2::aio::InputStreamInstance histstr(histfn);
 		std::map<int64_t,uint64_t> const hist = ::libmaus2::util::NumberMapSerialisation::deserialiseMap<std::istream,int64_t,uint64_t>(histstr);
 		std::vector<uint64_t> syms;
 		uint64_t n = 0;
@@ -181,7 +181,7 @@ void hwtToRlHwt(::libmaus2::util::ArgInfo const & arginfo)
 			nodepos[i] = p;
 
 			uint64_t const fs = libmaus2::util::GetFileSize::getFileSize(rlfilenames[i]);
-			libmaus2::aio::CheckedInputStream CIS(rlfilenames[i]);
+			libmaus2::aio::InputStreamInstance CIS(rlfilenames[i]);
 			libmaus2::util::GetFileSize::copy(CIS,rlhwtCOS,fs);
 			
 			p += fs;
@@ -203,7 +203,7 @@ void hwtToRlHwt(::libmaus2::util::ArgInfo const & arginfo)
 	
 	if ( verify )
 	{
-		libmaus2::aio::CheckedInputStream rlhwtCIS(rlhwtname);
+		libmaus2::aio::InputStreamInstance rlhwtCIS(rlhwtname);
 		libmaus2::wavelet::ImpCompactRLHuffmanWaveletTree ICRLHWT(rlhwtCIS);
 		#if defined(_OPENMP)
 		uint64_t const numthreads = omp_get_max_threads();

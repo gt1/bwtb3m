@@ -21,6 +21,7 @@
 #include <libmaus2/fastx/StreamFastAReader.hpp>
 #include <libmaus2/lz/BufferedGzipStream.hpp>
 #include <libmaus2/util/ArgInfo.hpp>
+#include <libmaus2/aio/InputStreamFactoryContainer.hpp>
 
 std::string formatBytes(uint64_t n)
 {
@@ -82,9 +83,25 @@ int fagzToCompact(libmaus2::util::ArgInfo const & arginfo)
 	int const verbose = arginfo.getValue<int>("verbose",1);
 	libmaus2::autoarray::AutoArray<char> B(8*1024,false);
 	libmaus2::bitio::CompactArrayWriterFile compactout(outputfilename,3);
-	
+		
 	if ( ! rc )
 		std::cerr << "[V] not storing reverse complements" << std::endl;
+	
+	std::vector<std::string> inputfilenames;
+	inputfilenames = arginfo.restargs;
+	
+	if ( arginfo.hasArg("inputfilenames") )
+	{
+		std::string const inf = arginfo.getUnparsedValue("inputfilenames",std::string());
+		libmaus2::aio::InputStream::unique_ptr_type Pinf(libmaus2::aio::InputStreamFactoryContainer::constructUnique(inf));
+		while ( *Pinf )
+		{
+			std::string line;
+			std::getline(*Pinf,line);
+			if ( line.size() )
+				inputfilenames.push_back(line);
+		}
+	}
 
 	// forward mapping table		
 	libmaus2::autoarray::AutoArray<uint8_t> ftable(256,false);
@@ -107,10 +124,10 @@ int fagzToCompact(libmaus2::util::ArgInfo const & arginfo)
 	ctable[3] = 2; // G->C
 	ctable[4] = 1; // T->A
 			
-	for ( uint64_t i = 0; i < arginfo.restargs.size() && insize < limit; ++i )
+	for ( uint64_t i = 0; i < inputfilenames.size() && insize < limit; ++i )
 	{
-		std::string const fn = arginfo.stringRestArg(i);
-		libmaus2::aio::CheckedInputStream CIS(fn);
+		std::string const fn = inputfilenames[i];
+		libmaus2::aio::InputStreamInstance CIS(fn);
 		libmaus2::lz::BufferedGzipStream::unique_ptr_type BGS;
 		std::istream * istr = 0;
 		if ( gz )
