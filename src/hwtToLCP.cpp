@@ -65,10 +65,11 @@ int main(int argc, char * argv[])
 		std::cerr << "done, time " << rtc.getElapsedSeconds() << std::endl;
 		
 		std::cerr << "[V] Writing LCP array...";
-		::libmaus2::aio::CheckedOutputStream ulcpCOS(ulcpname);
+		{
+		::libmaus2::aio::OutputStreamInstance ulcpCOS(ulcpname);
 		LCP->serialise(ulcpCOS);
 		ulcpCOS.flush();
-		ulcpCOS.close();
+		}
 		std::cerr << "done." << std::endl;
 
 		typedef ::libmaus2::lcp::SuccinctLCP<
@@ -84,10 +85,11 @@ int main(int argc, char * argv[])
 				
 		std::cerr << "[V] Serialising succinct PLCP array...";
 		rtc.start();
-		::libmaus2::aio::CheckedOutputStream lcpCOS(lcpname);
+		{
+		::libmaus2::aio::OutputStreamInstance lcpCOS(lcpname);
 		succinct_lcp_type::writeSuccinctLCP(IHWLF,ISA,*LCP,lcpCOS,tmpcont,false /* verbose */);
 		lcpCOS.flush();
-		lcpCOS.close();
+		}
 		std::cerr << "done, time " << rtc.getElapsedSeconds()  << std::endl;
 
 		#if defined(_OPENMP)		

@@ -84,7 +84,7 @@ void hwtToRlHwt(::libmaus2::util::ArgInfo const & arginfo)
 		libmaus2::util::TempFileRemovalContainer::setup();
 		std::vector<std::string> rlfilenames(H.inner());
 		std::vector<std::string> rlidxfilenames(H.inner());
-		libmaus2::autoarray::AutoArray<libmaus2::aio::CheckedOutputStream::unique_ptr_type> rloutfiles(H.inner());
+		libmaus2::autoarray::AutoArray<libmaus2::aio::OutputStreamInstance::unique_ptr_type> rloutfiles(H.inner());
 		libmaus2::autoarray::AutoArray<libmaus2::aio::CheckedInputOutputStream::unique_ptr_type> rlidxoutfiles(H.inner());
 		libmaus2::autoarray::AutoArray<libmaus2::rank::RunLengthBitVectorGenerator::unique_ptr_type> rlgens(H.inner());
 		for ( uint64_t i = 0; i < H.inner(); ++i )
@@ -97,8 +97,8 @@ void hwtToRlHwt(::libmaus2::util::ArgInfo const & arginfo)
 			libmaus2::util::TempFileRemovalContainer::addTempFile(rlfilenames[i]);
 			libmaus2::util::TempFileRemovalContainer::addTempFile(rlidxfilenames[i]);
 			
-			libmaus2::aio::CheckedOutputStream::unique_ptr_type trl(
-				new libmaus2::aio::CheckedOutputStream(rlfilenames[i])
+			libmaus2::aio::OutputStreamInstance::unique_ptr_type trl(
+				new libmaus2::aio::OutputStreamInstance(rlfilenames[i])
 			);
 			rloutfiles[i] = UNIQUE_PTR_MOVE(trl);
 			
@@ -168,7 +168,7 @@ void hwtToRlHwt(::libmaus2::util::ArgInfo const & arginfo)
 			remove(rlidxfilenames[i].c_str());
 		}
 		
-		libmaus2::aio::CheckedOutputStream rlhwtCOS(rlhwtname);
+		libmaus2::aio::OutputStreamInstance rlhwtCOS(rlhwtname);
 		
 		uint64_t p = 0;
 		p += ::libmaus2::util::NumberSerialisation::serialiseNumber(rlhwtCOS,n);
@@ -194,7 +194,6 @@ void hwtToRlHwt(::libmaus2::util::ArgInfo const & arginfo)
 		p += ::libmaus2::util::NumberSerialisation::serialiseNumber(rlhwtCOS,ip);
 			
 		rlhwtCOS.flush();
-		rlhwtCOS.close();
 
 		std::cerr << "[V] size of rlhwt is " << p << std::endl;
 	}
