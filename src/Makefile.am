@@ -10,7 +10,9 @@ bin_PROGRAMS = \
 	hwtToRlHwt \
 	probeScanDna \
 	digitsToCompact \
-	hwtToLCP
+	hwtToLCP \
+	sortPreIsa \
+	bwtdecodeblock
 noinst_HEADERS = 
 
 bwtb3m_SOURCES = bwtb3m.cpp
@@ -23,3 +25,5 @@ probeScanDna_SOURCES = probeScanDna.cpp
 fagzToCompact_SOURCES = fagzToCompact.cpp
 digitsToCompact_SOURCES = digitsToCompact.cpp
 hwtToLCP_SOURCES = hwtToLCP.cpp
+sortPreIsa_SOURCES = sortPreIsa.cpp
+bwtdecodeblock_SOURCES = bwtdecodeblock.cpp
