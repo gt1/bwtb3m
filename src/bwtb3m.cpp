@@ -30,8 +30,8 @@
 // #define HUFGAP
 #define HUFRL
 
-#include <libmaus2/aio/CheckedInputStream.hpp>
-#include <libmaus2/aio/CheckedOutputStream.hpp>
+#include <libmaus2/aio/InputStreamInstance.hpp>
+#include <libmaus2/aio/OutputStreamInstance.hpp>
 #include <libmaus2/aio/CircularWrapper.hpp>
 #include <libmaus2/aio/FileFragment.hpp>
 #include <libmaus2/aio/ReorderConcatGenericInput.hpp>
@@ -158,7 +158,7 @@ struct RlToHwtBase
 	
 	static libmaus2::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type loadWaveletTree(std::string const & hwt)
 	{
-		libmaus2::aio::CheckedInputStream CIS(hwt);
+		libmaus2::aio::InputStreamInstance CIS(hwt);
 		libmaus2::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type pICHWT(new libmaus2::wavelet::ImpCompactHuffmanWaveletTree(CIS));
 		return UNIQUE_PTR_MOVE(pICHWT);
 	}
@@ -1510,37 +1510,37 @@ struct RlToHwtBase
 			if ( H.maxDepth() <= 8*sizeof(uint8_t) && H.maxSymbol() <= std::numeric_limits<uint8_t>::max() )
 			{
 				libmaus2::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type ptr(rlToHwtSmallAlphabet<uint8_t>(bwt,H));
-				libmaus2::aio::CheckedOutputStream COS(hwt);
+				libmaus2::aio::OutputStreamInstance COS(hwt);
 				ptr->serialise(COS);
 				COS.flush();
-				COS.close();
+				// COS.close();
 				return UNIQUE_PTR_MOVE(ptr);
 			}
 			else if ( H.maxDepth() <= 8*sizeof(uint16_t) && H.maxSymbol() <= std::numeric_limits<uint16_t>::max() )
 			{
 				libmaus2::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type ptr(rlToHwtSmallAlphabet<uint16_t>(bwt,H));
-				libmaus2::aio::CheckedOutputStream COS(hwt);
+				libmaus2::aio::OutputStreamInstance COS(hwt);
 				ptr->serialise(COS);
 				COS.flush();
-				COS.close();
+				//COS.close();
 				return UNIQUE_PTR_MOVE(ptr);
 			}
 			else if ( H.maxDepth() <= 8*sizeof(uint32_t) && H.maxSymbol() <= std::numeric_limits<uint16_t>::max() )
 			{
 				libmaus2::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type ptr(rlToHwtSmallAlphabet<uint32_t>(bwt,H));
-				libmaus2::aio::CheckedOutputStream COS(hwt);
+				libmaus2::aio::OutputStreamInstance COS(hwt);
 				ptr->serialise(COS);
 				COS.flush();
-				COS.close();
+				//COS.close();
 				return UNIQUE_PTR_MOVE(ptr);
 			}
 			else if ( H.maxDepth() <= 8*sizeof(uint64_t) && H.maxSymbol() <= std::numeric_limits<uint16_t>::max() )
 			{
 				libmaus2::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type ptr(rlToHwtSmallAlphabet<uint64_t>(bwt,H));
-				libmaus2::aio::CheckedOutputStream COS(hwt);
+				libmaus2::aio::OutputStreamInstance COS(hwt);
 				ptr->serialise(COS);
 				COS.flush();
-				COS.close();
+				//COS.close();
 				return UNIQUE_PTR_MOVE(ptr);
 			}
 			else
@@ -1737,9 +1737,9 @@ struct RlToHwtBase
 
 	static ::libmaus2::huffman::HuffmanTree::unique_ptr_type loadCompactHuffmanTree(std::string const & huftreefilename)
 	{
-		libmaus2::aio::CheckedInputStream::unique_ptr_type CIN(new libmaus2::aio::CheckedInputStream(huftreefilename));
+		libmaus2::aio::InputStreamInstance::unique_ptr_type CIN(new libmaus2::aio::InputStreamInstance(huftreefilename));
 		::libmaus2::huffman::HuffmanTree::unique_ptr_type tH(new ::libmaus2::huffman::HuffmanTree(*CIN));
-		CIN->close();
+		// CIN->close();
 		CIN.reset();
 		
 		return UNIQUE_PTR_MOVE(tH);
@@ -1748,10 +1748,10 @@ struct RlToHwtBase
 	static ::libmaus2::huffman::HuffmanTreeNode::shared_ptr_type loadHuffmanTree(std::string const & huftreefilename)
 	{
 		// deserialise symbol frequences
-		libmaus2::aio::CheckedInputStream::unique_ptr_type chistCIN(new libmaus2::aio::CheckedInputStream(huftreefilename));
+		libmaus2::aio::InputStreamInstance::unique_ptr_type chistCIN(new libmaus2::aio::InputStreamInstance(huftreefilename));
 		::libmaus2::huffman::HuffmanTreeNode::shared_ptr_type shnode = 
 			::libmaus2::huffman::HuffmanTreeNode::deserialize(*chistCIN);
-		chistCIN->close();
+		//chistCIN->close();
 		chistCIN.reset();
 		
 		return shnode;
@@ -1847,7 +1847,7 @@ struct RlToHwtTermRequest
 	
 	static unique_ptr_type load(std::string const & filename)
 	{
-		libmaus2::aio::CheckedInputStream CIS(filename);
+		libmaus2::aio::InputStreamInstance CIS(filename);
 		unique_ptr_type ptr(new this_type(CIS));
 		return UNIQUE_PTR_MOVE(ptr);
 	}
@@ -2123,9 +2123,9 @@ struct BwtMergeBlockSortRequest : libmaus2::suffixsort::BwtMergeEnumBase
 	
 	static ::libmaus2::huffman::HuffmanTree::unique_ptr_type loadCompactHuffmanTree(std::string const & huftreefilename)
 	{
-		libmaus2::aio::CheckedInputStream::unique_ptr_type CIN(new libmaus2::aio::CheckedInputStream(huftreefilename));
+		libmaus2::aio::InputStreamInstance::unique_ptr_type CIN(new libmaus2::aio::InputStreamInstance(huftreefilename));
 		::libmaus2::huffman::HuffmanTree::unique_ptr_type tH(new ::libmaus2::huffman::HuffmanTree(*CIN));
-		CIN->close();
+		// CIN->close();
 		CIN.reset();
 		
 		return UNIQUE_PTR_MOVE(tH);
@@ -2134,10 +2134,10 @@ struct BwtMergeBlockSortRequest : libmaus2::suffixsort::BwtMergeEnumBase
 	static ::libmaus2::huffman::HuffmanTreeNode::shared_ptr_type loadHuffmanTree(std::string const & huftreefilename)
 	{
 		// deserialise symbol frequences
-		libmaus2::aio::CheckedInputStream::unique_ptr_type chistCIN(new libmaus2::aio::CheckedInputStream(huftreefilename));
+		libmaus2::aio::InputStreamInstance::unique_ptr_type chistCIN(new libmaus2::aio::InputStreamInstance(huftreefilename));
 		::libmaus2::huffman::HuffmanTreeNode::shared_ptr_type shnode = 
 			::libmaus2::huffman::HuffmanTreeNode::deserialize(*chistCIN);
-		chistCIN->close();
+		// chistCIN->close();
 		chistCIN.reset();
 		
 		return shnode;
@@ -2593,7 +2593,7 @@ struct BwtMergeBlockSortRequest : libmaus2::suffixsort::BwtMergeEnumBase
 				gcerrlock.unlock();
 				#endif
 
-				libmaus2::aio::CheckedOutputStream::unique_ptr_type utfCOS(new libmaus2::aio::CheckedOutputStream(utftmp));
+				libmaus2::aio::OutputStreamInstance::unique_ptr_type utfCOS(new libmaus2::aio::OutputStreamInstance(utftmp));
 				for ( uint64_t i = 0; i < outcnt; ++i )
 					::libmaus2::util::UTF8::encodeUTF8(SA[i],*utfCOS);
 
@@ -2604,7 +2604,7 @@ struct BwtMergeBlockSortRequest : libmaus2::suffixsort::BwtMergeEnumBase
 				#endif
 
 				utfCOS->flush();
-				utfCOS->close();
+				//utfCOS->close();
 				utfCOS.reset();
 
 				#if defined(FERAMANZGEN_DEBUG)
@@ -2629,9 +2629,36 @@ struct BwtMergeBlockSortRequest : libmaus2::suffixsort::BwtMergeEnumBase
 				#endif
 				
 				::libmaus2::autoarray::AutoArray<uint8_t> UT(ucnt,false);
-				libmaus2::aio::CheckedInputStream::unique_ptr_type utfCIS(new libmaus2::aio::CheckedInputStream(utftmp));
-				utfCIS->read(reinterpret_cast<char *>(UT.begin()),ucnt,64*1024);
-				utfCIS->close();
+				libmaus2::aio::InputStreamInstance::unique_ptr_type utfCIS(new libmaus2::aio::InputStreamInstance(utftmp));
+				{
+					char * c  = reinterpret_cast<char *>(UT.begin());
+					uint64_t n = ucnt;
+					uint64_t const bs = 64*1024;
+					
+					// utfCIS->read(reinterpret_cast<char *>(UT.begin()),ucnt,64*1024);
+					while ( n )
+					{
+						uint64_t const toread = std::min(n,bs);
+						utfCIS->read(c,toread);
+						uint64_t const got = utfCIS->gcount();
+						
+						if ( got )
+						{
+							n -= got;
+							c += got;
+						}
+						else
+						{
+							libmaus2::exception::LibMausException lme;
+							lme.getStream() << "sortBlock: unexpected EOF" << std::endl;
+							lme.finish();
+							throw lme;
+						}
+					}
+					assert ( ! n );
+					assert ( c == reinterpret_cast<char *>(UT.begin()) + ucnt );
+				}
+				//utfCIS->close();
 				utfCIS.reset();
 
 				#if defined(FERAMANZGEN_DEBUG)
@@ -2660,7 +2687,7 @@ struct BwtMergeBlockSortRequest : libmaus2::suffixsort::BwtMergeEnumBase
 				gcerrlock.unlock();
 				#endif
 				
-				remove(utftmp.c_str());
+				libmaus2::aio::FileRemoval::removeFile(utftmp.c_str());
 
 				#if defined(FERAMANZGEN_DEBUG)
 				gcerrlock.lock();
@@ -2709,7 +2736,7 @@ struct BwtMergeBlockSortRequest : libmaus2::suffixsort::BwtMergeEnumBase
 				#endif
 
 				// create final stream for huffman coded wavelet tree
-				::libmaus2::aio::CheckedOutputStream HCOS(tmpfilenames.getHWT());
+				::libmaus2::aio::OutputStreamInstance HCOS(tmpfilenames.getHWT());
 				IEWGH.createFinalStream(HCOS);
 				HCOS.flush();
 
@@ -2723,7 +2750,7 @@ struct BwtMergeBlockSortRequest : libmaus2::suffixsort::BwtMergeEnumBase
 		else
 		{
 			libmaus2::util::TempFileRemovalContainer::addTempFile(tmpfilenames.getHWTReq());
-			libmaus2::aio::CheckedOutputStream hwtReqCOS(tmpfilenames.getHWTReq());
+			libmaus2::aio::OutputStreamInstance hwtReqCOS(tmpfilenames.getHWTReq());
 			RlToHwtTermRequest::serialise(hwtReqCOS,
 				tmpfilenames.getBWT(),
 				tmpfilenames.getHWT(),
@@ -2734,7 +2761,7 @@ struct BwtMergeBlockSortRequest : libmaus2::suffixsort::BwtMergeEnumBase
 				input_types_type::utf8Wavelet()
 			);
 			hwtReqCOS.flush();
-			hwtReqCOS.close();
+			//hwtReqCOS.close();
 		}
 		
 		// glock.unlock();
@@ -3851,11 +3878,11 @@ struct BwtMergeSort
 	)
 	{
 		typedef ::libmaus2::huffman::BitInputBuffer4 sbis_type;			
-		::libmaus2::aio::CheckedInputStream::unique_ptr_type istr;
+		::libmaus2::aio::InputStreamInstance::unique_ptr_type istr;
 		sbis_type::raw_input_ptr_type ript;
 		sbis_type::unique_ptr_type SBIS;
 		
-		::libmaus2::aio::CheckedInputStream::unique_ptr_type tistr(new ::libmaus2::aio::CheckedInputStream(fn));
+		::libmaus2::aio::InputStreamInstance::unique_ptr_type tistr(new ::libmaus2::aio::InputStreamInstance(fn));
 		istr = UNIQUE_PTR_MOVE(tistr);
 		sbis_type::raw_input_ptr_type tript(new sbis_type::raw_input_type(*istr));
 		ript = UNIQUE_PTR_MOVE(tript);
@@ -4012,7 +4039,7 @@ struct BwtMergeSort
 				std::string const outputfilename = outputfilenamestr.str();
 				
 				// ::libmaus2::util::GetFileSize::copy(bwtfilenames[0][i],outputfilename);
-				rename ( bwtfilenames[0][i].c_str(), outputfilename.c_str() );
+				libmaus2::aio::OutputStreamFactoryContainer::rename ( bwtfilenames[0][i].c_str(), outputfilename.c_str() );
 				
 				outputfilenames.push_back(outputfilename);
 			}
@@ -4559,7 +4586,7 @@ struct BwtMergeSort
 				}
 			}
 			
-			remove(gtpartnames[z].c_str());
+			libmaus2::aio::FileRemoval::removeFile(gtpartnames[z].c_str());
 		}
 		
 		for ( uint64_t i = 0; i < prevbits; ++i )
@@ -4648,13 +4675,13 @@ struct BwtMergeSort
 			assert ( libmaus2::util::GetFileSize::fileExists(blockresults.getFiles().getHWTReq() ) );	
 			RlToHwtTermRequest::unique_ptr_type ureq(RlToHwtTermRequest::load(blockresults.getFiles().getHWTReq()));
 			libmaus2::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type	ptr(ureq->dispatch());
-			remove ( blockresults.getFiles().getHWTReq().c_str() );
+			libmaus2::aio::FileRemoval::removeFile ( blockresults.getFiles().getHWTReq().c_str() );
 			std::cerr << "done, time " << rtc.getElapsedSeconds() << std::endl;
 			return UNIQUE_PTR_MOVE(ptr);			
 		}
 		else
 		{
-			libmaus2::aio::CheckedInputStream CIS(blockresults.getFiles().getHWT());
+			libmaus2::aio::InputStreamInstance CIS(blockresults.getFiles().getHWT());
 			libmaus2::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type ptr(new libmaus2::wavelet::ImpCompactHuffmanWaveletTree(CIS));
 			return UNIQUE_PTR_MOVE(ptr);
 		}
@@ -5265,7 +5292,7 @@ struct BwtMergeSort
 		/*
 		 * remove unused file
 		 */
-		remove ( mergereq.children[mergereq.children.size()-1]->sortresult.getFiles().getHWT().c_str() );
+		libmaus2::aio::FileRemoval::removeFile ( mergereq.children[mergereq.children.size()-1]->sortresult.getFiles().getHWT().c_str() );
 		
 		// get result object
 		::libmaus2::suffixsort::BwtMergeBlockSortResult & result = mergereq.sortresult;
@@ -5327,7 +5354,7 @@ struct BwtMergeSort
 				std::string const renamed = ostr.str();
 				oldgtnames.push_back(ostr.str());
 				::libmaus2::util::TempFileRemovalContainer::addTempFile(renamed);
-				rename(blockresults.getFiles().getGT()[i].c_str(), renamed.c_str());
+				libmaus2::aio::OutputStreamFactoryContainer::rename(blockresults.getFiles().getGT()[i].c_str(), renamed.c_str());
 			}
 
 			result.setGT(stringVectorAppend(GACR.gtpartnames,oldgtnames));
@@ -5484,7 +5511,7 @@ struct BwtMergeSort
 			std::cerr << "[V] removing tmp files...";			
 			rtc.start();
 			for ( uint64_t i = 0; i < encfilenames.size(); ++i )
-				remove ( encfilenames[i].c_str() );
+				libmaus2::aio::FileRemoval::removeFile ( encfilenames[i].c_str() );
 			std::cerr << "done, time " << rtc.getElapsedSeconds() << std::endl;
 			#endif
 			
@@ -5528,7 +5555,7 @@ struct BwtMergeSort
 			// rename last bwt file set
 			for ( uint64_t i = 0; i < mergereq.children.back()->sortresult.getFiles().getBWT().size(); ++i )
 			{
-				rename ( 
+				libmaus2::aio::OutputStreamFactoryContainer::rename ( 
 					mergereq.children.back()->sortresult.getFiles().getBWT()[i].c_str(),
 					bwtfilenames.back()[i].c_str() 
 				);
@@ -5599,7 +5626,7 @@ struct BwtMergeSort
 					std::string const renamed = ostr.str();
 					oldgtnames.push_back(ostr.str());
 					::libmaus2::util::TempFileRemovalContainer::addTempFile(renamed);
-					rename(blockresults.getFiles().getGT()[i].c_str(), renamed.c_str());
+					libmaus2::aio::OutputStreamFactoryContainer::rename(blockresults.getFiles().getGT()[i].c_str(), renamed.c_str());
 				}
 
 				// result.setGT(stringVectorAppend(GACR.gtpartnames,blockresults.getFiles().getGT()));
@@ -5609,11 +5636,11 @@ struct BwtMergeSort
 				 */
 				// files local to this block
 				for ( uint64_t i = 0; i < blockresults.getFiles().getBWT().size(); ++i )
-					rename ( blockresults.getFiles().getBWT()[i].c_str(), bwtfilenames[bx][i].c_str() );
+					libmaus2::aio::OutputStreamFactoryContainer::rename ( blockresults.getFiles().getBWT()[i].c_str(), bwtfilenames[bx][i].c_str() );
 				blockresults.removeFilesButBwt();
 				// previous stage gt bit vector
 				for ( uint64_t i = 0; i < mergedgtname.size(); ++i )
-					remove ( mergedgtname[i].c_str() );
+					libmaus2::aio::FileRemoval::removeFile ( mergedgtname[i].c_str() );
 				
 				// update current file names
 				mergedgtname = stringVectorAppend(GACR.gtpartnames,oldgtnames);
@@ -5621,9 +5648,9 @@ struct BwtMergeSort
 			}
 			
 			// renamed sampled inverse suffix array
-			rename ( mergedisaname.c_str(), result.getFiles().getSampledISA().c_str() );
+			libmaus2::aio::OutputStreamFactoryContainer::rename ( mergedisaname.c_str(), result.getFiles().getSampledISA().c_str() );
 			// rename gt bit array filename
-			// rename ( mergedgtname.c_str(), result.getFiles().getGT().c_str() );
+			// libmaus2::aio::OutputStreamFactoryContainer::rename ( mergedgtname.c_str(), result.getFiles().getGT().c_str() );
 			result.setGT(mergedgtname);
 			// save histogram
 			accD->serialise(static_cast<std::string const & >(result.getFiles().getHist()));
@@ -5641,10 +5668,10 @@ struct BwtMergeSort
 			std::cerr << "done, time " << mprtc.getElapsedSeconds() << std::endl;
 
 			for ( uint64_t i = 0; i < gapfilenames.size(); ++i )
-				remove ( gapfilenames[i].c_str() );
+				libmaus2::aio::FileRemoval::removeFile ( gapfilenames[i].c_str() );
 			for ( uint64_t i = 0; i < bwtfilenames.size(); ++i )
 				for ( uint64_t j = 0; j < bwtfilenames[i].size(); ++j )
-					remove ( bwtfilenames[i][j].c_str() );
+					libmaus2::aio::FileRemoval::removeFile ( bwtfilenames[i][j].c_str() );
 		}
 
 		#if 0
@@ -5659,7 +5686,8 @@ struct BwtMergeSort
 		#endif
 
 		libmaus2::util::TempFileRemovalContainer::addTempFile(result.getFiles().getHWTReq());
-		libmaus2::aio::CheckedOutputStream hwtreqCOS(result.getFiles().getHWTReq());
+		{
+		libmaus2::aio::OutputStreamInstance hwtreqCOS(result.getFiles().getHWTReq());
 		RlToHwtTermRequest::serialise(
 			hwtreqCOS,
 			result.getFiles().getBWT(),
@@ -5671,7 +5699,8 @@ struct BwtMergeSort
 			input_types_type::utf8Wavelet()
 		);
 		hwtreqCOS.flush();
-		hwtreqCOS.close();
+		// hwtreqCOS.close();
+		}
 
 		// remove obsolete files
 		for ( uint64_t b = 0; b < mergereq.children.size(); ++b )
@@ -5701,7 +5730,7 @@ struct BwtMergeSort
 		/*
 		 * remove unused file
 		 */
-		remove ( mergereq.children[mergereq.children.size()-1]->sortresult.getFiles().getHWT().c_str() );
+		libmaus2::aio::FileRemoval::removeFile ( mergereq.children[mergereq.children.size()-1]->sortresult.getFiles().getHWT().c_str() );
 		
 		// get result object
 		::libmaus2::suffixsort::BwtMergeBlockSortResult & result = mergereq.sortresult;
@@ -5764,7 +5793,7 @@ struct BwtMergeSort
 				std::string const renamed = ostr.str();
 				oldgtnames.push_back(ostr.str());
 				::libmaus2::util::TempFileRemovalContainer::addTempFile(renamed);
-				rename(blockresults.getFiles().getGT()[i].c_str(), renamed.c_str());
+				libmaus2::aio::OutputStreamFactoryContainer::rename(blockresults.getFiles().getGT()[i].c_str(), renamed.c_str());
 			}
 
 			result.setGT(stringVectorAppend(GACR.gtpartnames,oldgtnames));
@@ -5960,7 +5989,7 @@ struct BwtMergeSort
 			std::cerr << "[V] removing tmp files...";			
 			rtc.start();
 			for ( uint64_t i = 0; i < encfilenames.size(); ++i )
-				remove ( encfilenames[i].c_str() );
+				libmaus2::aio::FileRemoval::removeFile ( encfilenames[i].c_str() );
 			std::cerr << "done, time " << rtc.getElapsedSeconds() << std::endl;
 			#endif
 			
@@ -6004,7 +6033,7 @@ struct BwtMergeSort
 			// rename last bwt file set
 			for ( uint64_t i = 0; i < mergereq.children.back()->sortresult.getFiles().getBWT().size(); ++i )
 			{
-				rename ( 
+				libmaus2::aio::OutputStreamFactoryContainer::rename ( 
 					mergereq.children.back()->sortresult.getFiles().getBWT()[i].c_str(),
 					bwtfilenames.back()[i].c_str() 
 				);
@@ -6084,7 +6113,7 @@ struct BwtMergeSort
 					std::string const renamed = ostr.str();
 					oldgtnames.push_back(ostr.str());
 					::libmaus2::util::TempFileRemovalContainer::addTempFile(renamed);
-					rename(blockresults.getFiles().getGT()[i].c_str(), renamed.c_str());
+					libmaus2::aio::OutputStreamFactoryContainer::rename(blockresults.getFiles().getGT()[i].c_str(), renamed.c_str());
 				}
 
 				// result.setGT(stringVectorAppend(GACR.gtpartnames,blockresults.getFiles().getGT()));
@@ -6094,11 +6123,11 @@ struct BwtMergeSort
 				 */
 				// files local to this block
 				for ( uint64_t i = 0; i < blockresults.getFiles().getBWT().size(); ++i )
-					rename ( blockresults.getFiles().getBWT()[i].c_str(), bwtfilenames[bx][i].c_str() );
+					libmaus2::aio::OutputStreamFactoryContainer::rename ( blockresults.getFiles().getBWT()[i].c_str(), bwtfilenames[bx][i].c_str() );
 				blockresults.removeFilesButBwt();
 				// previous stage gt bit vector
 				for ( uint64_t i = 0; i < mergedgtname.size(); ++i )
-					remove ( mergedgtname[i].c_str() );
+					libmaus2::aio::FileRemoval::removeFile ( mergedgtname[i].c_str() );
 				
 				// update current file names
 				mergedgtname = stringVectorAppend(GACR.gtpartnames,oldgtnames);
@@ -6106,9 +6135,9 @@ struct BwtMergeSort
 			}
 			
 			// renamed sampled inverse suffix array
-			rename ( mergedisaname.c_str(), result.getFiles().getSampledISA().c_str() );
+			libmaus2::aio::OutputStreamFactoryContainer::rename ( mergedisaname.c_str(), result.getFiles().getSampledISA().c_str() );
 			// rename gt bit array filename
-			// rename ( mergedgtname.c_str(), result.getFiles().getGT().c_str() );
+			// libmaus2::aio::OutputStreamFactoryContainer::rename ( mergedgtname.c_str(), result.getFiles().getGT().c_str() );
 			result.setGT(mergedgtname);
 			// save histogram
 			accD->serialise(static_cast<std::string const & >(result.getFiles().getHist()));
@@ -6126,10 +6155,10 @@ struct BwtMergeSort
 			std::cerr << "done, time " << mprtc.getElapsedSeconds() << std::endl;
 
 			for ( uint64_t i = 0; i < gapfilenames.size(); ++i )
-				remove ( gapfilenames[i].c_str() );
+				libmaus2::aio::FileRemoval::removeFile ( gapfilenames[i].c_str() );
 			for ( uint64_t i = 0; i < bwtfilenames.size(); ++i )
 				for ( uint64_t j = 0; j < bwtfilenames[i].size(); ++j )
-					remove ( bwtfilenames[i][j].c_str() );
+					libmaus2::aio::FileRemoval::removeFile ( bwtfilenames[i][j].c_str() );
 		}
 
 		#if 0
@@ -6144,7 +6173,8 @@ struct BwtMergeSort
 		#endif
 
 		libmaus2::util::TempFileRemovalContainer::addTempFile(result.getFiles().getHWTReq());
-		libmaus2::aio::CheckedOutputStream hwtreqCOS(result.getFiles().getHWTReq());
+		{
+		libmaus2::aio::OutputStreamInstance hwtreqCOS(result.getFiles().getHWTReq());
 		RlToHwtTermRequest::serialise(
 			hwtreqCOS,
 			result.getFiles().getBWT(),
@@ -6156,7 +6186,8 @@ struct BwtMergeSort
 			input_types_type::utf8Wavelet()
 		);
 		hwtreqCOS.flush();
-		hwtreqCOS.close();
+		//hwtreqCOS.close();
+		}
 
 		// remove obsolete files
 		for ( uint64_t b = 0; b < mergereq.children.size(); ++b )
@@ -6188,7 +6219,7 @@ struct BwtMergeSort
 		/*
 		 * remove unused file
 		 */
-		remove ( mergereq.children[mergereq.children.size()-1]->sortresult.getFiles().getHWT().c_str() );
+		libmaus2::aio::FileRemoval::removeFile ( mergereq.children[mergereq.children.size()-1]->sortresult.getFiles().getHWT().c_str() );
 		
 		// get result object
 		::libmaus2::suffixsort::BwtMergeBlockSortResult & result = mergereq.sortresult;
@@ -6237,7 +6268,7 @@ struct BwtMergeSort
 			// rename last bwt file set
 			for ( uint64_t i = 0; i < mergereq.children.back()->sortresult.getFiles().getBWT().size(); ++i )
 			{
-				rename ( 
+				libmaus2::aio::OutputStreamFactoryContainer::rename ( 
 					mergereq.children.back()->sortresult.getFiles().getBWT()[i].c_str(),
 					bwtfilenames.back()[i].c_str() 
 				);
@@ -6310,7 +6341,7 @@ struct BwtMergeSort
 					std::string const renamed = ostr.str();
 					oldgtnames.push_back(ostr.str());
 					::libmaus2::util::TempFileRemovalContainer::addTempFile(renamed);
-					rename(blockresults.getFiles().getGT()[i].c_str(), renamed.c_str());
+					libmaus2::aio::OutputStreamFactoryContainer::rename(blockresults.getFiles().getGT()[i].c_str(), renamed.c_str());
 				}
 
 				/*
@@ -6318,11 +6349,11 @@ struct BwtMergeSort
 				 */
 				// files local to this block
 				for ( uint64_t i = 0; i < blockresults.getFiles().getBWT().size(); ++i )
-					rename ( blockresults.getFiles().getBWT()[i].c_str(), bwtfilenames[bx][i].c_str() );
+					libmaus2::aio::OutputStreamFactoryContainer::rename ( blockresults.getFiles().getBWT()[i].c_str(), bwtfilenames[bx][i].c_str() );
 				blockresults.removeFilesButBwt();
 				// previous stage gt bit vector
 				for ( uint64_t i = 0; i < mergedgtname.size(); ++i )
-					remove ( mergedgtname[i].c_str() );
+					libmaus2::aio::FileRemoval::removeFile ( mergedgtname[i].c_str() );
 				
 				// update current file names
 				mergedgtname = stringVectorAppend(GACR.gtpartnames,oldgtnames);
@@ -6330,9 +6361,9 @@ struct BwtMergeSort
 			}
 			
 			// renamed sampled inverse suffix array
-			rename ( mergedisaname.c_str(), result.getFiles().getSampledISA().c_str() );
+			libmaus2::aio::OutputStreamFactoryContainer::rename ( mergedisaname.c_str(), result.getFiles().getSampledISA().c_str() );
 			// rename gt bit array filename
-			//rename ( mergedgtname.c_str(), result.getFiles().getGT().c_str() );
+			// libmaus2::aio::OutputStreamFactoryContainer::rename ( mergedgtname.c_str(), result.getFiles().getGT().c_str() );
 			result.setGT(mergedgtname);
 			// save histogram
 			accD->serialise(static_cast<std::string const & >(result.getFiles().getHist()));
@@ -6348,10 +6379,10 @@ struct BwtMergeSort
 
 			for ( uint64_t i = 0; i < gapfilenames.size(); ++i )
 				for ( uint64_t j = 0; j < gapfilenames[i].size(); ++j )
-					remove ( gapfilenames[i][j].c_str() );
+					libmaus2::aio::FileRemoval::removeFile ( gapfilenames[i][j].c_str() );
 			for ( uint64_t i = 0; i < bwtfilenames.size(); ++i )
 				for ( uint64_t j = 0; j < bwtfilenames[i].size(); ++j )
-					remove ( bwtfilenames[i][j].c_str() );		
+					libmaus2::aio::FileRemoval::removeFile ( bwtfilenames[i][j].c_str() );		
 		}
 
 		#if 0
@@ -6366,7 +6397,8 @@ struct BwtMergeSort
 		#endif
 
 		libmaus2::util::TempFileRemovalContainer::addTempFile(result.getFiles().getHWTReq());
-		libmaus2::aio::CheckedOutputStream hwtreqCOS(result.getFiles().getHWTReq());
+		{
+		libmaus2::aio::OutputStreamInstance hwtreqCOS(result.getFiles().getHWTReq());
 		RlToHwtTermRequest::serialise(hwtreqCOS,
 			result.getFiles().getBWT(),
 			result.getFiles().getHWT(),
@@ -6377,7 +6409,8 @@ struct BwtMergeSort
 			input_types_type::utf8Wavelet()
 		);
 		hwtreqCOS.flush();
-		hwtreqCOS.close();
+		//hwtreqCOS.close();
+		}
 
 		// remove obsolete files
 		for ( uint64_t b = 0; b < mergereq.children.size(); ++b )
@@ -6398,8 +6431,8 @@ struct BwtMergeSort
 		::libmaus2::sorting::PairFileSorting::sortPairFile(
 			std::vector<std::string>(1,mergedisaname),mergeisatmp,true /* second comp */,
 			true,true,mergeisatmpout,blockmem/2/*par*/,true /* parallel */);
-		remove ( (mergeisatmp).c_str() );
-		rename ( mergeisatmpout.c_str(), mergedisaname.c_str() );
+		libmaus2::aio::FileRemoval::removeFile ( (mergeisatmp).c_str() );
+		libmaus2::aio::OutputStreamFactoryContainer::rename ( mergeisatmpout.c_str(), mergedisaname.c_str() );
 	
 	}
 
@@ -6621,7 +6654,7 @@ struct BwtMergeSort
 		std::cerr << "[V] sorting and merging sampled suffix array parts...";
 		std::string const mergedsaname = ::libmaus2::util::OutputFileNameTools::clipOff(outfn,".bwt") + ".sa";
 		{
-		::libmaus2::aio::CheckedOutputStream::unique_ptr_type pmergedsa(new ::libmaus2::aio::CheckedOutputStream(mergedsaname));
+		::libmaus2::aio::OutputStreamInstance::unique_ptr_type pmergedsa(new ::libmaus2::aio::OutputStreamInstance(mergedsaname));
 		// write sampling rate
 		::libmaus2::serialize::Serialize<uint64_t>::serialize(*pmergedsa,sasamplingrate);
 		::libmaus2::serialize::Serialize<uint64_t>::serialize(*pmergedsa,(fs + sasamplingrate-1)/sasamplingrate);
@@ -6639,13 +6672,13 @@ struct BwtMergeSort
 		);
 		pmergedsa->flush();
 		pmergedsa.reset();
-		remove(mergesatmp.c_str());
+		libmaus2::aio::FileRemoval::removeFile(mergesatmp.c_str());
 		}
 		std::cerr << "done." << std::endl;		
 
 		std::cerr << "[V] sorting and merging sampled inverse suffix array parts...";
 		std::string const mergedisaoutname = ::libmaus2::util::OutputFileNameTools::clipOff(outfn,".bwt") + ".isa";
-		::libmaus2::aio::CheckedOutputStream::unique_ptr_type pmergedisa(new ::libmaus2::aio::CheckedOutputStream(mergedisaoutname));
+		::libmaus2::aio::OutputStreamInstance::unique_ptr_type pmergedisa(new ::libmaus2::aio::OutputStreamInstance(mergedisaoutname));
 		// write sampling rate
 		::libmaus2::serialize::Serialize<uint64_t>::serialize(*pmergedisa,isasamplingrate);
 		::libmaus2::serialize::Serialize<uint64_t>::serialize(*pmergedisa,(fs+isasamplingrate-1)/isasamplingrate);
@@ -6662,7 +6695,7 @@ struct BwtMergeSort
 			true /* delete input */
 		);
 		std::cerr << "done." << std::endl;		
-		remove(mergeisatmp.c_str());
+		libmaus2::aio::FileRemoval::removeFile(mergeisatmp.c_str());
 
 		#if 0
 		// check sampled suffix array by pairwise comparison on text
@@ -7198,10 +7231,12 @@ struct BwtMergeSort
 			
 			std::string const freqstmpfilename = blocktmpnames[b].getHist() + ".freqs";
 			libmaus2::util::TempFileRemovalContainer::addTempFile(freqstmpfilename);	
-			libmaus2::aio::CheckedOutputStream freqCOS(freqstmpfilename);
+			{
+			libmaus2::aio::OutputStreamInstance freqCOS(freqstmpfilename);
 			libmaus2::util::NumberMapSerialisation::serialiseMap(freqCOS,blockfreqs);
 			freqCOS.flush();
-			freqCOS.close();
+			//freqCOS.close();
+			}
 			
 			#if 0
 			rtc.start();
@@ -7237,10 +7272,10 @@ struct BwtMergeSort
 		std::cerr << "[M"<< (mcnt++) << "] " << libmaus2::util::MemUsage() << " " << libmaus2::autoarray::AutoArrayMemUsage() << std::endl;
 		#endif
 		
-		libmaus2::aio::CheckedOutputStream::unique_ptr_type chistCOS(new libmaus2::aio::CheckedOutputStream(chistfilename));
+		libmaus2::aio::OutputStreamInstance::unique_ptr_type chistCOS(new libmaus2::aio::OutputStreamInstance(chistfilename));
 		(*chistCOS) << ::libmaus2::util::NumberMapSerialisation::serialiseMap(chist);
 		chistCOS->flush();
-		chistCOS->close();
+		// chistCOS->close();
 		chistCOS.reset();
 		
 		std::cerr << "[V] computed symbol frequences, input alphabet size is " << chistnoterm.size() << std::endl;
@@ -7253,10 +7288,10 @@ struct BwtMergeSort
 
 		libmaus2::huffman::HuffmanTree::unique_ptr_type uhnode(new libmaus2::huffman::HuffmanTree(chist.begin(),chist.size(),false,true,true));
 		
-		libmaus2::aio::CheckedOutputStream::unique_ptr_type huftreeCOS(new libmaus2::aio::CheckedOutputStream(huftreefilename));
+		libmaus2::aio::OutputStreamInstance::unique_ptr_type huftreeCOS(new libmaus2::aio::OutputStreamInstance(huftreefilename));
 		uhnode->serialise(*huftreeCOS);
 		huftreeCOS->flush();
-		huftreeCOS->close();
+		// huftreeCOS->close();
 		huftreeCOS.reset();
 
 		#if defined(FERAMANZGEN_MEMORY_DEBUG)
@@ -7286,11 +7321,11 @@ struct BwtMergeSort
 			// symbol frequency map
 			// std::map<int64_t,uint64_t> const & blockfreqs = blockfreqvec[b];
 			std::string const freqstmpfilename = blocktmpnames[b].getHist() + ".freqs";
-			libmaus2::aio::CheckedInputStream freqCIS(freqstmpfilename);
+			libmaus2::aio::InputStreamInstance freqCIS(freqstmpfilename);
 			std::map<int64_t,uint64_t> const blockfreqs = 
-				libmaus2::util::NumberMapSerialisation::deserialiseMap<libmaus2::aio::CheckedInputStream,int64_t,uint64_t>(freqCIS);
-			freqCIS.close();
-			remove(freqstmpfilename.c_str());
+				libmaus2::util::NumberMapSerialisation::deserialiseMap<libmaus2::aio::InputStreamInstance,int64_t,uint64_t>(freqCIS);
+			// freqCIS.close();
+			libmaus2::aio::FileRemoval::removeFile(freqstmpfilename.c_str());
 			// 
 			uint64_t const sourcelengthbits = input_types_type::getSourceLengthBits(fn,blockstart,blockstart+cblocksize,blockfreqs);
 			//
@@ -7478,35 +7513,38 @@ struct BwtMergeSort
 		#else
 		::libmaus2::gamma::GammaRLEncoder::concatenate(mergeresult.getFiles().getBWT(),outfn,true /* removeinput */);
 		#endif
-		//rename ( mergeresult.getFiles().getBWT().c_str(), outfn.c_str() );
+		// libmaus2::aio::OutputStreamFactoryContainer::rename ( mergeresult.getFiles().getBWT().c_str(), outfn.c_str() );
 		
 		std::cerr << "[V] BWT computed in time " << bwtclock.formatTime(bwtclock.getElapsedSeconds()) << std::endl;
 
 		// serialise character histogram
 		std::string const outhist = ::libmaus2::util::OutputFileNameTools::clipOff(outfn,".bwt") + ".hist";
-		::libmaus2::aio::CheckedOutputStream::unique_ptr_type Phistout(new ::libmaus2::aio::CheckedOutputStream(outhist));
+		::libmaus2::aio::OutputStreamInstance::unique_ptr_type Phistout(new ::libmaus2::aio::OutputStreamInstance(outhist));
 		::libmaus2::util::NumberMapSerialisation::serialiseMap(*Phistout,chistnoterm);
 		Phistout->flush();
-		Phistout->close();
+		// Phistout->close();
 		Phistout.reset();
 		
 		// remove hwt request for term symbol hwt
-		remove ( mergeresult.getFiles().getHWTReq().c_str() );
+		libmaus2::aio::FileRemoval::removeFile ( mergeresult.getFiles().getHWTReq().c_str() );
 		
 		// remove hwt (null op)
 		std::string const debhwt = ::libmaus2::util::OutputFileNameTools::clipOff(outfn,".bwt") + ".hwt" + ".deb";
-		rename ( mergeresult.getFiles().getHWT().c_str(), debhwt.c_str() );
-		remove ( debhwt.c_str() );
+		if ( libmaus2::aio::InputStreamFactoryContainer::tryOpen(mergeresult.getFiles().getHWT()) )
+		{
+			libmaus2::aio::OutputStreamFactoryContainer::rename ( mergeresult.getFiles().getHWT().c_str(), debhwt.c_str() );
+			libmaus2::aio::FileRemoval::removeFile ( debhwt.c_str() );
+		}
 		
 		// remove gt files
 		for ( uint64_t i = 0; i < mergeresult.getFiles().getGT().size(); ++i )
-			remove ( mergeresult.getFiles().getGT()[i].c_str() );
+			libmaus2::aio::FileRemoval::removeFile ( mergeresult.getFiles().getGT()[i].c_str() );
 		
 		if ( bwtonly )
 		{
 			std::string const mergedisaname = mergeresult.getFiles().getSampledISA();
 			std::string const outisa = ::libmaus2::util::OutputFileNameTools::clipOff(outfn,".bwt") + ".preisa";
-			rename(mergedisaname.c_str(),outisa.c_str());
+			libmaus2::aio::OutputStreamFactoryContainer::rename(mergedisaname.c_str(),outisa.c_str());
 		}
 		else
 		{	
@@ -7612,10 +7650,9 @@ int main(int argc, char * argv[])
 			if ( ! ::libmaus2::util::GetFileSize::fileExists(idxfn) )
 			{
 				::libmaus2::util::Utf8BlockIndex::unique_ptr_type index(::libmaus2::util::Utf8BlockIndex::constructFromUtf8File(fn));
-				::libmaus2::aio::CheckedOutputStream COS(idxfn);
+				::libmaus2::aio::OutputStreamInstance COS(idxfn);
 				index->serialise(COS);
 				COS.flush();
-				COS.close();
 			}
 			BwtMergeSort<libmaus2::suffixsort::Utf8InputTypes>::computeBwt(arginfo);
 		}
