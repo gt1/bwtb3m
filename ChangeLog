@@ -1,3 +1,9 @@
+bwtb3m (0.0.6-1) unstable; urgency=medium
+
+  * add tmp file options (separate tmp path for sparse gap files, in memory tmp files) 
+
+ -- German Tischler <gt1@sanger.ac.uk>  Sun, 09 Aug 2015 16:43:05 +0200
+
 bwtb3m (0.0.5-1) unstable; urgency=medium
 
   * add release creation with configuration scripts 
