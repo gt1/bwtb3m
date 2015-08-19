@@ -20,15 +20,17 @@
 #include "config.h"
 #endif
 
+#include <libmaus2/suffixsort/BwtMergeBlockSortRequest.hpp>
+#include <libmaus2/wavelet/RlToHwtTermRequest.hpp>
+#include <libmaus2/suffixsort/BwtMergeBlockSortRequestBase.hpp>
+#include <libmaus2/wavelet/RlToHwtBase.hpp>
+
 #include <libmaus2/wavelet/ImpCompactHuffmanWaveletTree.hpp>
 #include <libmaus2/wavelet/ImpExternalWaveletGeneratorCompactHuffman.hpp>
 #include <libmaus2/wavelet/ImpExternalWaveletGeneratorCompactHuffmanParallel.hpp>
 
 #include <iostream>
 #include <iomanip>
-
-// #define HUFGAP
-#define HUFRL
 
 #include <libmaus2/aio/InputStreamInstance.hpp>
 #include <libmaus2/aio/OutputStreamInstance.hpp>
@@ -117,2729 +119,8 @@
 #include <libmaus2/util/SimpleCountingHash.hpp>
 #include <libmaus2/util/SuccinctBorderArray.hpp>
 
-#if defined(HUFRL)
-typedef ::libmaus2::huffman::RLDecoder rl_decoder;
-#else
-typedef ::libmaus2::gamma::GammaRLDecoder rl_decoder;
-#endif
-
 libmaus2::parallel::OMPLock gcerrlock;
 libmaus2::parallel::OMPLock glock;
-
-struct WtTodo
-{
-	uint64_t low;
-	uint64_t high;
-	unsigned int depth;
-	uint32_t node;
-	
-	WtTodo() : low(0), high(0), depth(0), node(0) {}
-	WtTodo(
-		uint64_t const rlow,
-		uint64_t const rhigh,
-		unsigned int const rdepth,
-		uint32_t const rnode
-	) : low(rlow), high(rhigh), depth(rdepth), node(rnode) {}
-};
-
-std::ostream & operator<<(std::ostream & out, WtTodo const & O)
-{
-	out << "WtTodo(low=" << O.low << ",high=" << O.high << ",depth=" << O.depth << ",node=" << O.node << ")";
-	return out;
-}
-
-template<bool _utf8_input_type>
-struct RlToHwtBase
-{
-	static bool utf8Wavelet()
-	{
-		return _utf8_input_type;
-	}
-	
-	static libmaus2::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type loadWaveletTree(std::string const & hwt)
-	{
-		libmaus2::aio::InputStreamInstance CIS(hwt);
-		libmaus2::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type pICHWT(new libmaus2::wavelet::ImpCompactHuffmanWaveletTree(CIS));
-		return UNIQUE_PTR_MOVE(pICHWT);
-	}
-	
-	struct RlDecoderInfoObject
-	{
-		rl_decoder * dec;
-		uint64_t block;
-		uint64_t blocksleft;
-		
-		uint64_t low;
-		uint64_t end;
-		uint64_t blocksize;
-		uint64_t blockoffset;
-		
-		RlDecoderInfoObject() : dec(0), block(0), blocksleft(0), low(0), end(0), blocksize(0), blockoffset(0) {}
-		RlDecoderInfoObject(
-			rl_decoder * rdec,
-			uint64_t const rblock,
-			uint64_t const rblocksleft,
-			uint64_t const rlow,
-			uint64_t const rend,
-			uint64_t const rblocksize,
-			uint64_t const rblockoffset
-		) : dec(rdec), block(rblock), blocksleft(rblocksleft), low(rlow), end(rend), blocksize(rblocksize), blockoffset(rblockoffset)
-		{
-		
-		}
-		
-		bool hasNextBlock() const
-		{
-			return blocksleft > 1;
-		}
-		
-		RlDecoderInfoObject nextBlock() const
-		{
-			assert ( hasNextBlock() );
-			return RlDecoderInfoObject(dec,block+1,blocksleft-1,low+blocksize,end,blocksize,blockoffset);
-		}
-		
-		uint64_t getLow() const
-		{
-			return low;	
-		}
-		
-		uint64_t getHigh() const
-		{
-			return std::min(low+blocksize,end);
-		}
-		
-		uint64_t getAbsoluteBlock() const
-		{
-			return block + blockoffset;
-		}
-	};
-	
-	template<typename _object_type>
-	struct Todo
-	{
-		typedef _object_type object_type;
-		std::stack<object_type> todo;
-		libmaus2::parallel::OMPLock lock;
-		
-		Todo()
-		{
-		
-		}
-		
-		void push(object_type const & o)
-		{
-			libmaus2::parallel::ScopeLock sl(lock);
-			todo.push(o);
-		}
-		
-		bool pop(object_type & o)
-		{
-			libmaus2::parallel::ScopeLock sl(lock);
-			if ( todo.size() )
-			{
-				o = todo.top();
-				todo.pop();
-				return true;
-			}
-			else
-			{
-				return false;
-			}	
-		}
-	};
-
-	/**
-	 * specialised version for small alphabets
-	 **/
-	template<typename entity_type>
-	static libmaus2::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type rlToHwtTermSmallAlphabet(
-		std::vector<std::string> const & bwt, 
-		std::string const & huftreefilename,
-		uint64_t const bwtterm,
-		uint64_t const p0r
-		)
-	{
-		// std::cerr << "(" << libmaus2::util::Demangle::demangle<entity_type>() << ")";
-	
-		// load the huffman tree
-		::libmaus2::huffman::HuffmanTree::unique_ptr_type UH = loadCompactHuffmanTree(huftreefilename);
-		::libmaus2::huffman::HuffmanTree & H = *UH;
-		// check depth is low
-		assert ( H.maxDepth() <= 8*sizeof(entity_type) );
-		// get encoding table
-		::libmaus2::huffman::HuffmanTree::EncodeTable const E(H);
-		// get symbol array
-		libmaus2::autoarray::AutoArray<int64_t> const symbols = H.symbolArray();
-		// get maximum symbol
-		int64_t const maxsym = symbols.size() ? symbols[symbols.size()-1] : -1;
-		// check it is in range
-		assert ( 
-			maxsym < 0
-			||
-			static_cast<uint64_t>(maxsym) <= static_cast<uint64_t>(std::numeric_limits<entity_type>::max()) 
-		);
-		// size of symbol table
-		uint64_t const tablesize = maxsym+1;
-		// number of inner nodes in Huffman tree
-		uint64_t const inner = H.inner();
-
-		::libmaus2::huffman::IndexDecoderDataArray IDD(bwt);
-		::libmaus2::huffman::IndexEntryContainerVector::unique_ptr_type IECV = ::libmaus2::huffman::IndexLoader::loadAccIndex(bwt);
-
-		// compute symbol to node mapping
-		uint64_t symtonodesvecsize = 0;
-		// depth <= 16, tablesize <= 64k
-		libmaus2::autoarray::AutoArray<uint32_t> symtonodevecoffsets(tablesize,false);
-		for ( uint64_t i = 0; i < symbols.size(); ++i )
-		{
-			uint64_t const sym = symbols[i];
-			symtonodevecoffsets[sym] = symtonodesvecsize;
-			assert ( symtonodesvecsize <= std::numeric_limits<uint32_t>::max() );
-			symtonodesvecsize += E.getCodeLength(sym);
-		}
-		
-		libmaus2::autoarray::AutoArray<uint32_t> symtonodes(symtonodesvecsize,false);
-		uint32_t * symtonodesp = symtonodes.begin();
-		for ( uint64_t i = 0; i < symbols.size(); ++i )
-		{
-			// symbol
-			uint64_t const sym = symbols[i];
-			// node
-			uint64_t node = H.root();
-			
-			assert ( symtonodesp-symtonodes.begin() == symtonodevecoffsets[sym] );
-			
-			for ( uint64_t j = 0; j < E.getCodeLength(sym); ++j )
-			{
-				// add symbol to inner node
-				//symtonodes [ sym ] . push_back( node - H.leafs() );
-				*(symtonodesp++) = node - H.leafs();
-				
-				// follow tree link according to code of symbol
-				if ( E.getBitFromTop(sym,j) )
-					node = H.rightChild(node);
-				else
-					node = H.leftChild(node);
-			}
-		}
-		assert ( symtonodesp = symtonodes.end() );
-				
-		// total size
-		uint64_t const n = rl_decoder::getLength(bwt);
-		// before
-		uint64_t const n_0 = p0r;
-		// terminator
-		uint64_t const n_1 = 1;
-		// after
-		uint64_t const n_2 = n-(n_0+n_1);
-		
-		#if defined(_OPENMP)
-		uint64_t const numthreads = omp_get_max_threads();
-		#else
-		uint64_t const numthreads = 1;
-		#endif
-		
-		assert ( numthreads );
-		
-		uint64_t const blocksperthread = 4;
-		uint64_t const targetblocks = numthreads * blocksperthread;
-		// maximum internal memory for blocks
-		uint64_t const blockmemthres = 1024ull*1024ull;
-		// per thread
-		uint64_t const blocksizethres = (blockmemthres*sizeof(entity_type) + numthreads-1)/numthreads;
-		
-		// block sizes
-		uint64_t const t_0 = std::min(blocksizethres,(n_0 + (targetblocks-1))/targetblocks);
-		uint64_t const t_1 = std::min(blocksizethres,(n_1 + (targetblocks-1))/targetblocks);
-		uint64_t const t_2 = std::min(blocksizethres,(n_2 + (targetblocks-1))/targetblocks);
-		uint64_t const t_g = std::max(std::max(t_0,t_1),t_2);
-		// actual number of blocks
-		uint64_t const b_0 = t_0 ? ((n_0 + (t_0-1))/t_0) : 0;
-		uint64_t const b_1 = t_1 ? ((n_1 + (t_1-1))/t_1) : 0;
-		uint64_t const b_2 = t_2 ? ((n_2 + (t_2-1))/t_2) : 0;
-		uint64_t const b_g = b_0 + b_1 + b_2;
-		// blocks per thread
-		uint64_t const blocks_per_thread_0 = (b_0 + numthreads-1)/numthreads;
-		uint64_t const blocks_per_thread_2 = (b_2 + numthreads-1)/numthreads;
-		
-		// local character histograms
-		libmaus2::autoarray::AutoArray<uint64_t> localhist(numthreads * tablesize,false);
-		// global node sizes
-		libmaus2::autoarray::AutoArray2d<uint64_t> localnodehist(inner,b_g+1,true);
-
-		#if 0
-		std::cerr << "(" << symtonodevecoffsets.byteSize() << "," << symtonodes.byteSize() << "," << localhist.byteSize() << "," 
-			<< (inner * (b_g+1) * sizeof(uint64_t)) << ")";
-		#endif
-		
-		libmaus2::parallel::OMPLock cerrlock;
-		
-		libmaus2::autoarray::AutoArray<rl_decoder::unique_ptr_type> rldecs(2*numthreads);
-		Todo<RlDecoderInfoObject> todostack;
-		// set up block information for symbols after terminator
-		for ( uint64_t ii = 0; ii < numthreads; ++ii )
-		{
-			uint64_t const i = numthreads-ii-1;
-			uint64_t const baseblock = i*blocks_per_thread_2;
-			uint64_t const highblock = std::min(baseblock + blocks_per_thread_2, b_2);
-			uint64_t const low = n_0+n_1+baseblock * t_2;
-						
-			if ( low < n )
-			{
-				#if defined(HUFRL)
-				rl_decoder::unique_ptr_type tptr(new rl_decoder(IDD,low));
-				#else
-				rl_decoder::unique_ptr_type tptr(new rl_decoder(IDD,IECV.get(),low));
-				#endif
-
-				rldecs[numthreads+i] = UNIQUE_PTR_MOVE(tptr);
-				todostack.push(RlDecoderInfoObject(
-					rldecs[numthreads+i].get(),baseblock,highblock-baseblock,
-					low,n_0+n_1+n_2,t_2,b_0+b_1
-					)
-				);
-			}
-		}
-		// set up block information for symbols before terminator
-		for ( uint64_t ii = 0; ii < numthreads; ++ii )
-		{
-			uint64_t const i = numthreads-ii-1;
-			uint64_t const baseblock = i*blocks_per_thread_0;
-			uint64_t const highblock = std::min(baseblock + blocks_per_thread_0, b_0);
-			uint64_t const low = baseblock * t_0;
-						
-			if ( low < n_0 )
-			{
-				#if defined(HUFRL)
-				rl_decoder::unique_ptr_type tptr(new rl_decoder(IDD,low));
-				#else
-				rl_decoder::unique_ptr_type tptr(new rl_decoder(IDD,IECV.get(),low));
-				#endif
-				rldecs[i] = UNIQUE_PTR_MOVE(tptr);
-				todostack.push(RlDecoderInfoObject(
-					rldecs[i].get(),baseblock,highblock-baseblock,
-					low,n_0,t_0,0
-					)
-				);				
-			}
-		}
-		
-		#if defined(_OPENMP)
-		#pragma omp parallel
-		#endif
-		{
-			RlDecoderInfoObject dio;
-			
-			while ( todostack.pop(dio) )
-			{
-				#if defined(_OPENMP)
-				uint64_t const tid = omp_get_thread_num();
-				#else
-				uint64_t const tid = 0;
-				#endif
-			
-				// pointer to histogram memory for this block
-				uint64_t * const hist = localhist.begin() + tid*tablesize;
-				// erase histogram
-				std::fill(hist,hist+tablesize,0ull);
-
-				// lower and upper bound of block in symbols
-				uint64_t const low  = dio.getLow();
-				uint64_t const high = dio.getHigh();
-				
-				assert ( high > low );
-				
-				rl_decoder & dec = *(dio.dec);
-
-				// symbols to be processed
-				uint64_t todo = high-low;
-				std::pair<int64_t,uint64_t> R(-1,0);
-				uint64_t toadd = 0;
-					
-				while ( todo )
-				{
-					// decode a run
-					R = dec.decodeRun();
-					// this should not be an end of file marker
-					// assert ( R.first >= 0 );
-					// count to be added
-					toadd = std::min(todo,R.second);
-					// add it
-					hist [ R.first ] += toadd;
-					// reduce todo
-					todo -= toadd;					
-				}
-				
-				if ( R.first != -1 && toadd != R.second )
-					dec.putBack(std::pair<int64_t,uint64_t>(R.first,R.second-toadd));
-				
-				if ( dio.hasNextBlock() )
-					todostack.push(dio.nextBlock());
-
-				uint64_t const blockid = dio.getAbsoluteBlock();
-				// compute bits per node in this block
-				for ( uint64_t sym = 0; sym < tablesize; ++sym )
-					if ( E.hasSymbol(sym) )
-					{
-						uint32_t * symtonodesp = symtonodes.begin() + symtonodevecoffsets[sym];
-					
-						for ( uint64_t i = 0; i < E.getCodeLength(sym); ++i )
-							localnodehist(*(symtonodesp++) /* symtonodes[sym][i] */,blockid) += hist[sym];
-							// localnodehist(symtonodes[sym][i],blockid) += hist[sym];
-					}
-			}
-		}
-		
-		for ( uint64_t i = 0; i < rldecs.size(); ++i )
-			rldecs[i].reset();
-		
-		// terminator
-		for ( uint64_t i = 0; i < E.getCodeLength(bwtterm); ++i )
-			// localnodehist ( symtonodes[bwtterm][i], b_0 ) += 1;
-			localnodehist ( symtonodes[symtonodevecoffsets[bwtterm] + i], b_0 ) += 1;
-
-		// compute prefix sums for each node
-		localnodehist.prefixSums();
-		
-		#if 0
-		for ( uint64_t node = 0; node < inner; ++node )
-			for ( uint64_t b = 0; b < b_g+1; ++b )
-				std::cerr << "localnodehist(" << node << "," << b << ")=" << localnodehist(node,b) << std::endl;
-		#endif
-
-		typedef libmaus2::rank::ImpCacheLineRank rank_type;
-		typedef rank_type::unique_ptr_type rank_ptr_type;
-		libmaus2::autoarray::AutoArray<rank_ptr_type> R(inner);
-		libmaus2::autoarray::AutoArray<uint64_t *> P(inner);
-		libmaus2::autoarray::AutoArray<entity_type> U(numthreads*t_g*2,false);
-
-		for ( uint64_t node = 0; node < inner; ++node )
-		{
-			uint64_t const nodebits = localnodehist(node,b_g) + 1;
-			uint64_t const nodedatawords = (nodebits+63)/64;
-				
-			rank_ptr_type tRnode(new rank_type(nodebits));
-			R[node] = UNIQUE_PTR_MOVE(tRnode);
-			P[node] = R[node]->A.end() - nodedatawords;
-			
-			#if defined(_OPENMP)
-			#pragma omp parallel for
-			#endif
-			for ( int64_t i = 0; i < static_cast<int64_t>(nodedatawords); ++i )
-				P[node][i] = 0;
-		}
-		
-		libmaus2::parallel::OMPLock nodelock;
-
-		// set up block information for symbols after terminator
-		for ( uint64_t ii = 0; ii < numthreads; ++ii )
-		{
-			uint64_t const i = numthreads-ii-1;
-			uint64_t const baseblock = i*blocks_per_thread_2;
-			uint64_t const highblock = std::min(baseblock + blocks_per_thread_2, b_2);
-			uint64_t const low = n_0+n_1+baseblock * t_2;
-						
-			if ( low < n )
-			{
-				#if defined(HUFRL)
-				rl_decoder::unique_ptr_type tptr(new rl_decoder(IDD,low));
-				#else
-				rl_decoder::unique_ptr_type tptr(new rl_decoder(IDD,IECV.get(),low));
-				#endif
-
-				rldecs[numthreads+i] = UNIQUE_PTR_MOVE(tptr);
-				todostack.push(RlDecoderInfoObject(
-					rldecs[numthreads+i].get(),baseblock,highblock-baseblock,
-					low,n_0+n_1+n_2,t_2,b_0+b_1
-					)
-				);
-			}
-		}
-		// set up block information for symbols before terminator
-		for ( uint64_t ii = 0; ii < numthreads; ++ii )
-		{
-			uint64_t const i = numthreads-ii-1;
-			uint64_t const baseblock = i*blocks_per_thread_0;
-			uint64_t const highblock = std::min(baseblock + blocks_per_thread_0, b_0);
-			uint64_t const low = baseblock * t_0;
-						
-			if ( low < n_0 )
-			{
-				#if defined(HUFRL)
-				rl_decoder::unique_ptr_type tptr(new rl_decoder(IDD,low));
-				#else
-				rl_decoder::unique_ptr_type tptr(new rl_decoder(IDD,IECV.get(),low));
-				#endif
-				rldecs[i] = UNIQUE_PTR_MOVE(tptr);
-				todostack.push(RlDecoderInfoObject(
-					rldecs[i].get(),baseblock,highblock-baseblock,
-					low,n_0,t_0,0
-					)
-				);				
-			}
-		}
-
-		#if defined(_OPENMP)
-		#pragma omp parallel
-		#endif
-		{
-			RlDecoderInfoObject dio;
-			
-			while ( todostack.pop(dio) )
-			{
-				#if defined(_OPENMP)
-				uint64_t const tid = omp_get_thread_num();
-				#else
-				uint64_t const tid = 0;
-				#endif
-
-				#if 0
-				nodelock.lock();
-				std::cerr << "[" << tid << "] processing block " << dio.getAbsoluteBlock() << std::endl;
-				nodelock.unlock();
-				#endif
-				
-				// lower and upper bound of block in symbols
-				uint64_t const low  = dio.getLow();
-				uint64_t const high = dio.getHigh();
-				
-				assert ( high > low );
-							
-				entity_type * const block = U.begin() + (tid*t_g*2);
-				entity_type * const tblock = block + t_g;
-				
-				// open decoder
-				// rl_decoder dec(bwt,low);
-				
-				// symbols to be processed
-				uint64_t todo = high-low;
-				
-				entity_type * tptr = block;
-
-				rl_decoder & dec = *(dio.dec);
-
-				// symbols to be processed
-				std::pair<int64_t,uint64_t> R(-1,0);
-				uint64_t toadd = 0;
-				
-				// load data
-				while ( todo )
-				{
-					// decode a run
-					R = dec.decodeRun();
-					// this should not be an end of file marker
-					// assert ( R.first >= 0 );
-					// count to be added
-					toadd = std::min(todo,R.second);
-					// reduce todo
-					todo -= toadd;
-					
-					for ( uint64_t i = 0; i < toadd; ++i )
-						*(tptr++) = R.first;
-				}
-
-				if ( R.first != -1 && toadd != R.second )
-					dec.putBack(std::pair<int64_t,uint64_t>(R.first,R.second-toadd));
-				
-				if ( dio.hasNextBlock() )
-					todostack.push(dio.nextBlock());
-				
-				for ( uint64_t i = 0; i < (high-low); ++i )
-				{
-					uint64_t const sym = block[i];
-					block[i] = E.getCode(sym) << (8*sizeof(entity_type)-E.getCodeLength(sym));
-				}
-				
-				std::stack<WtTodo> todostack;
-				todostack.push(WtTodo(0,high-low,0,H.root()));
-				
-				while ( todostack.size() )
-				{
-					WtTodo const wtcur = todostack.top();
-					todostack.pop();
-					
-					#if 0
-					std::cerr << wtcur << std::endl;
-					#endif
-					
-					// inner node id
-					uint64_t const unode = wtcur.node - H.root();
-					// shift for relevant bit
-					unsigned int const shift = (8*sizeof(entity_type)-1)-wtcur.depth;
-					
-					// bit offset
-					uint64_t bitoff = localnodehist(unode,dio.getAbsoluteBlock());
-					uint64_t towrite = wtcur.high-wtcur.low;
-					entity_type * ptr = block+wtcur.low;
-					
-					entity_type * optrs[2] = { tblock, tblock+t_g-1 };
-					static int64_t const inc[2] = { 1, -1 };
-					uint64_t bcnt[2]; bcnt[0] = 0; bcnt[1] = 0;
-				
-					// align to word boundary	
-					nodelock.lock();
-					while ( towrite && ((bitoff%64)!=0) )
-					{
-						entity_type const sym = *(ptr++);
-						uint64_t const bit = (sym >> shift) & 1;
-						// assert ( bit < 2 );
-						bcnt[bit]++;
-						(*optrs[bit]) = sym;
-						optrs[bit] += inc[bit];
-					
-						libmaus2::bitio::putBit(P[unode],bitoff,bit);
-					
-						towrite--;
-						bitoff++;
-					}
-					nodelock.unlock();
-					
-					// write full words
-					uint64_t * PP = P[unode] + (bitoff/64);
-					while ( towrite >= 64 )
-					{
-						uint64_t v = 0;
-						for ( unsigned int i = 0; i < 64; ++i )
-						{
-							entity_type const sym = *(ptr++);
-							uint64_t const bit = (sym >> shift) & 1;
-							// assert ( bit < 2 );
-							bcnt[bit]++;
-							(*optrs[bit]) = sym;
-							optrs[bit] += inc[bit];
-
-							v <<= 1;
-							v |= bit;
-						}
-					
-						*(PP++) = v;
-						towrite -= 64;
-						bitoff += 64;
-					}
-					
-					// write rest
-					// assert ( towrite < 64 );
-					nodelock.lock();
-					while ( towrite )
-					{
-						entity_type const sym = *(ptr++);
-						uint64_t const bit = (sym >> shift) & 1;
-						// assert ( bit < 2 );
-						bcnt[bit]++;
-						(*optrs[bit]) = sym;
-						optrs[bit] += inc[bit];
-	
-						libmaus2::bitio::putBit(P[unode],bitoff,bit);
-					
-						towrite--;
-						bitoff++;	
-					}
-					nodelock.unlock();					
-
-					/* write data back */	
-					ptr = block + wtcur.low;
-					entity_type * inptr = tblock;
-					for ( uint64_t i = 0; i < bcnt[0]; ++i )
-						*(ptr++) = *(inptr++);
-
-					inptr = tblock + t_g;
-					for ( uint64_t i = 0; i < bcnt[1]; ++i )
-						*(ptr++) = *(--inptr);
-						
-					// recursion
-					if ( ( ! H.isLeaf( H.rightChild(wtcur.node) ) ) && (bcnt[1] != 0) )
-						todostack.push(WtTodo(wtcur.high-bcnt[1],wtcur.high,wtcur.depth+1,H.rightChild(wtcur.node)));
-					if ( (! H.isLeaf( H.leftChild(wtcur.node) )) && (bcnt[0] != 0) )
-						todostack.push(WtTodo(wtcur.low,wtcur.low+bcnt[0],wtcur.depth+1,H.leftChild(wtcur.node)));
-				}
-			}
-		}
-
-		// reset decoders
-		for ( uint64_t i = 0; i < numthreads; ++i )
-			rldecs[i].reset();
-
-		// terminator
-		{
-			uint64_t node = H.root();
-
-			for ( uint64_t i = 0; i < E.getCodeLength(bwtterm); ++i )
-			{
-				uint64_t const bit = E.getBitFromTop(bwtterm,i);
-				uint64_t const unode = node - H.root();				
-				libmaus2::bitio::putBit ( P[unode] , localnodehist ( unode , b_0 ), bit );
-				
-				if ( bit )
-					node = H.rightChild(node);
-				else
-					node = H.leftChild(node);
-			}
-		}
-
-		// set up rank dictionaries
-		#if defined(_OPENMP)
-		#pragma omp parallel for schedule(dynamic,1)
-		#endif
-		for ( uint64_t node = 0; node < inner; ++node )
-		{
-			uint64_t const nodebits = localnodehist(node,b_g) + 1;
-			uint64_t const nodedatawords = (nodebits+63)/64;
-			
-			uint64_t * inptr = P[node];
-			uint64_t * outptr = R[node]->A.begin();	
-			
-			uint64_t accb = 0;
-			
-			uint64_t todo = nodedatawords;
-			
-			while ( todo )
-			{
-				uint64_t const toproc = std::min(todo,static_cast<uint64_t>(6));
-				
-				uint64_t miniword = 0;
-				uint64_t miniacc = 0;
-				for ( uint64_t i = 0; i < toproc; ++i )
-				{
-					miniword |= miniacc << (i*9);
-					miniacc  += libmaus2::rank::PopCnt8<sizeof(unsigned long)>::popcnt8(inptr[i]);
-				}
-				miniword |= (miniacc << (toproc*9));
-				
-				for ( uint64_t i = 0; i < toproc; ++i )
-					outptr[2+i] = inptr[i];
-				outptr[0] = accb;
-				outptr[1] = miniword;
-				
-				accb += miniacc;
-				inptr += toproc;
-				outptr += 2+toproc;
-				todo -= toproc;
-			}
-		}
-		
-		libmaus2::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type pICHWT(
-			new libmaus2::wavelet::ImpCompactHuffmanWaveletTree(n,H,R)
-		);
-		
-		#if 0
-		libmaus2::wavelet::ImpCompactHuffmanWaveletTree const & ICHWT = *pICHWT;
-		// open decoder
-		rl_decoder dec(bwt,0);
-		libmaus2::autoarray::AutoArray<uint64_t> ranktable(tablesize);
-		for ( uint64_t i = 0; i < ICHWT.size(); ++i )
-		{
-			int64_t const sym = dec.decode();
-			#if 0
-			std::cerr << ICHWT[i] << "(" << sym << ")" << ";";
-			#endif
-						
-			if ( i == p0r )
-				assert ( ICHWT[i] == bwtterm );
-			else
-			{
-				assert ( sym == ICHWT[i] );
-				assert ( ranktable[sym] == ICHWT.rankm(sym,i) );
-				assert ( ICHWT.select(sym,ranktable[sym]) == i );
-				ranktable[sym]++;
-				assert ( ranktable[sym] == ICHWT.rank(sym,i) );				
-			}
-		}
-		#if 0
-		std::cerr << std::endl;
-		#endif
-		#endif
-		
-		return UNIQUE_PTR_MOVE(pICHWT);
-	}
-
-	/**
-	 * specialised version for small alphabets
-	 **/
-	static libmaus2::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type rlToHwtSmallAlphabet(
-		std::string const & bwt, 
-		std::string const & huftreefilename
-	)
-	{
-		// load the huffman tree
-		::libmaus2::huffman::HuffmanTree::unique_ptr_type UH = loadCompactHuffmanTree(huftreefilename);
-		::libmaus2::huffman::HuffmanTree & H = *UH;
-		libmaus2::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type ptr(rlToHwtSmallAlphabet(bwt,H));		
-		return UNIQUE_PTR_MOVE(ptr);
-	}
-	
-	/**
-	 * specialised version for small alphabets
-	 **/
-	template<typename entity_type>
-	static libmaus2::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type rlToHwtSmallAlphabet(
-		std::string const & bwt, 
-		::libmaus2::huffman::HuffmanTree const & H
-	)
-	{
-		// check depth is low
-		assert ( H.maxDepth() <= 8*sizeof(entity_type) );
-		// get encoding table
-		::libmaus2::huffman::HuffmanTree::EncodeTable const E(H);
-		// get symbol array
-		libmaus2::autoarray::AutoArray<int64_t> const symbols = H.symbolArray();
-		// get maximum symbol
-		int64_t const maxsym = symbols.size() ? symbols[symbols.size()-1] : -1;
-		// check it is in range
-		assert (
-			(maxsym < 0)
-			|| 
-			static_cast<uint64_t>(maxsym) <= static_cast<uint64_t>(std::numeric_limits<entity_type>::max()) 
-		);
-		// size of symbol table
-		uint64_t const tablesize = maxsym+1;
-		// number of inner nodes in Huffman tree
-		uint64_t const inner = H.inner();
-
-		// compute symbol to node mapping
-		uint64_t symtonodesvecsize = 0;
-		// depth <= 16, tablesize <= 64k
-		libmaus2::autoarray::AutoArray<uint32_t> symtonodevecoffsets(tablesize,false);
-		for ( uint64_t i = 0; i < symbols.size(); ++i )
-		{
-			uint64_t const sym = symbols[i];
-			symtonodevecoffsets[sym] = symtonodesvecsize;
-			assert ( symtonodesvecsize <= std::numeric_limits<uint32_t>::max() );
-			symtonodesvecsize += E.getCodeLength(sym);
-		}
-		
-		libmaus2::autoarray::AutoArray<uint32_t> symtonodes(symtonodesvecsize,false);
-		uint32_t * symtonodesp = symtonodes.begin();
-		for ( uint64_t i = 0; i < symbols.size(); ++i )
-		{
-			// symbol
-			uint64_t const sym = symbols[i];
-			// node
-			uint64_t node = H.root();
-			
-			assert ( symtonodesp-symtonodes.begin() == symtonodevecoffsets[sym] );
-			
-			for ( uint64_t j = 0; j < E.getCodeLength(sym); ++j )
-			{
-				// add symbol to inner node
-				//symtonodes [ sym ] . push_back( node - H.leafs() );
-				*(symtonodesp++) = node - H.leafs();
-				
-				// follow tree link according to code of symbol
-				if ( E.getBitFromTop(sym,j) )
-					node = H.rightChild(node);
-				else
-					node = H.leftChild(node);
-			}
-		}
-		assert ( symtonodesp = symtonodes.end() );
-
-
-
-		#if 0		
-		// compute symbol to node mapping
-		std::vector < std::vector < uint32_t > > symtonodes(tablesize);
-		for ( uint64_t i = 0; i < symbols.size(); ++i )
-		{
-			// symbol
-			uint64_t const sym = symbols[i];
-			// node
-			uint64_t node = H.root();
-			
-			for ( uint64_t j = 0; j < E.getCodeLength(sym); ++j )
-			{
-				// add symbol to inner node
-				symtonodes [ sym ] . push_back( node - H.leafs() );
-				
-				// follow tree link according to code of symbol
-				if ( E.getBitFromTop(sym,j) )
-					node = H.rightChild(node);
-				else
-					node = H.leftChild(node);
-			}
-		}
-		#endif
-		
-		// total size
-		uint64_t const n = rl_decoder::getLength(bwt);
-
-		::libmaus2::huffman::IndexDecoderDataArray IDD(std::vector<std::string>(1,bwt));
-		::libmaus2::huffman::IndexEntryContainerVector::unique_ptr_type IECV = 
-			::libmaus2::huffman::IndexLoader::loadAccIndex(std::vector<std::string>(1,bwt));
-		
-		#if defined(_OPENMP)
-		uint64_t const numthreads = omp_get_max_threads();
-		#else
-		uint64_t const numthreads = 1;
-		#endif
-		
-		assert ( numthreads );
-		
-		uint64_t const blocksperthread = 4;
-		uint64_t const targetblocks = numthreads * blocksperthread;
-		// maximum internal memory for blocks
-		uint64_t const blockmemthres = 1024ull*1024ull;
-		// per thread
-		uint64_t const blocksizethres = (blockmemthres*sizeof(entity_type) + numthreads-1)/numthreads;
-		
-		// block size
-		uint64_t const t_g = std::min(blocksizethres,(n + (targetblocks-1))/targetblocks);
-		// actual number of blocks
-		uint64_t const b_g = t_g ? ((n + (t_g-1))/t_g) : 0;
-		// blocks per thread
-		uint64_t const blocks_per_thread_g = (b_g + numthreads-1)/numthreads;
-
-		// local character histograms
-		libmaus2::autoarray::AutoArray<uint64_t> localhist(numthreads * tablesize,false);
-		// global node sizes
-		libmaus2::autoarray::AutoArray2d<uint64_t> localnodehist(inner,b_g+1,true);
-
-		#if 0
-		std::cerr << "(" << symtonodevecoffsets.byteSize() << "," << symtonodes.byteSize() << "," << localhist.byteSize() << "," 
-			<< (inner * (b_g+1) * sizeof(uint64_t)) << ")";
-		#endif
-		
-		libmaus2::parallel::OMPLock cerrlock;
-
-		libmaus2::autoarray::AutoArray<rl_decoder::unique_ptr_type> rldecs(numthreads);
-		Todo<RlDecoderInfoObject> todostack;
-		// set up block information
-		for ( uint64_t i = 0; i < numthreads; ++i )
-		{
-			uint64_t const baseblock = i*blocks_per_thread_g;
-			uint64_t const highblock = std::min(baseblock + blocks_per_thread_g, b_g);
-			uint64_t const low = baseblock * t_g;
-						
-			if ( low < n )
-			{
-				#if defined(HUFRL)
-				rl_decoder::unique_ptr_type tptr(new rl_decoder(IDD,low));
-				#else
-				rl_decoder::unique_ptr_type tptr(new rl_decoder(IDD,IECV.get(),low));
-				#endif
-
-				rldecs[i] = UNIQUE_PTR_MOVE(tptr);
-				todostack.push(
-					RlDecoderInfoObject(
-						rldecs[i].get(),baseblock,highblock-baseblock,
-						low,n,t_g,0
-					)
-				);
-			}
-		}
-	
-		#if defined(_OPENMP)
-		#pragma omp parallel
-		#endif
-		{
-			RlDecoderInfoObject dio;
-			
-			while ( todostack.pop(dio) )
-			{
-				#if defined(_OPENMP)
-				uint64_t const tid = omp_get_thread_num();
-				#else
-				uint64_t const tid = 0;
-				#endif
-			
-				// pointer to histogram memory for this block
-				uint64_t * const hist = localhist.begin() + tid*tablesize;
-				// erase histogram
-				std::fill(hist,hist+tablesize,0ull);
-
-				// lower and upper bound of block in symbols
-				uint64_t const low  = dio.getLow();
-				uint64_t const high = dio.getHigh();
-				
-				assert ( high > low );
-
-				rl_decoder & dec = *(dio.dec);
-
-				// symbols to be processed
-				uint64_t todo = high-low;
-				std::pair<int64_t,uint64_t> R(-1,0);
-				uint64_t toadd = 0;
-				
-				while ( todo )
-				{
-					// decode a run
-					R = dec.decodeRun();
-					// this should not be an end of file marker
-					// assert ( R.first >= 0 );
-					// count to be added
-					toadd = std::min(todo,R.second);
-					// add it
-					hist [ R.first ] += toadd;
-					// reduce todo
-					todo -= toadd;					
-				}
-
-				if ( R.first != -1 && toadd != R.second )
-					dec.putBack(std::pair<int64_t,uint64_t>(R.first,R.second-toadd));
-				
-				if ( dio.hasNextBlock() )
-					todostack.push(dio.nextBlock());
-
-				// compute bits per node in this block
-				uint64_t const blockid = dio.getAbsoluteBlock();
-				for ( uint64_t sym = 0; sym < tablesize; ++sym )
-					if ( E.hasSymbol(sym) )
-					{
-						uint32_t * symtonodesp = symtonodes.begin() + symtonodevecoffsets[sym];
-						
-						for ( uint64_t i = 0; i < E.getCodeLength(sym) /* symtonodes[sym].size() */; ++i )
-							localnodehist(*(symtonodesp++) /* symtonodes[sym][i] */,blockid) += hist[sym];
-							// localnodehist(symtonodes[sym][i],blockid) += hist[sym];
-					}
-			}
-		}
-
-		for ( uint64_t i = 0; i < numthreads; ++i )
-			rldecs[i].reset();
-		
-		// compute prefix sums for each node
-		localnodehist.prefixSums();
-		
-		#if 0
-		for ( uint64_t node = 0; node < inner; ++node )
-			for ( uint64_t b = 0; b < b_g+1; ++b )
-				std::cerr << "localnodehist(" << node << "," << b << ")=" << localnodehist(node,b) << std::endl;
-		#endif
-
-		typedef libmaus2::rank::ImpCacheLineRank rank_type;
-		typedef rank_type::unique_ptr_type rank_ptr_type;
-		libmaus2::autoarray::AutoArray<rank_ptr_type> R(inner);
-		libmaus2::autoarray::AutoArray<uint64_t *> P(inner);
-		libmaus2::autoarray::AutoArray<entity_type> U(numthreads*t_g*2,false);
-
-		for ( uint64_t node = 0; node < inner; ++node )
-		{
-			uint64_t const nodebits = localnodehist(node,b_g) + 1;
-			uint64_t const nodedatawords = (nodebits+63)/64;
-
-			#if 0
-			std::cerr << "node " << node << " bits " << localnodehist(node,b_g) << " words " <<
-				(localnodehist(node,b_g)+63)/64 << std::endl;
-			#endif
-				
-			rank_ptr_type tRnode(new rank_type(nodebits));
-			R[node] = UNIQUE_PTR_MOVE(tRnode);
-			P[node] = R[node]->A.end() - nodedatawords;
-			
-			#if defined(_OPENMP)
-			#pragma omp parallel for
-			#endif
-			for ( int64_t i = 0; i < static_cast<int64_t>(nodedatawords); ++i )
-				P[node][i] = 0;
-		}
-		
-		libmaus2::parallel::OMPLock nodelock;
-
-		// set up block information
-		for ( uint64_t i = 0; i < numthreads; ++i )
-		{
-			uint64_t const baseblock = i*blocks_per_thread_g;
-			uint64_t const highblock = std::min(baseblock + blocks_per_thread_g, b_g);
-			uint64_t const low = baseblock * t_g;
-						
-			if ( low < n )
-			{
-				#if defined(HUFRL)
-				rl_decoder::unique_ptr_type tptr(new rl_decoder(IDD,low));
-				#else
-				rl_decoder::unique_ptr_type tptr(new rl_decoder(IDD,IECV.get(),low));
-				#endif
-
-				rldecs[i] = UNIQUE_PTR_MOVE(tptr);
-				todostack.push(
-					RlDecoderInfoObject(
-						rldecs[i].get(),baseblock,highblock-baseblock,
-						low,n,t_g,0
-					)
-				);
-			}
-		}
-
-		#if defined(_OPENMP)
-		#pragma omp parallel
-		#endif
-		{
-			RlDecoderInfoObject dio;
-			
-			while ( todostack.pop(dio) )
-			{
-				#if defined(_OPENMP)
-				uint64_t const tid = omp_get_thread_num();
-				#else
-				uint64_t const tid = 0;
-				#endif
-
-				#if 0
-				nodelock.lock();
-				std::cerr << "[" << tid << "] processing block " << b << std::endl;
-				nodelock.unlock();
-				#endif
-				
-				// lower and upper bound of block in symbols
-				uint64_t const low  = dio.getLow();
-				uint64_t const high = dio.getHigh();
-				
-				assert ( high > low );
-
-				entity_type * const block = U.begin() + (tid*t_g*2);
-				entity_type * const tblock = block + t_g;
-				
-				entity_type * tptr = block;
-
-				rl_decoder & dec = *(dio.dec);
-
-				// symbols to be processed
-				uint64_t todo = high-low;
-				std::pair<int64_t,uint64_t> R(-1,0);
-				uint64_t toadd = 0;
-
-				// load data
-				while ( todo )
-				{
-					// decode a run
-					R = dec.decodeRun();
-					// this should not be an end of file marker
-					// assert ( R.first >= 0 );
-					// count to be added
-					toadd = std::min(todo,R.second);
-					// reduce todo
-					todo -= toadd;
-					
-					for ( uint64_t i = 0; i < toadd; ++i )
-						*(tptr++) = R.first;
-				}
-
-				if ( R.first != -1 && toadd != R.second )
-					dec.putBack(std::pair<int64_t,uint64_t>(R.first,R.second-toadd));
-				
-				if ( dio.hasNextBlock() )
-					todostack.push(dio.nextBlock());
-				
-				for ( uint64_t i = 0; i < (high-low); ++i )
-				{
-					uint64_t const sym = block[i];
-					block[i] = E.getCode(sym) << (8*sizeof(entity_type)-E.getCodeLength(sym));
-				}
-				
-				std::stack<WtTodo> todostack;
-				todostack.push(WtTodo(0,high-low,0,H.root()));
-				
-				while ( todostack.size() )
-				{
-					WtTodo const wtcur = todostack.top();
-					todostack.pop();
-					
-					#if 0
-					std::cerr << wtcur << std::endl;
-					#endif
-					
-					// inner node id
-					uint64_t const unode = wtcur.node - H.root();
-					// shift for relevant bit
-					unsigned int const shift = (8*sizeof(entity_type)-1)-wtcur.depth;
-					
-					// bit offset
-					uint64_t bitoff = localnodehist(unode,dio.getAbsoluteBlock());
-					uint64_t towrite = wtcur.high-wtcur.low;
-					entity_type * ptr = block+wtcur.low;
-					
-					entity_type * optrs[2] = { tblock, tblock+t_g-1 };
-					static int64_t const inc[2] = { 1, -1 };
-					uint64_t bcnt[2]; bcnt[0] = 0; bcnt[1] = 0;
-				
-					// align to word boundary	
-					nodelock.lock();
-					while ( towrite && ((bitoff%64)!=0) )
-					{
-						entity_type const sym = *(ptr++);
-						uint64_t const bit = (sym >> shift) & 1;
-						// assert ( bit < 2 );
-						bcnt[bit]++;
-						(*optrs[bit]) = sym;
-						optrs[bit] += inc[bit];
-					
-						libmaus2::bitio::putBit(P[unode],bitoff,bit);
-					
-						towrite--;
-						bitoff++;
-					}
-					nodelock.unlock();
-					
-					// write full words
-					uint64_t * PP = P[unode] + (bitoff/64);
-					while ( towrite >= 64 )
-					{
-						uint64_t v = 0;
-						for ( unsigned int i = 0; i < 64; ++i )
-						{
-							entity_type const sym = *(ptr++);
-							uint64_t const bit = (sym >> shift) & 1;
-							// assert ( bit < 2 );
-							bcnt[bit]++;
-							(*optrs[bit]) = sym;
-							optrs[bit] += inc[bit];
-
-							v <<= 1;
-							v |= bit;
-						}
-					
-						*(PP++) = v;
-						towrite -= 64;
-						bitoff += 64;
-					}
-					
-					// write rest
-					// assert ( towrite < 64 );
-					nodelock.lock();
-					while ( towrite )
-					{
-						entity_type const sym = *(ptr++);
-						uint64_t const bit = (sym >> shift) & 1;
-						// assert ( bit < 2 );
-						bcnt[bit]++;
-						(*optrs[bit]) = sym;
-						optrs[bit] += inc[bit];
-
-						libmaus2::bitio::putBit(P[unode],bitoff,bit);
-					
-						towrite--;
-						bitoff++;	
-					}
-					nodelock.unlock();					
-
-					/* write data back */	
-					ptr = block + wtcur.low;
-					entity_type * inptr = tblock;
-					for ( uint64_t i = 0; i < bcnt[0]; ++i )
-						*(ptr++) = *(inptr++);
-
-					inptr = tblock + t_g;
-					for ( uint64_t i = 0; i < bcnt[1]; ++i )
-						*(ptr++) = *(--inptr);
-						
-					// recursion
-					if ( ( ! H.isLeaf( H.rightChild(wtcur.node) ) ) && (bcnt[1] != 0) )
-						todostack.push(WtTodo(wtcur.high-bcnt[1],wtcur.high,wtcur.depth+1,H.rightChild(wtcur.node)));
-					if ( (! H.isLeaf( H.leftChild(wtcur.node) )) && (bcnt[0] != 0) )
-						todostack.push(WtTodo(wtcur.low,wtcur.low+bcnt[0],wtcur.depth+1,H.leftChild(wtcur.node)));
-				}
-			}
-		}
-
-		for ( uint64_t i = 0; i < numthreads; ++i )
-			rldecs[i].reset();
-
-		// set up rank dictionaries
-		for ( uint64_t node = 0; node < inner; ++node )
-		{
-			uint64_t const nodebits = localnodehist(node,b_g) + 1;
-			uint64_t const nodedatawords = (nodebits+63)/64;
-			
-			uint64_t * inptr = P[node];
-			uint64_t * outptr = R[node]->A.begin();	
-			
-			uint64_t accb = 0;
-			
-			uint64_t todo = nodedatawords;
-			
-			while ( todo )
-			{
-				uint64_t const toproc = std::min(todo,static_cast<uint64_t>(6));
-				
-				uint64_t miniword = 0;
-				uint64_t miniacc = 0;
-				for ( uint64_t i = 0; i < toproc; ++i )
-				{
-					miniword |= miniacc << (i*9);
-					miniacc  += libmaus2::rank::PopCnt8<sizeof(unsigned long)>::popcnt8(inptr[i]);
-				}
-				miniword |= (miniacc << (toproc*9));
-				
-				for ( uint64_t i = 0; i < toproc; ++i )
-					outptr[2+i] = inptr[i];
-				outptr[0] = accb;
-				outptr[1] = miniword;
-				
-				accb += miniacc;
-				inptr += toproc;
-				outptr += 2+toproc;
-				todo -= toproc;
-			}
-		}
-		
-		libmaus2::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type pICHWT(
-			new libmaus2::wavelet::ImpCompactHuffmanWaveletTree(n,H,R)
-		);
-		
-		#if 0
-		libmaus2::wavelet::ImpCompactHuffmanWaveletTree const & ICHWT = *pICHWT;
-		// open decoder
-		rl_decoder dec(std::vector<std::string>(1,bwt),0);
-		libmaus2::autoarray::AutoArray<uint64_t> ranktable(tablesize);
-		for ( uint64_t i = 0; i < ICHWT.size(); ++i )
-		{
-			int64_t const sym = dec.decode();
-			std::cerr << ICHWT[i] << "(" << sym << ")" << ";";
-						
-			assert ( sym == ICHWT[i] );
-			assert ( ranktable[sym] == ICHWT.rankm(sym,i) );
-			assert ( ICHWT.select(sym,ranktable[sym]) == i );
-			ranktable[sym]++;
-			assert ( ranktable[sym] == ICHWT.rank(sym,i) );				
-		}
-
-		std::cerr << std::endl;
-
-		#endif
-		
-		return UNIQUE_PTR_MOVE(pICHWT);
-	}
-
-	static ::libmaus2::util::Histogram::unique_ptr_type computeRlSymHist(std::string const & bwt)
-	{
-		#if defined(_OPENMP)
-		uint64_t const numthreads = omp_get_max_threads();
-		#else
-		uint64_t const numthreads = 1;
-		#endif
-
-		uint64_t const n = rl_decoder::getLength(bwt);
-		
-		uint64_t const numpacks = 4*numthreads;
-		uint64_t const packsize = (n + numpacks - 1)/numpacks;
-		::libmaus2::parallel::OMPLock histlock;
-		::libmaus2::util::Histogram::unique_ptr_type mhist(new ::libmaus2::util::Histogram);
-
-		#if defined(_OPENMP)
-		#pragma omp parallel for schedule(dynamic,1)
-		#endif
-		for ( int64_t t = 0; t < static_cast<int64_t>(numpacks); ++t )
-		{
-			uint64_t const low = std::min(t*packsize,n);
-			uint64_t const high = std::min(low+packsize,n);
-			::libmaus2::util::Histogram lhist;
-			
-			if ( high-low )
-			{
-				rl_decoder dec(std::vector<std::string>(1,bwt),low);
-				
-				uint64_t todec = high-low;
-				std::pair<int64_t,uint64_t> P;
-				
-				while ( todec )
-				{
-					P = dec.decodeRun();
-					assert ( P.first >= 0 );
-					P.second = std::min(P.second,todec);
-					lhist.add(P.first,P.second);
-					
-					todec -= P.second;
-				}
-			}
-			
-			histlock.lock();
-			mhist->merge(lhist);
-			histlock.unlock();
-		}
-
-		return UNIQUE_PTR_MOVE(mhist);
-	}
-	
-	static unsigned int utf8WaveletMaxThreads()
-	{
-		return 24;
-	}
-	
-	static uint64_t utf8WaveletMaxPartMem()
-	{
-		return 64ull*1024ull*1024ull;
-	}
-
-	static libmaus2::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type rlToHwt(
-		std::string const & bwt, 
-		std::string const & hwt, 
-		std::string const tmpprefix
-	)
-	{
-		::libmaus2::util::Histogram::unique_ptr_type mhist(computeRlSymHist(bwt));
-		::std::map<int64_t,uint64_t> const chist = mhist->getByType<int64_t>();
-
-		::libmaus2::huffman::HuffmanTree H ( chist.begin(), chist.size(), false, true, true );
-		
-		if ( utf8Wavelet() )
-		{
-			::libmaus2::wavelet::Utf8ToImpCompactHuffmanWaveletTree::constructWaveletTreeFromRl<rl_decoder,true /* radix sort */>(
-				bwt,hwt,tmpprefix,H,
-				utf8WaveletMaxPartMem() /* part size maximum */,
-				utf8WaveletMaxThreads());
-
-			libmaus2::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type IHWT(libmaus2::wavelet::ImpCompactHuffmanWaveletTree::load(hwt));
-			return UNIQUE_PTR_MOVE(IHWT);
-
-			#if 0
-			libmaus2::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type IHWT(libmaus2::wavelet::ImpCompactHuffmanWaveletTree::load(hwt));
-			libmaus2::lf::ImpCompactHuffmanWaveletLF IHWL(hwt);
-			rl_decoder rldec(std::vector<std::string>(1,bwt));
-			std::cerr << "Checking output bwt of length " << IHWT->size() << "...";
-			for ( uint64_t i = 0; i < IHWT->size(); ++i )
-			{
-				uint64_t const sym = rldec.get();
-				assert ( sym == (*IHWT)[i] );
-				assert ( sym == IHWL[i] );
-			}
-			std::cerr << "done." << std::endl;
-			
-			std::cerr << "Running inverse select loop...";
-			uint64_t r = 0;
-			for ( uint64_t i = 0; i < IHWT->size(); ++i )
-			{
-				IHWT->inverseSelect(i);
-				// r = IHWL(r);
-			}
-			std::cerr << "done." << std::endl;
-			#endif
-		}
-		else
-		{
-			// special case for very small alphabets
-			if ( H.maxDepth() <= 8*sizeof(uint8_t) && H.maxSymbol() <= std::numeric_limits<uint8_t>::max() )
-			{
-				libmaus2::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type ptr(rlToHwtSmallAlphabet<uint8_t>(bwt,H));
-				libmaus2::aio::OutputStreamInstance COS(hwt);
-				ptr->serialise(COS);
-				COS.flush();
-				// COS.close();
-				return UNIQUE_PTR_MOVE(ptr);
-			}
-			else if ( H.maxDepth() <= 8*sizeof(uint16_t) && H.maxSymbol() <= std::numeric_limits<uint16_t>::max() )
-			{
-				libmaus2::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type ptr(rlToHwtSmallAlphabet<uint16_t>(bwt,H));
-				libmaus2::aio::OutputStreamInstance COS(hwt);
-				ptr->serialise(COS);
-				COS.flush();
-				//COS.close();
-				return UNIQUE_PTR_MOVE(ptr);
-			}
-			else if ( H.maxDepth() <= 8*sizeof(uint32_t) && H.maxSymbol() <= std::numeric_limits<uint16_t>::max() )
-			{
-				libmaus2::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type ptr(rlToHwtSmallAlphabet<uint32_t>(bwt,H));
-				libmaus2::aio::OutputStreamInstance COS(hwt);
-				ptr->serialise(COS);
-				COS.flush();
-				//COS.close();
-				return UNIQUE_PTR_MOVE(ptr);
-			}
-			else if ( H.maxDepth() <= 8*sizeof(uint64_t) && H.maxSymbol() <= std::numeric_limits<uint16_t>::max() )
-			{
-				libmaus2::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type ptr(rlToHwtSmallAlphabet<uint64_t>(bwt,H));
-				libmaus2::aio::OutputStreamInstance COS(hwt);
-				ptr->serialise(COS);
-				COS.flush();
-				//COS.close();
-				return UNIQUE_PTR_MOVE(ptr);
-			}
-			else
-			{
-				::libmaus2::util::TempFileNameGenerator tmpgen(tmpprefix,3);
-
-				#if defined(_OPENMP)
-				uint64_t const numthreads = omp_get_max_threads();
-				#else
-				uint64_t const numthreads = 1;
-				#endif
-
-				uint64_t const n = rl_decoder::getLength(bwt);
-				uint64_t const packsize = (n + numthreads - 1)/numthreads;
-				uint64_t const numpacks = (n + packsize-1)/packsize;
-
-				::libmaus2::wavelet::ImpExternalWaveletGeneratorCompactHuffmanParallel IEWGH(H,tmpgen,numthreads);
-
-				#if defined(_OPENMP)
-				#pragma omp parallel for
-				#endif
-				for ( int64_t t = 0; t < static_cast<int64_t>(numpacks); ++t )
-				{
-					assert ( t < static_cast<int64_t>(numthreads) );
-					uint64_t const low = std::min(t*packsize,n);
-					uint64_t const high = std::min(low+packsize,n);
-					
-					::libmaus2::wavelet::ImpExternalWaveletGeneratorCompactHuffmanParallel::BufferType & BTS = IEWGH[t];
-
-					if ( high-low )
-					{
-						rl_decoder dec(std::vector<std::string>(1,bwt),low);
-
-						uint64_t todec = high-low;
-						std::pair<int64_t,uint64_t> P;
-						
-						while ( todec )
-						{
-							P = dec.decodeRun();
-							assert ( P.first >= 0 );
-							P.second = std::min(P.second,todec);
-
-							for ( uint64_t i = 0; i < P.second; ++i )
-								BTS.putSymbol(P.first);
-							
-							todec -= P.second;
-						}
-					}
-				}
-				
-				IEWGH.createFinalStream(hwt);
-
-				libmaus2::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type IHWT(libmaus2::wavelet::ImpCompactHuffmanWaveletTree::load(hwt));
-				return UNIQUE_PTR_MOVE(IHWT);
-			}
-		}
-	}
-	
-	static void rlToHwtTerm(
-		std::vector<std::string> const & bwt, 
-		std::string const & hwt, 
-		std::string const tmpprefix,
-		::libmaus2::huffman::HuffmanTree & H,
-		uint64_t const bwtterm,
-		uint64_t const p0r
-		)
-	{
-		if ( utf8Wavelet() )
-		{
-			::libmaus2::wavelet::Utf8ToImpCompactHuffmanWaveletTree::constructWaveletTreeFromRlWithTerm<rl_decoder,true /* radix sort */>(
-				bwt,hwt,tmpprefix,H,p0r,bwtterm,
-				utf8WaveletMaxPartMem() /* maximum part size */,
-				utf8WaveletMaxThreads()
-			);
-			
-			#if 0
-			libmaus2::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type IHWT(libmaus2::wavelet::ImpCompactHuffmanWaveletTree::load(hwt));
-			rl_decoder rldec(bwt);
-
-			std::cerr << "Checking output bwt of length " << IHWT->size() << "...";
-			for ( uint64_t i = 0; i < IHWT->size(); ++i )
-			{
-				uint64_t const sym = rldec.get();
-				assert ( sym == (*IHWT)[i] );
-			}
-			std::cerr << "done." << std::endl;
-			#endif
-		}
-		else
-		{			
-			::libmaus2::util::TempFileNameGenerator tmpgen(tmpprefix,3);
-
-			#if defined(_OPENMP)
-			uint64_t const numthreads = omp_get_max_threads();
-			#else
-			uint64_t const numthreads = 1;
-			#endif
-
-			uint64_t const n = rl_decoder::getLength(bwt);
-
-			assert ( p0r < n );
-			uint64_t const nlow = p0r;
-			uint64_t const nhigh = n - (nlow + 1);
-			
-			uint64_t const packsizelow  = (nlow + numthreads - 1)/numthreads;
-			uint64_t const numpackslow  = packsizelow ? ( (nlow + packsizelow-1)/packsizelow ) : 0;
-			uint64_t const packsizehigh = (nhigh + numthreads - 1)/numthreads;
-			uint64_t const numpackshigh = packsizehigh ? ( (nhigh + packsizehigh-1)/packsizehigh ) : 0;
-
-			::libmaus2::wavelet::ImpExternalWaveletGeneratorCompactHuffmanParallel IEWGH(H,tmpgen,2*numthreads+1);
-
-			#if defined(_OPENMP)
-			#pragma omp parallel for
-			#endif
-			for ( int64_t t = 0; t < static_cast<int64_t>(numpackslow); ++t )
-			{
-				assert ( t < static_cast<int64_t>(numthreads) );
-				uint64_t const low  = std::min(t*packsizelow,nlow);
-				uint64_t const high = std::min(low+packsizelow,nlow);
-				
-				::libmaus2::wavelet::ImpExternalWaveletGeneratorCompactHuffmanParallel::BufferType & BTS = IEWGH[t];
-
-				if ( high-low )
-				{
-					rl_decoder dec(bwt,low);
-
-					uint64_t todec = high-low;
-					std::pair<int64_t,uint64_t> P;
-					
-					while ( todec )
-					{
-						P = dec.decodeRun();
-						assert ( P.first >= 0 );
-						P.second = std::min(P.second,todec);
-
-						for ( uint64_t i = 0; i < P.second; ++i )
-							BTS.putSymbol(P.first);
-						
-						todec -= P.second;
-					}
-				}
-			}
-			
-			IEWGH[numthreads].putSymbol(bwtterm);
-
-			#if defined(_OPENMP)
-			#pragma omp parallel for
-			#endif
-			for ( int64_t t = 0; t < static_cast<int64_t>(numpackshigh); ++t )
-			{
-				assert ( t < static_cast<int64_t>(numthreads) );
-				uint64_t const low  = std::min(nlow + 1 + t*packsizehigh,n);
-				uint64_t const high = std::min(low+packsizehigh,n);
-				
-				::libmaus2::wavelet::ImpExternalWaveletGeneratorCompactHuffmanParallel::BufferType & BTS = IEWGH[numthreads+1+t];
-
-				if ( high-low )
-				{
-					rl_decoder dec(bwt,low);
-
-					uint64_t todec = high-low;
-					std::pair<int64_t,uint64_t> P;
-					
-					while ( todec )
-					{
-						P = dec.decodeRun();
-						assert ( P.first >= 0 );
-						P.second = std::min(P.second,todec);
-
-						for ( uint64_t i = 0; i < P.second; ++i )
-							BTS.putSymbol(P.first);
-						
-						todec -= P.second;
-					}
-				}
-			}
-			
-			IEWGH.createFinalStream(hwt);
-		}
-	}
-	
-	static void rlToHwtTerm(
-		std::vector<std::string> const & bwt, 
-		std::string const & hwt, 
-		std::string const tmpprefix,
-		::std::map<int64_t,uint64_t> const & chist,
-		uint64_t const bwtterm,
-		uint64_t const p0r
-		)
-	{
-		::libmaus2::huffman::HuffmanTree H(chist.begin(),chist.size(),false,true,true);
-		rlToHwtTerm(bwt,hwt,tmpprefix,H,bwtterm,p0r);
-	}
-
-	static ::libmaus2::huffman::HuffmanTree::unique_ptr_type loadCompactHuffmanTree(std::string const & huftreefilename)
-	{
-		libmaus2::aio::InputStreamInstance::unique_ptr_type CIN(new libmaus2::aio::InputStreamInstance(huftreefilename));
-		::libmaus2::huffman::HuffmanTree::unique_ptr_type tH(new ::libmaus2::huffman::HuffmanTree(*CIN));
-		// CIN->close();
-		CIN.reset();
-		
-		return UNIQUE_PTR_MOVE(tH);
-	}
-
-	static ::libmaus2::huffman::HuffmanTreeNode::shared_ptr_type loadHuffmanTree(std::string const & huftreefilename)
-	{
-		// deserialise symbol frequences
-		libmaus2::aio::InputStreamInstance::unique_ptr_type chistCIN(new libmaus2::aio::InputStreamInstance(huftreefilename));
-		::libmaus2::huffman::HuffmanTreeNode::shared_ptr_type shnode = 
-			::libmaus2::huffman::HuffmanTreeNode::deserialize(*chistCIN);
-		//chistCIN->close();
-		chistCIN.reset();
-		
-		return shnode;
-	}
-
-	static libmaus2::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type rlToHwtTerm(
-		std::vector<std::string> const & bwt, 
-		std::string const & hwt, 
-		std::string const tmpprefix,
-		std::string const huftreefilename,
-		uint64_t const bwtterm,
-		uint64_t const p0r
-		)
-	{
-		::libmaus2::huffman::HuffmanTree::unique_ptr_type UH = loadCompactHuffmanTree(huftreefilename);
-		::libmaus2::huffman::HuffmanTree & H = *UH;
-
-		// std::cerr << "(maxdepth=" << H.maxDepth() << ",maxSymbol=" << H.maxSymbol() << ")";
-
-		if ( H.maxDepth() <= 8*sizeof(uint8_t) && H.maxSymbol() <= std::numeric_limits<uint8_t>::max() )
-		{
-			// std::cerr << "(small)";
-			libmaus2::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type tICHWT(rlToHwtTermSmallAlphabet<uint8_t>(bwt,huftreefilename,bwtterm,p0r));			
-			return UNIQUE_PTR_MOVE(tICHWT);
-		}
-		else if ( H.maxDepth() <= 8*sizeof(uint16_t) && H.maxSymbol() <= std::numeric_limits<uint16_t>::max() )
-		{
-			// std::cerr << "(small)";
-			libmaus2::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type tICHWT(rlToHwtTermSmallAlphabet<uint16_t>(bwt,huftreefilename,bwtterm,p0r));			
-			return UNIQUE_PTR_MOVE(tICHWT);
-		}
-		else if ( H.maxDepth() <= 8*sizeof(uint32_t) && H.maxSymbol() <= std::numeric_limits<uint16_t>::max() )
-		{
-			// std::cerr << "(small)";
-			libmaus2::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type tICHWT(rlToHwtTermSmallAlphabet<uint32_t>(bwt,huftreefilename,bwtterm,p0r));			
-			return UNIQUE_PTR_MOVE(tICHWT);
-		}
-		else if ( H.maxDepth() <= 8*sizeof(uint64_t) && H.maxSymbol() <= std::numeric_limits<uint16_t>::max() )
-		{
-			// std::cerr << "(small)";
-			libmaus2::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type tICHWT(rlToHwtTermSmallAlphabet<uint64_t>(bwt,huftreefilename,bwtterm,p0r));			
-			return UNIQUE_PTR_MOVE(tICHWT);
-		}
-		else
-		{
-		
-			// std::cerr << "(large)";
-			rlToHwtTerm(bwt,hwt,tmpprefix,H,bwtterm,p0r);
-			libmaus2::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type tICHWT(loadWaveletTree(hwt));
-			return UNIQUE_PTR_MOVE(tICHWT);
-		}
-	}
-
-};
-
-struct RlToHwtTermRequest
-{
-	typedef RlToHwtTermRequest this_type;
-	typedef libmaus2::util::unique_ptr<this_type>::type unique_ptr_type;
-	typedef libmaus2::util::shared_ptr<this_type>::type shared_ptr_type;
-	
-	std::vector<std::string> bwt;
-	std::string hwt;
-	std::string tmpprefix;
-	std::string huftreefilename;
-	uint64_t bwtterm;
-	uint64_t p0r;
-	bool utf8;
-	
-	RlToHwtTermRequest() {}
-	RlToHwtTermRequest(
-		std::vector<std::string> const & rbwt,
-		std::string const & rhwt,
-		std::string const & rtmpprefix,
-		std::string const & rhuftreefilename,
-		uint64_t const rbwtterm,
-		uint64_t const rp0r,
-		bool const rutf8
-	) : bwt(rbwt), hwt(rhwt), tmpprefix(rtmpprefix), huftreefilename(rhuftreefilename), bwtterm(rbwtterm), p0r(rp0r), utf8(rutf8) {}
-	
-	RlToHwtTermRequest(std::istream & in)
-	:
-		bwt(libmaus2::util::StringSerialisation::deserialiseStringVector(in)),
-		hwt(libmaus2::util::StringSerialisation::deserialiseString(in)),
-		tmpprefix(libmaus2::util::StringSerialisation::deserialiseString(in)),
-		huftreefilename(libmaus2::util::StringSerialisation::deserialiseString(in)),
-		bwtterm(libmaus2::util::NumberSerialisation::deserialiseSignedNumber(in)),
-		p0r(libmaus2::util::NumberSerialisation::deserialiseNumber(in)),
-		utf8(libmaus2::util::NumberSerialisation::deserialiseNumber(in))
-	{
-	
-	}
-	
-	static unique_ptr_type load(std::string const & filename)
-	{
-		libmaus2::aio::InputStreamInstance CIS(filename);
-		unique_ptr_type ptr(new this_type(CIS));
-		return UNIQUE_PTR_MOVE(ptr);
-	}
-	
-	std::ostream & serialise(std::ostream & out) const
-	{
-		libmaus2::util::StringSerialisation::serialiseStringVector(out,bwt);
-		libmaus2::util::StringSerialisation::serialiseString(out,hwt);
-		libmaus2::util::StringSerialisation::serialiseString(out,tmpprefix);
-		libmaus2::util::StringSerialisation::serialiseString(out,huftreefilename);
-		libmaus2::util::NumberSerialisation::serialiseSignedNumber(out,bwtterm);
-		libmaus2::util::NumberSerialisation::serialiseNumber(out,p0r);
-		libmaus2::util::NumberSerialisation::serialiseNumber(out,utf8);
-		return out;
-	}
-
-	static std::ostream & serialise(
-		std::ostream & out,
-		std::vector<std::string> const & bwt,
-		std::string const & hwt,
-		std::string const & tmpprefix,
-		std::string const & huftreefilename,
-		uint64_t const bwtterm,
-		uint64_t const p0r,
-		bool const utf8
-	)
-	{
-		libmaus2::util::StringSerialisation::serialiseStringVector(out,bwt);
-		libmaus2::util::StringSerialisation::serialiseString(out,hwt);
-		libmaus2::util::StringSerialisation::serialiseString(out,tmpprefix);
-		libmaus2::util::StringSerialisation::serialiseString(out,huftreefilename);
-		libmaus2::util::NumberSerialisation::serialiseSignedNumber(out,bwtterm);
-		libmaus2::util::NumberSerialisation::serialiseNumber(out,p0r);
-		libmaus2::util::NumberSerialisation::serialiseNumber(out,utf8);
-		return out;
-	}
-
-	libmaus2::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type dispatch()
-	{
-		if ( utf8 )
-		{
-			libmaus2::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type tptr(
-				RlToHwtBase<true>::rlToHwtTerm(bwt,hwt,tmpprefix,huftreefilename,bwtterm,p0r)
-			);
-			return UNIQUE_PTR_MOVE(tptr);
-		}
-		else
-		{
-			libmaus2::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type tptr(
-				RlToHwtBase<false>::rlToHwtTerm(bwt,hwt,tmpprefix,huftreefilename,bwtterm,p0r)
-			);
-			return UNIQUE_PTR_MOVE(tptr);
-		}
-	}
-};
-
-struct BwtMergeBlockSortRequest : libmaus2::suffixsort::BwtMergeEnumBase
-{
-	bwt_merge_sort_input_type inputtype;
-	std::string fn; // file name of complete file
-	uint64_t fs; // size of complete file
-	std::string chistfilename; // file name of global character histogram
-	std::string huftreefilename; // file name of global huffman tree
-	uint64_t bwtterm; // bwt term symbol (!= any other symbol)
-	uint64_t maxsym; // maximal appearing symbol
-	std::string tmpfilenamesser; // temp file names for this block
-	std::string tmpfilenamebase; // temp file name base for files temporary to the computation of this block
-	uint64_t rlencoderblocksize; // block size for run length encoder
-	uint64_t isasamplingrate; // sampling rate for inverse suffix array
-	uint64_t blockstart; // start of this block (in symbols)
-	uint64_t cblocksize; // size of this block (in symbols)
-	::libmaus2::suffixsort::BwtMergeZBlockRequestVector zreqvec; // vector of positions in file where rank in this block is requested
-	bool computeTermSymbolHwt;
-	uint64_t lcpnext;
-	
-	static bwt_merge_sort_input_type decodeInputType(uint64_t const i)
-	{
-		switch ( i )
-		{
-			case bwt_merge_input_type_byte:
-				return bwt_merge_input_type_byte;
-			case bwt_merge_input_type_compact:
-				return bwt_merge_input_type_compact;
-			case bwt_merge_input_type_pac:
-				return bwt_merge_input_type_pac;
-			case bwt_merge_input_type_pac_term:
-				return bwt_merge_input_type_pac_term;
-			case bwt_merge_input_type_utf8:
-				return bwt_merge_input_type_utf8;
-			default:
-			{
-				::libmaus2::exception::LibMausException ex;
-				ex.getStream() << "Number " << i << " is not a valid input type designator." << std::endl;
-				ex.finish();
-				throw ex;
-			}
-		}
-	}
-	
-	template<typename stream_type>
-	void serialise(stream_type & stream) const
-	{
-		::libmaus2::util::NumberSerialisation::serialiseNumber(stream,static_cast<int>(inputtype));		
-		::libmaus2::util::StringSerialisation::serialiseString(stream,fn);
-		::libmaus2::util::NumberSerialisation::serialiseNumber(stream,fs);
-		::libmaus2::util::StringSerialisation::serialiseString(stream,chistfilename);
-		::libmaus2::util::StringSerialisation::serialiseString(stream,huftreefilename);
-		::libmaus2::util::NumberSerialisation::serialiseNumber(stream,bwtterm);
-		::libmaus2::util::NumberSerialisation::serialiseNumber(stream,maxsym);
-		::libmaus2::util::StringSerialisation::serialiseString(stream,tmpfilenamesser);
-		::libmaus2::util::StringSerialisation::serialiseString(stream,tmpfilenamebase);
-		::libmaus2::util::NumberSerialisation::serialiseNumber(stream,rlencoderblocksize);
-		::libmaus2::util::NumberSerialisation::serialiseNumber(stream,isasamplingrate);
-		::libmaus2::util::NumberSerialisation::serialiseNumber(stream,blockstart);
-		::libmaus2::util::NumberSerialisation::serialiseNumber(stream,cblocksize);
-		zreqvec.serialise(stream);
-		::libmaus2::util::NumberSerialisation::serialiseNumber(stream,computeTermSymbolHwt);
-		::libmaus2::util::NumberSerialisation::serialiseNumber(stream,lcpnext);
-	}
-	
-	std::string serialise() const
-	{
-		std::ostringstream ostr;
-		serialise(ostr);
-		return ostr.str();
-	}
-	
-	BwtMergeBlockSortRequest()
-	{
-	}
-
-	template<typename stream_type>	
-	BwtMergeBlockSortRequest(stream_type & stream)
-	:
-		inputtype(decodeInputType(::libmaus2::util::NumberSerialisation::deserialiseNumber(stream))),
-		fn(::libmaus2::util::StringSerialisation::deserialiseString(stream)),
-		fs(::libmaus2::util::NumberSerialisation::deserialiseNumber(stream)),
-		chistfilename(::libmaus2::util::StringSerialisation::deserialiseString(stream)),
-		huftreefilename(::libmaus2::util::StringSerialisation::deserialiseString(stream)),
-		bwtterm(::libmaus2::util::NumberSerialisation::deserialiseNumber(stream)),
-		maxsym(::libmaus2::util::NumberSerialisation::deserialiseNumber(stream)),
-		tmpfilenamesser(::libmaus2::util::StringSerialisation::deserialiseString(stream)),
-		tmpfilenamebase(::libmaus2::util::StringSerialisation::deserialiseString(stream)),
-		rlencoderblocksize(::libmaus2::util::NumberSerialisation::deserialiseNumber(stream)),
-		isasamplingrate(::libmaus2::util::NumberSerialisation::deserialiseNumber(stream)),
-		blockstart(::libmaus2::util::NumberSerialisation::deserialiseNumber(stream)),
-		cblocksize(::libmaus2::util::NumberSerialisation::deserialiseNumber(stream)),
-		zreqvec(stream),
-		computeTermSymbolHwt(::libmaus2::util::NumberSerialisation::deserialiseNumber(stream)),
-		lcpnext(::libmaus2::util::NumberSerialisation::deserialiseNumber(stream))
-	{
-	}
-
-	BwtMergeBlockSortRequest(
-		bwt_merge_sort_input_type rinputtype,
-		std::string rfn,
-		uint64_t rfs,
-		std::string rchistfilename,
-		std::string rhuftreefilename,
-		uint64_t rbwtterm,
-		uint64_t rmaxsym,
-		std::string rtmpfilenamesser,
-		std::string rtmpfilenamebase,
-		uint64_t rrlencoderblocksize,
-		uint64_t risasamplingrate,
-		uint64_t rblockstart,
-		uint64_t rcblocksize,
-		::libmaus2::suffixsort::BwtMergeZBlockRequestVector const & rzreqvec,
-		bool const rcomputeTermSymbolHwt,
-		uint64_t const rlcpnext
-	)
-	: 
-		inputtype(rinputtype),
-		fn(rfn),
-		fs(rfs),
-		chistfilename(rchistfilename),
-		huftreefilename(rhuftreefilename),
-		bwtterm(rbwtterm),
-		maxsym(rmaxsym),
-		tmpfilenamesser(rtmpfilenamesser),
-		tmpfilenamebase(rtmpfilenamebase),
-		rlencoderblocksize(rrlencoderblocksize),
-		isasamplingrate(risasamplingrate),
-		blockstart(rblockstart),
-		cblocksize(rcblocksize),
-		zreqvec(rzreqvec),
-		computeTermSymbolHwt(rcomputeTermSymbolHwt),
-		lcpnext(rlcpnext)
-	{
-	}
-	
-	static BwtMergeBlockSortRequest load(std::string const & s)
-	{
-		std::istringstream istr(s);
-		return BwtMergeBlockSortRequest(istr);
-	}
-
-	template<typename input_types_type>
-	static uint64_t findSplitCommon(
-		std::string const & fn,
-		// position of textblock
-		uint64_t const t,
-		// length of textblock
-		uint64_t const n,
-		// position of pattern
-		uint64_t const p,
-		// length of file
-		uint64_t const m
-	)
-	{
-		typedef typename input_types_type::base_input_stream base_input_stream;
-		typedef typename input_types_type::circular_wrapper circular_wrapper;
-		
-		circular_wrapper textstr(fn,t);
-		circular_wrapper patstr(fn,p);
-		
-		// dynamically growing best prefix table
-		::libmaus2::util::KMP::BestPrefix<base_input_stream> BP(patstr,m);
-		// adapter for accessing pattern in BP
-		typename ::libmaus2::util::KMP::BestPrefix<base_input_stream>::BestPrefixXAdapter xadapter = BP.getXAdapter();
-		// call KMP adaption
-		std::pair<uint64_t, uint64_t> Q = ::libmaus2::util::KMP::PREFIX_SEARCH_INTERNAL_RESTRICTED(
-			// pattern
-			xadapter,m,BP,
-			// text
-			textstr,m,
-			// restriction for position
-			n
-		);
-		
-		return Q.second;
-	}
-
-	template<typename input_types_type>
-	static uint64_t findSplitCommonBounded(
-		std::string const & fn,
-		// position of textblock
-		uint64_t const t,
-		// length of textblock
-		uint64_t const n,
-		// position of pattern
-		uint64_t const p,
-		// length of file
-		uint64_t const m,
-		// bound
-		uint64_t const bound
-	)
-	{
-		typedef typename input_types_type::base_input_stream base_input_stream;
-		typedef typename input_types_type::circular_wrapper circular_wrapper;
-		
-		circular_wrapper textstr(fn,t);
-		circular_wrapper patstr(fn,p);
-		
-		// dynamically growing best prefix table
-		::libmaus2::util::KMP::BestPrefix<base_input_stream> BP(patstr,m);
-		// adapter for accessing pattern in BP
-		typename ::libmaus2::util::KMP::BestPrefix<base_input_stream>::BestPrefixXAdapter xadapter = BP.getXAdapter();
-		// call KMP adaption
-		std::pair<uint64_t, uint64_t> Q = ::libmaus2::util::KMP::PREFIX_SEARCH_INTERNAL_RESTRICTED_BOUNDED(
-			// pattern
-			xadapter,m,BP,
-			// text
-			textstr,m,
-			// restriction for position
-			n,
-			// bound on length
-			bound
-		);
-		
-		return Q.second;
-	}
-	
-	static ::libmaus2::huffman::HuffmanTree::unique_ptr_type loadCompactHuffmanTree(std::string const & huftreefilename)
-	{
-		libmaus2::aio::InputStreamInstance::unique_ptr_type CIN(new libmaus2::aio::InputStreamInstance(huftreefilename));
-		::libmaus2::huffman::HuffmanTree::unique_ptr_type tH(new ::libmaus2::huffman::HuffmanTree(*CIN));
-		// CIN->close();
-		CIN.reset();
-		
-		return UNIQUE_PTR_MOVE(tH);
-	}
-
-	static ::libmaus2::huffman::HuffmanTreeNode::shared_ptr_type loadHuffmanTree(std::string const & huftreefilename)
-	{
-		// deserialise symbol frequences
-		libmaus2::aio::InputStreamInstance::unique_ptr_type chistCIN(new libmaus2::aio::InputStreamInstance(huftreefilename));
-		::libmaus2::huffman::HuffmanTreeNode::shared_ptr_type shnode = 
-			::libmaus2::huffman::HuffmanTreeNode::deserialize(*chistCIN);
-		// chistCIN->close();
-		chistCIN.reset();
-		
-		return shnode;
-	}
-
-	template<typename input_types_type>
-	::libmaus2::suffixsort::BwtMergeBlockSortResult sortBlock() const
-	{
-		// typedef typename input_types_type::base_input_stream base_input_stream;
-		// typedef typename base_input_stream::char_type char_type;
-		// typedef typename ::libmaus2::util::UnsignedCharVariant<char_type>::type unsigned_char_type;
-	
-		// glock.lock();
-	
-		#if defined(FERAMANZGEN_DEBUG)
-		gcerrlock.lock();
-		std::cerr << "[SB1] " << libmaus2::util::MemUsage() << "," << libmaus2::autoarray::AutoArrayMemUsage() << std::endl;
-		gcerrlock.unlock();
-		#endif
-	
-		std::ostringstream tmpfilenamedirstr;
-		tmpfilenamedirstr 
-			<< tmpfilenamebase << "_sortblock_" 
-			<< std::setw(10) << std::setfill('0') << blockstart
-			<< std::setw(0) << "_"
-			<< std::setw(10) << std::setfill('0') << cblocksize
-			;
-		std::string const tmpfilenamedir = tmpfilenamedirstr.str();
-		::libmaus2::util::TempFileNameGenerator tmpgen(tmpfilenamedir,3);
-
-		#if defined(FERAMANZGEN_DEBUG)
-		gcerrlock.lock();
-		std::cerr << "[SB2] " << libmaus2::util::MemUsage() << "," << libmaus2::autoarray::AutoArrayMemUsage() << std::endl;
-		gcerrlock.unlock();
-		#endif
-
-		::libmaus2::suffixsort::BwtMergeTempFileNameSet const tmpfilenames = 
-			::libmaus2::suffixsort::BwtMergeTempFileNameSet::load(tmpfilenamesser);
-
-		#if defined(FERAMANZGEN_DEBUG)
-		gcerrlock.lock();
-		std::cerr << "[SB3] " << libmaus2::util::MemUsage() << "," << libmaus2::autoarray::AutoArrayMemUsage() << std::endl;
-		gcerrlock.unlock();
-		#endif
-		
-		// result
-		::libmaus2::suffixsort::BwtMergeBlockSortResult result;
-		// copy request values
-		result.setBlockStart( blockstart );
-		result.setCBlockSize( cblocksize );
-		result.setTempFileSet( tmpfilenames );
-
-		#if defined(FERAMANZGEN_DEBUG)
-		gcerrlock.lock();
-		std::cerr << "[SB4] " << libmaus2::util::MemUsage() << "," << libmaus2::autoarray::AutoArrayMemUsage() << std::endl;
-		gcerrlock.unlock();
-		#endif
-		
-		// set up huffman tree
-		unsigned int const albits = maxsym ? (8*sizeof(uint64_t) - ::libmaus2::bitio::Clz::clz(maxsym)) : 0;
-		
-		// symbol before block
-		int64_t const presym = input_types_type::linear_wrapper::getSymbolAtPosition(fn,blockstart ? (blockstart-1) : (fs-1));
-
-		#if defined(FERAMANZGEN_DEBUG)
-		gcerrlock.lock();
-		std::cerr << "[SB5] " << libmaus2::util::MemUsage() << "," << libmaus2::autoarray::AutoArrayMemUsage() << std::endl;
-		gcerrlock.unlock();
-		#endif
-		
-		// start of next block
-		// uint64_t const nextblockstart = (blockstart + cblocksize) % fs;
-		
-		// find lcp between this block and start of next
-		uint64_t const blcp = lcpnext; // findSplitCommon<input_types_type>(fn,blockstart,cblocksize,nextblockstart,fs);
-
-		#if defined(FERAMANZGEN_DEBUG)
-		gcerrlock.lock();
-		std::cerr << "[SB6] " << libmaus2::util::MemUsage() << "," << libmaus2::autoarray::AutoArrayMemUsage() << std::endl;
-		gcerrlock.unlock();
-		#endif
-		
-		// size of input string we need to read
-		uint64_t const readsize = (cblocksize + blcp + 1);
-		
-		// 
-		typedef typename input_types_type::string_type string_type;
-		typedef typename input_types_type::circular_wrapper circular_wrapper;
-		typedef typename circular_wrapper::unique_ptr_type circular_wrapper_ptr_type;
-		circular_wrapper_ptr_type cwptr(new circular_wrapper(fn,blockstart));
-		uint64_t const octetlength = string_type::computeOctetLength(*cwptr,readsize);
-		cwptr.reset();
-
-		#if defined(FERAMANZGEN_DEBUG)
-		gcerrlock.lock();
-		std::cerr << "[SB7] " << libmaus2::util::MemUsage() << "," << libmaus2::autoarray::AutoArrayMemUsage() << std::endl;
-		gcerrlock.unlock();
-		#endif
-
-		// set up circular reader
-		typename input_types_type::circular_wrapper circ(fn,blockstart);
-		circular_wrapper_ptr_type tcwptr(new circular_wrapper(fn,blockstart));
-		cwptr = UNIQUE_PTR_MOVE(tcwptr);
-		// construct string (read text and preprocess it for random symbol access)
-		typename string_type::unique_ptr_type PT(new string_type(*cwptr, octetlength, readsize));
-		string_type & T = *PT;
-
-		#if defined(FERAMANZGEN_DEBUG)
-		gcerrlock.lock();
-		std::cerr << "[SB8] " << libmaus2::util::MemUsage() << "," << libmaus2::autoarray::AutoArrayMemUsage() << std::endl;
-		gcerrlock.unlock();
-		#endif
-
-		typedef typename string_type::saidx_t saidx_t;
-		::libmaus2::autoarray::AutoArray<saidx_t, ::libmaus2::autoarray::alloc_type_c> SA =
-			T.computeSuffixArray32();
-
-		#if defined(FERAMANZGEN_DEBUG)
-		gcerrlock.lock();
-		std::cerr << "[SB9] " << libmaus2::util::MemUsage() << "," << libmaus2::autoarray::AutoArrayMemUsage() << std::endl;
-		gcerrlock.unlock();
-		#endif
-		
-		// compute character histogram
-		::libmaus2::util::Histogram hist;
-		for ( uint64_t i = 0; i < cblocksize; ++i )
-			hist ( T[i] );
-
-		#if defined(FERAMANZGEN_DEBUG)
-		gcerrlock.lock();
-		std::cerr << "[SB10] " << libmaus2::util::MemUsage() << "," << libmaus2::autoarray::AutoArrayMemUsage() << std::endl;
-		gcerrlock.unlock();
-		#endif
-
-		std::map<int64_t,uint64_t> const histm = hist.getByType<int64_t>();
-
-		#if defined(FERAMANZGEN_DEBUG)
-		gcerrlock.lock();
-		std::cerr << "[SB11] " << libmaus2::util::MemUsage() << "," << libmaus2::autoarray::AutoArrayMemUsage() << std::endl;
-		gcerrlock.unlock();
-		#endif
-
-		::libmaus2::lf::DArray D(histm,bwtterm);
-		D.serialise(tmpfilenames.getHist());
-
-		#if defined(FERAMANZGEN_DEBUG)
-		gcerrlock.lock();
-		std::cerr << "[SB12] " << libmaus2::util::MemUsage() << "," << libmaus2::autoarray::AutoArrayMemUsage() << std::endl;
-		gcerrlock.unlock();
-		#endif
-
-		// check whether first suffix of next block is smaller or larger than first suffix of this block
-		bool gtlast = false;
-		for ( uint64_t i = 0; i < SA.size(); ++i )
-			// position 0 comes first, first suffix of next block is larger than first suffix of this block
-			if ( !SA[i] )
-			{
-				gtlast = true;
-				break;
-			}
-			// first suffix of next block comes first
-			else if ( SA[i] == static_cast<saidx_t>(cblocksize) )
-			{
-				gtlast = false;
-				break;
-			}
-
-		#if defined(FERAMANZGEN_DEBUG)
-		gcerrlock.lock();
-		std::cerr << "[SB13] " << libmaus2::util::MemUsage() << "," << libmaus2::autoarray::AutoArrayMemUsage() << std::endl;
-		gcerrlock.unlock();
-		#endif
-		
-		// remove terminator symbols from suffix array
-		saidx_t * out = SA.begin();
-		for ( saidx_t * in = SA.begin(); in != SA.end(); ++in )
-			if ( *in < static_cast<saidx_t>(cblocksize) )
-				*(out++) = *in;
-		assert ( out-SA.begin() == static_cast<ptrdiff_t>(cblocksize) );
-
-		#if defined(FERAMANZGEN_DEBUG)
-		gcerrlock.lock();
-		std::cerr << "[SB14] " << libmaus2::util::MemUsage() << "," << libmaus2::autoarray::AutoArrayMemUsage() << std::endl;
-		gcerrlock.unlock();
-		#endif
-
-		// search for rank of first position in block
-		for ( saidx_t * in = SA.begin(); in != out; ++in )
-			if ( ! *in )
-				result.setBlockP0Rank( (in-SA.begin()) );
-
-		#if defined(FERAMANZGEN_DEBUG)
-		gcerrlock.lock();
-		std::cerr << "[SB15] " << libmaus2::util::MemUsage() << "," << libmaus2::autoarray::AutoArrayMemUsage() << std::endl;
-		gcerrlock.unlock();
-		#endif
-
-		// check if we find the same via binary search		
-		assert ( result.getBlockP0Rank() == input_types_type::circular_suffix_comparator::suffixSearch(SA.begin(), cblocksize, blockstart /* offset */, blockstart, fn, fs) );
-
-		#if defined(FERAMANZGEN_DEBUG)
-		gcerrlock.lock();
-		std::cerr << "[SB16] " << libmaus2::util::MemUsage() << "," << libmaus2::autoarray::AutoArrayMemUsage() << std::endl;
-		gcerrlock.unlock();
-		#endif
-		
-		// search for rank of first position in complete file
-		// result.absp0rank = ::libmaus2::suffixsort::CircularSuffixComparator::suffixSearch(SA.begin(), cblocksize, blockstart, 0, fn, fs);
-		
-		// store sampled inverse suffix array
-		assert ( ::libmaus2::rank::PopCnt8<sizeof(unsigned long)>::popcnt8(isasamplingrate) == 1 );
-		uint64_t const isasamplingmask = isasamplingrate-1;
-		::libmaus2::aio::SynchronousGenericOutput<uint64_t> SGOISA(tmpfilenames.getSampledISA(),16*1024);
-		for ( uint64_t r = 0; r < cblocksize; ++r )
-		{
-			// position for rank inside block
-			uint64_t const pp = SA[r];
-			// absolute position in complete text
-			uint64_t const p = pp + blockstart;
-		
-			// sampled position?
-			if ( 
-				(! (p & isasamplingmask))
-				||
-				(!pp)
-			)
-			{
-				// rank in block
-				SGOISA.put(r);
-				// absolute position
-				SGOISA.put(p);
-			}
-		}
-		SGOISA.flush();
-
-		#if defined(FERAMANZGEN_DEBUG)
-		gcerrlock.lock();
-		std::cerr << "[SB17] " << libmaus2::util::MemUsage() << "," << libmaus2::autoarray::AutoArrayMemUsage() << std::endl;
-		gcerrlock.unlock();
-		#endif
-		
-		/**
-		 * compute ranks for lf mapping blocks
-		 **/
-		// std::cerr << "[V] searching for " << zreqvec.size() << " suffixes...";
-		::libmaus2::timing::RealTimeClock sufsertc; sufsertc.start();
-		result.resizeZBlocks(zreqvec.size());
-		#if defined(_OPENMP)
-		// #pragma omp parallel for schedule(dynamic,1)
-		#endif
-		for ( uint64_t z = 0; z < zreqvec.size(); ++z )
-		{
-			uint64_t const zabspos = zreqvec[z]; // .zabspos;
-
-			uint64_t const zrank = input_types_type::circular_suffix_comparator::suffixSearchTryInternal(
-				SA.begin(), T.begin(), T.end(), cblocksize,
-				blockstart, zabspos%fs, 
-				fn, fs
-			);
-			
-			#if 0
-			uint64_t const zrankext = input_types_type::circular_suffix_comparator::suffixSearch(
-				SA.begin(), cblocksize, 
-				blockstart, zabspos%fs, 
-				fn, fs
-			);
-			assert ( zrankext == zrank );
-			#endif
-
-			::libmaus2::suffixsort::BwtMergeZBlock zblock(zabspos,zrank);
-			result.setZBlock(z,zblock);
-		}
-		// std::cerr << "done, time " << sufsertc.getElapsedSeconds() << std::endl;
-
-		#if defined(FERAMANZGEN_DEBUG)
-		gcerrlock.lock();
-		std::cerr << "[SB18] " << libmaus2::util::MemUsage() << "," << libmaus2::autoarray::AutoArrayMemUsage() << std::endl;
-		gcerrlock.unlock();
-		#endif
-
-		// compute BWT		
-		::libmaus2::bitio::BitVector::unique_ptr_type pGT(new ::libmaus2::bitio::BitVector(cblocksize+1));
-		::libmaus2::bitio::BitVector & GT = *pGT;
-
-		#if defined(FERAMANZGEN_DEBUG)
-		gcerrlock.lock();
-		std::cerr << "[SB19] " << libmaus2::util::MemUsage() << "," << libmaus2::autoarray::AutoArrayMemUsage() << std::endl;
-		gcerrlock.unlock();
-		#endif
-
-		bool gtflag = false;
-		uint64_t const outcnt = out-SA.begin();
-		uint64_t r0 = outcnt;
-		
-		// construct modified bwt
-		for ( saidx_t * in = SA.begin(); in != out; ++in )
-		{
-			saidx_t const saval = *in;
-		
-			GT [ saval ] = gtflag;
-		
-			if ( saval )
-			{
-				*in = T[saval-1];
-			}
-			else
-			{
-				*in = bwtterm;
-				// update gt flag
-				gtflag = true;
-				// set rank of position 0
-				r0 = in-SA.begin();
-			}
-		}
-
-		#if defined(FERAMANZGEN_DEBUG)
-		gcerrlock.lock();
-		std::cerr << "[SB20] " << libmaus2::util::MemUsage() << "," << libmaus2::autoarray::AutoArrayMemUsage() << std::endl;
-		gcerrlock.unlock();
-		#endif
-		
-		// deallocate text
-		PT.reset();
-
-		#if defined(FERAMANZGEN_DEBUG)
-		gcerrlock.lock();
-		std::cerr << "[SB21] " << libmaus2::util::MemUsage() << "," << libmaus2::autoarray::AutoArrayMemUsage() << std::endl;
-		gcerrlock.unlock();
-		#endif
-		
-		GT [ cblocksize ] = gtlast;
-
-		#if defined(FERAMANZGEN_DEBUG)
-		gcerrlock.lock();
-		std::cerr << "[SB22] " << libmaus2::util::MemUsage() << "," << libmaus2::autoarray::AutoArrayMemUsage() << std::endl;
-		gcerrlock.unlock();
-		#endif
-
-		#if defined(FERAMANZGEN_DEBUG)
-		gcerrlock.lock();
-		std::cerr << "[SB23] " << libmaus2::util::MemUsage() << "," << libmaus2::autoarray::AutoArrayMemUsage() << std::endl;
-		gcerrlock.unlock();
-		#endif
-
-		// save gt array
-		#if 0
-		::libmaus2::huffman::HuffmanEncoderFileStd GTHEF(tmpfilenames.getGT());
-		for ( int64_t i = cblocksize; i > 0; --i )
-			GTHEF.writeBit(GT[i]);
-		GTHEF.flush();
-		#endif
-		
-		for ( uint64_t j = 0; j < tmpfilenames.getGT().size(); ++j )
-		{
-			uint64_t const gtpartsize = (cblocksize + tmpfilenames.getGT().size() - 1)/tmpfilenames.getGT().size();
-			uint64_t const low = std::min(j * gtpartsize,cblocksize);
-			uint64_t const high = std::min(low + gtpartsize,cblocksize);
-			libmaus2::bitio::BitVectorOutput BVO(tmpfilenames.getGT()[j]);
-			for ( int64_t i = cblocksize-low; i > static_cast<int64_t>(cblocksize-high); --i )
-				BVO.writeBit(GT[i]);
-			BVO.flush();
-		}
-		
-		#if 0
-		libmaus2::bitio::BitVectorOutput BVO(tmpfilenames.getGT());
-		for ( int64_t i = cblocksize; i > 0; --i )
-			BVO.writeBit(GT[i]);
-		BVO.flush();
-		#endif
-		
-		pGT.reset();
-
-		#if defined(FERAMANZGEN_DEBUG)
-		gcerrlock.lock();
-		std::cerr << "[SB24] " << libmaus2::util::MemUsage() << "," << libmaus2::autoarray::AutoArrayMemUsage() << std::endl;
-		gcerrlock.unlock();
-		#endif
-		
-		uint64_t const targetbwtfilesize = (outcnt + tmpfilenames.getBWT().size() - 1) / tmpfilenames.getBWT().size();
-
-		for ( uint64_t b = 0; b < tmpfilenames.getBWT().size(); ++b )
-		{
-			uint64_t const low  = std::min(  b * targetbwtfilesize, outcnt);
-			uint64_t const high = std::min(low + targetbwtfilesize, outcnt);
-			
-			#if defined(HUFRL)
-			::libmaus2::huffman::RLEncoderStd bwtenc(tmpfilenames.getBWT()[b],albits                   ,high-low,rlencoderblocksize);
-			#else
-			::libmaus2::gamma::GammaRLEncoder bwtenc(tmpfilenames.getBWT()[b],albits/* alphabet bits */,high-low,rlencoderblocksize);
-			#endif
-
-			if ( low <= r0 && r0 < high )
-			{
-				for ( uint64_t i = low; i < r0; ++i )
-					bwtenc.encode(SA[i]);
-				bwtenc.encode(presym);
-				for ( uint64_t i = r0+1; i < high; ++i )
-					bwtenc.encode(SA[i]);
-			}
-			else
-			{
-				for ( uint64_t i = low; i < high; ++i )
-					bwtenc.encode(SA[i]);
-			}
-
-			#if 0
-			// run-length coding for bwt
-			for ( uint64_t i = 0; i < r0; ++i )
-				bwtenc.encode(SA[i]);
-			bwtenc.encode(presym);
-			for ( uint64_t i = r0+1; i < outcnt; ++i )
-				bwtenc.encode(SA[i]);
-			#endif
-			
-			bwtenc.flush();
-			
-			#if defined(FERAMANZGEN_DEBUG)
-			gcerrlock.lock();
-			std::cerr << "[D] generated " << tmpfilenames.getBWT()[b] << " with size " << high-low << std::endl;
-			gcerrlock.unlock();
-			#endif
-		}
-
-		#if defined(FERAMANZGEN_DEBUG)
-		gcerrlock.lock();
-		std::cerr << "[SB25] " << libmaus2::util::MemUsage() << "," << libmaus2::autoarray::AutoArrayMemUsage() << std::endl;
-		gcerrlock.unlock();
-		#endif
-
-		if ( computeTermSymbolHwt )
-		{
-			if ( input_types_type::utf8Wavelet() )
-			{
-				std::string utftmp = tmpfilenames.getHWT() + ".utf8tmp";
-				libmaus2::util::TempFileRemovalContainer::addTempFile(utftmp);
-
-				#if defined(FERAMANZGEN_DEBUG)
-				gcerrlock.lock();
-				std::cerr << "[SB26] " << libmaus2::util::MemUsage() << "," << libmaus2::autoarray::AutoArrayMemUsage() << std::endl;
-				gcerrlock.unlock();
-				#endif
-				
-				// std::cerr << "writing " << utftmp << std::endl;
-				
-				::libmaus2::util::CountPutObject CPO;
-				for ( uint64_t i = 0; i < outcnt; ++i )
-					::libmaus2::util::UTF8::encodeUTF8(SA[i],CPO);
-				uint64_t const ucnt = CPO.c;
-
-				#if defined(FERAMANZGEN_DEBUG)
-				gcerrlock.lock();
-				std::cerr << "[SB27] " << libmaus2::util::MemUsage() << "," << libmaus2::autoarray::AutoArrayMemUsage() << std::endl;
-				gcerrlock.unlock();
-				#endif
-
-				libmaus2::aio::OutputStreamInstance::unique_ptr_type utfCOS(new libmaus2::aio::OutputStreamInstance(utftmp));
-				for ( uint64_t i = 0; i < outcnt; ++i )
-					::libmaus2::util::UTF8::encodeUTF8(SA[i],*utfCOS);
-
-				#if defined(FERAMANZGEN_DEBUG)
-				gcerrlock.lock();
-				std::cerr << "[SB28] " << libmaus2::util::MemUsage() << "," << libmaus2::autoarray::AutoArrayMemUsage() << std::endl;
-				gcerrlock.unlock();
-				#endif
-
-				utfCOS->flush();
-				//utfCOS->close();
-				utfCOS.reset();
-
-				#if defined(FERAMANZGEN_DEBUG)
-				gcerrlock.lock();
-				std::cerr << "[SB29] " << libmaus2::util::MemUsage() << "," << libmaus2::autoarray::AutoArrayMemUsage() << std::endl;
-				gcerrlock.unlock();
-				#endif
-
-				#if 0
-				::libmaus2::autoarray::AutoArray<uint8_t> UT(ucnt,false);
-				::libmaus2::util::PutObject<uint8_t *> P(UT.begin());
-				for ( uint64_t i = 0; i < outcnt; ++i )
-					::libmaus2::util::UTF8::encodeUTF8(SA[i],P);
-				#endif
-					
-				SA.release();
-
-				#if defined(FERAMANZGEN_DEBUG)
-				gcerrlock.lock();
-				std::cerr << "[SB30] " << libmaus2::util::MemUsage() << "," << libmaus2::autoarray::AutoArrayMemUsage() << std::endl;
-				gcerrlock.unlock();
-				#endif
-				
-				::libmaus2::autoarray::AutoArray<uint8_t> UT(ucnt,false);
-				libmaus2::aio::InputStreamInstance::unique_ptr_type utfCIS(new libmaus2::aio::InputStreamInstance(utftmp));
-				{
-					char * c  = reinterpret_cast<char *>(UT.begin());
-					uint64_t n = ucnt;
-					uint64_t const bs = 64*1024;
-					
-					// utfCIS->read(reinterpret_cast<char *>(UT.begin()),ucnt,64*1024);
-					while ( n )
-					{
-						uint64_t const toread = std::min(n,bs);
-						utfCIS->read(c,toread);
-						uint64_t const got = utfCIS->gcount();
-						
-						if ( got )
-						{
-							n -= got;
-							c += got;
-						}
-						else
-						{
-							libmaus2::exception::LibMausException lme;
-							lme.getStream() << "sortBlock: unexpected EOF" << std::endl;
-							lme.finish();
-							throw lme;
-						}
-					}
-					assert ( ! n );
-					assert ( c == reinterpret_cast<char *>(UT.begin()) + ucnt );
-				}
-				//utfCIS->close();
-				utfCIS.reset();
-
-				#if defined(FERAMANZGEN_DEBUG)
-				gcerrlock.lock();
-				std::cerr << "[SB31] " << libmaus2::util::MemUsage() << "," << libmaus2::autoarray::AutoArrayMemUsage() << std::endl;
-				gcerrlock.unlock();
-				#endif
-
-				::libmaus2::huffman::HuffmanTree::unique_ptr_type uhnode = loadCompactHuffmanTree(huftreefilename);
-
-				#if defined(FERAMANZGEN_DEBUG)
-				gcerrlock.lock();
-				std::cerr << "[SB32] " << libmaus2::util::MemUsage() << "," << libmaus2::autoarray::AutoArrayMemUsage() << std::endl;
-				gcerrlock.unlock();
-				#endif
-				
-				std::string const tmpfileprefix = tmpfilenamedir + "_wt";
-				::libmaus2::wavelet::Utf8ToImpCompactHuffmanWaveletTree::constructWaveletTree<true>(
-					UT,tmpfilenames.getHWT(),tmpfileprefix,uhnode.get(),
-					1/* num threads */
-				);
-
-				#if defined(FERAMANZGEN_DEBUG)
-				gcerrlock.lock();
-				std::cerr << "[SB33] " << libmaus2::util::MemUsage() << "," << libmaus2::autoarray::AutoArrayMemUsage() << std::endl;
-				gcerrlock.unlock();
-				#endif
-				
-				libmaus2::aio::FileRemoval::removeFile(utftmp.c_str());
-
-				#if defined(FERAMANZGEN_DEBUG)
-				gcerrlock.lock();
-				std::cerr << "[SB34] " << libmaus2::util::MemUsage() << "," << libmaus2::autoarray::AutoArrayMemUsage() << std::endl;
-				gcerrlock.unlock();
-				#endif
-			}
-			else
-			{
-
-				#if defined(FERAMANZGEN_DEBUG)
-				gcerrlock.lock();
-				std::cerr << "[SB35] " << libmaus2::util::MemUsage() << "," << libmaus2::autoarray::AutoArrayMemUsage() << std::endl;
-				gcerrlock.unlock();
-				#endif
-
-				::libmaus2::huffman::HuffmanTree::unique_ptr_type uhnode = loadCompactHuffmanTree(huftreefilename);
-
-				#if defined(FERAMANZGEN_DEBUG)
-				gcerrlock.lock();
-				std::cerr << "[SB36] " << libmaus2::util::MemUsage() << "," << libmaus2::autoarray::AutoArrayMemUsage() << std::endl;
-				gcerrlock.unlock();
-				#endif
-				
-				// construct huffman shaped wavelet tree
-				libmaus2::util::FileTempFileContainer FTFC(tmpgen);
-
-				#if defined(FERAMANZGEN_DEBUG)
-				gcerrlock.lock();
-				std::cerr << "[SB37] " << libmaus2::util::MemUsage() << "," << libmaus2::autoarray::AutoArrayMemUsage() << std::endl;
-				gcerrlock.unlock();
-				#endif
-
-				::libmaus2::wavelet::ImpExternalWaveletGeneratorCompactHuffman IEWGH(*uhnode,FTFC);
-
-				for ( uint64_t i = 0; i < r0; ++i )
-					IEWGH.putSymbol(SA[i]);
-				IEWGH.putSymbol(bwtterm);
-				for ( uint64_t i = r0+1; i < outcnt; ++i )
-					IEWGH.putSymbol(SA[i]);		
-
-				#if defined(FERAMANZGEN_DEBUG)
-				gcerrlock.lock();
-				std::cerr << "[SB38] " << libmaus2::util::MemUsage() << "," << libmaus2::autoarray::AutoArrayMemUsage() << std::endl;
-				gcerrlock.unlock();
-				#endif
-
-				// create final stream for huffman coded wavelet tree
-				::libmaus2::aio::OutputStreamInstance HCOS(tmpfilenames.getHWT());
-				IEWGH.createFinalStream(HCOS);
-				HCOS.flush();
-
-				#if defined(FERAMANZGEN_DEBUG)
-				gcerrlock.lock();
-				std::cerr << "[SB39] " << libmaus2::util::MemUsage() << "," << libmaus2::autoarray::AutoArrayMemUsage() << std::endl;
-				gcerrlock.unlock();
-				#endif
-			}
-		}
-		else
-		{
-			libmaus2::util::TempFileRemovalContainer::addTempFile(tmpfilenames.getHWTReq());
-			libmaus2::aio::OutputStreamInstance hwtReqCOS(tmpfilenames.getHWTReq());
-			RlToHwtTermRequest::serialise(hwtReqCOS,
-				tmpfilenames.getBWT(),
-				tmpfilenames.getHWT(),
-				tmpfilenamedir,
-				huftreefilename,
-				bwtterm,
-				r0,
-				input_types_type::utf8Wavelet()
-			);
-			hwtReqCOS.flush();
-			//hwtReqCOS.close();
-		}
-		
-		// glock.unlock();
-		
-		return result;
-	}
-
-	
-	std::string dispatch() const
-	{
-		::libmaus2::suffixsort::BwtMergeBlockSortResult result;
-		
-		switch (inputtype)
-		{
-			case bwt_merge_input_type_byte:
-				result = sortBlock<libmaus2::suffixsort::ByteInputTypes>();
-				break;
-			case bwt_merge_input_type_compact:
-				result = sortBlock<libmaus2::suffixsort::CompactInputTypes>();
-				break;
-			case bwt_merge_input_type_pac:
-				result = sortBlock<libmaus2::suffixsort::PacInputTypes>();
-				break;
-			case bwt_merge_input_type_pac_term:
-				result = sortBlock<libmaus2::suffixsort::PacTermInputTypes>();
-				break;
-			case bwt_merge_input_type_lz4:
-				result = sortBlock<libmaus2::suffixsort::Lz4InputTypes>();
-				break;
-			case bwt_merge_input_type_utf8:
-				result = sortBlock<libmaus2::suffixsort::Utf8InputTypes>();
-				break;
-			default:
-			{
-				::libmaus2::exception::LibMausException ex;
-				ex.getStream() << "Number " << inputtype << " is not a valid input type designator." << std::endl;
-				ex.finish();
-				throw ex;				
-			}
-		}
-		return result.serialise();
-	}
-};
-
-
-std::ostream & operator<<(std::ostream & out, BwtMergeBlockSortRequest const & o)
-{
-	out << "BwtMergeBlockSortRequest(";
-	out << o.inputtype;
-	out << ",";
-	out << o.fn;
-	out << ",";
-	out << o.fs;
-	out << ",";
-	out << o.rlencoderblocksize;
-	out << ",";
-	out << o.isasamplingrate;
-	out << ",";
-	out << o.blockstart;
-	out << ",";
-	out << o.cblocksize;
-	out << ",";
-	out << "{";
-	for ( uint64_t i = 0; i < o.zreqvec.size(); ++i )
-	{
-		out << o.zreqvec[i].getZAbsPos();
-		if ( i+1 < o.zreqvec.size() )
-			out << ";";
-	}
-	out << "}";
-	out << ",";
-	out << o.computeTermSymbolHwt;
-	out << ",";
-	out << o.lcpnext;
-	out << ")";
-	
-	return out;
-}
 
 // forward declaration
 struct MergeStrategyMergeGapRequest;
@@ -3000,7 +281,7 @@ struct MergeStrategyBlock
 
 struct MergeStrategyBaseBlock : public MergeStrategyBlock
 {
-	BwtMergeBlockSortRequest sortreq;
+	libmaus2::suffixsort::BwtMergeBlockSortRequest sortreq;
 	std::vector<uint64_t> querypos;
 
 	MergeStrategyBaseBlock() : MergeStrategyBlock() {}
@@ -3141,6 +422,17 @@ struct MergeStrategyBaseBlock : public MergeStrategyBlock
 	}
 };
 
+// #define HUFGAP
+#define HUFRL
+
+#if defined(HUFRL)
+typedef ::libmaus2::huffman::RLEncoderStd rl_encoder;
+typedef ::libmaus2::huffman::RLDecoder rl_decoder;
+#else
+typedef ::libmaus2::gamma::GammaRLEncoder rl_encoder;
+typedef ::libmaus2::gamma::GammaRLDecoder rl_decoder;
+#endif
+
 /**
  * sorting thread for base blocks
  **/
@@ -3226,7 +518,7 @@ struct BaseBlockSortThread : public libmaus2::parallel::PosixThread
 				{
 					// perform sorting
 					MergeStrategyBaseBlock * block = dynamic_cast<MergeStrategyBaseBlock *>(V[pack].get());					
-					block->sortresult = ::libmaus2::suffixsort::BwtMergeBlockSortResult::load(block->sortreq.dispatch());
+					block->sortresult = ::libmaus2::suffixsort::BwtMergeBlockSortResult::load(block->sortreq.dispatch<rl_encoder>());
 				}
 				catch(std::exception const & ex)
 				{
@@ -3804,7 +1096,6 @@ MergeStrategyBlock::shared_ptr_type constructMergeTree(
 	return node;
 }
 
-
 template<typename input_types_type>
 struct BwtMergeSort
 {
@@ -4012,13 +1303,9 @@ struct BwtMergeSort
 		if ( ! bwtfilenames.size() )
 		{
 			std::string const outputfilename = outputfilenameprefix + ".bwt";
+
+			rl_encoder rlenc(outputfilename,0 /* alphabet */,0,rlencoderblocksize);
 		
-			#if defined(HUFRL)
-			::libmaus2::huffman::RLEncoderStd rlenc(outputfilename,0,               0,rlencoderblocksize);
-			#else
-			::libmaus2::gamma::GammaRLEncoder rlenc(outputfilename,0 /* alphabet */,0,rlencoderblocksize);
-			#endif
-			
 			rlenc.flush();
 			
 			return std::vector<std::string>(1,outputfilename);
@@ -4055,9 +1342,7 @@ struct BwtMergeSort
 			typedef ::libmaus2::gamma::GammaGapDecoder gapfile_decoder_type;
 			#endif
 
-			#if !defined(HUFRL)
-			unsigned int const albits = rl_decoder::getAlBits(bwtfilenames.front());
-			#endif
+			unsigned int const albits = rl_decoder::haveAlphabetBits() ? rl_decoder::getAlBits(bwtfilenames.front()) : 0;
 			
 			uint64_t const firstblockgapfilesize = gapfilenames.size() ? gapfile_decoder_type::getLength(gapfilenames[0]) : 0;
 			assert ( firstblockgapfilesize );
@@ -4326,11 +1611,7 @@ struct BwtMergeSort
 				
 				uint64_t const totalbwt = std::accumulate(bwttowrite.begin(),bwttowrite.end(),0ull);
 
-				#if defined(HUFRL)
-				::libmaus2::huffman::RLEncoderStd bwtenc(gpartfrag,0                    ,totalbwt,rlencoderblocksize);
-				#else
-				::libmaus2::gamma::GammaRLEncoder bwtenc(gpartfrag,albits /* alphabet */,totalbwt,rlencoderblocksize);
-				#endif
+				rl_encoder bwtenc(gpartfrag,albits /* alphabet */,totalbwt,rlencoderblocksize);
 				
 				// start writing loop
 				uint64_t written = 0;
@@ -4673,8 +1954,8 @@ struct BwtMergeSort
 			libmaus2::timing::RealTimeClock rtc; rtc.start();
 			std::cerr << "[V] Generating HWT for gap file computation...";
 			assert ( libmaus2::util::GetFileSize::fileExists(blockresults.getFiles().getHWTReq() ) );	
-			RlToHwtTermRequest::unique_ptr_type ureq(RlToHwtTermRequest::load(blockresults.getFiles().getHWTReq()));
-			libmaus2::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type	ptr(ureq->dispatch());
+			libmaus2::wavelet::RlToHwtTermRequest::unique_ptr_type ureq(libmaus2::wavelet::RlToHwtTermRequest::load(blockresults.getFiles().getHWTReq()));
+			libmaus2::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type	ptr(ureq->dispatch<rl_decoder>());
 			libmaus2::aio::FileRemoval::removeFile ( blockresults.getFiles().getHWTReq().c_str() );
 			std::cerr << "done, time " << rtc.getElapsedSeconds() << std::endl;
 			return UNIQUE_PTR_MOVE(ptr);			
@@ -5421,9 +2702,9 @@ struct BwtMergeSort
 			
 			// std::cerr << "(setting up IDDs...";
 			wprtc.start();
-			#if !defined(HUFRL)
-			unsigned int const albits = rl_decoder::getAlBits(mergereq.children[0]->sortresult.getFiles().getBWT());
-			#endif
+			
+			unsigned int const albits = rl_decoder::haveAlphabetBits() ? rl_decoder::getAlBits(mergereq.children[0]->sortresult.getFiles().getBWT()) : 0;
+
 			::libmaus2::huffman::IndexDecoderDataArray IDD0(
 				mergereq.children[0]->sortresult.getFiles().getBWT());
 			::libmaus2::huffman::IndexDecoderDataArray IDD1(
@@ -5449,21 +2730,12 @@ struct BwtMergeSort
 					bool const islast = (ihigh == GACR.G.size());
 					std::string const encfilename = encfilenames[b];
 
-					#if defined(HUFRL)
-					rl_decoder leftrlin(IDD0,ilow);
-					rl_decoder rightrlin(IDD1,P[b]);
-					#else
 					rl_decoder leftrlin(IDD0,IECV0.get(),ilow);
 					rl_decoder rightrlin(IDD1,IECV1.get(),P[b]);
-					#endif
 					
 					uint64_t const outsuf = (ihigh-ilow)-(islast?1:0) + (P[b+1]-P[b]);
 
-					#if defined(HUFRL)
-					::libmaus2::huffman::RLEncoderStd bwtenc(encfilename,0     ,outsuf,rlencoderblocksize);
-					#else
-					::libmaus2::gamma::GammaRLEncoder bwtenc(encfilename,albits,outsuf,rlencoderblocksize);
-					#endif
+					rl_encoder bwtenc(encfilename,albits,outsuf,rlencoderblocksize);
 				
 					if ( islast )
 					{
@@ -5497,11 +2769,7 @@ struct BwtMergeSort
 			#if 0
 			std::cerr << "[V] concatenating bwt parts...";			
 			rtc.start();
-			#if defined(HUFRL)
-			::libmaus2::huffman::RLEncoderStd::concatenate(encfilenames,result.getFiles().getBWT());
-			#else
-			::libmaus2::gamma::GammaRLEncoder::concatenate(encfilenames,result.getFiles().getBWT());
-			#endif
+			rl_encoder::concatenate(encfilenames,result.getFiles().getBWT());
 			std::cerr << "done, time " << rtc.getElapsedSeconds() << std::endl;
 			#endif
 			
@@ -5679,16 +2947,16 @@ struct BwtMergeSort
 		::libmaus2::timing::RealTimeClock mprtc;
 		mprtc.start();
 		if ( input_types_type::utf8Wavelet() )
-			RlToHwtBase<true>::rlToHwtTerm(result.getFiles().getBWT(),result.getFiles().getHWT(),tmpfilenamebase + "_wt",chist,bwtterm,result.getBlockP0Rank());
+			libmaus2::wavelet::RlToHwtBase<true,rl_decoder>::rlToHwtTerm(result.getFiles().getBWT(),result.getFiles().getHWT(),tmpfilenamebase + "_wt",chist,bwtterm,result.getBlockP0Rank());
 		else
-			RlToHwtBase<false>::rlToHwtTerm(result.getFiles().getBWT(),result.getFiles().getHWT(),tmpfilenamebase + "_wt",chist,bwtterm,result.getBlockP0Rank());
+			libmaus2::wavelet::RlToHwtBase<false,rl_decoder>::rlToHwtTerm(result.getFiles().getBWT(),result.getFiles().getHWT(),tmpfilenamebase + "_wt",chist,bwtterm,result.getBlockP0Rank());
 		std::cerr << "done, time " << mprtc.getElapsedSeconds() << std::endl;
 		#endif
 
 		libmaus2::util::TempFileRemovalContainer::addTempFile(result.getFiles().getHWTReq());
 		{
 		libmaus2::aio::OutputStreamInstance hwtreqCOS(result.getFiles().getHWTReq());
-		RlToHwtTermRequest::serialise(
+		libmaus2::wavelet::RlToHwtTermRequest::serialise(
 			hwtreqCOS,
 			result.getFiles().getBWT(),
 			result.getFiles().getHWT(),
@@ -5888,9 +3156,7 @@ struct BwtMergeSort
 			
 			// std::cerr << "(setting up IDDs...";
 			wprtc.start();
-			#if !defined(HUFRL)
-			unsigned int const albits = rl_decoder::getAlBits(mergereq.children[0]->sortresult.getFiles().getBWT());
-			#endif
+			unsigned int const albits = rl_decoder::haveAlphabetBits() ? rl_decoder::getAlBits(mergereq.children[0]->sortresult.getFiles().getBWT()) : 0;
 			::libmaus2::huffman::IndexDecoderDataArray IDD0(
 				mergereq.children[0]->sortresult.getFiles().getBWT());
 			::libmaus2::huffman::IndexDecoderDataArray IDD1(
@@ -5916,21 +3182,12 @@ struct BwtMergeSort
 					bool const islast = (ihigh == (cblocksize+1));
 					std::string const encfilename = encfilenames[b];
 
-					#if defined(HUFRL)
-					rl_decoder leftrlin(IDD0,ilow);
-					rl_decoder rightrlin(IDD1,P[b]);
-					#else
 					rl_decoder leftrlin(IDD0,IECV0.get(),ilow);
 					rl_decoder rightrlin(IDD1,IECV1.get(),P[b]);
-					#endif
 					
 					uint64_t const outsuf = (ihigh-ilow)-(islast?1:0) + (P[b+1]-P[b]);
 
-					#if defined(HUFRL)
-					::libmaus2::huffman::RLEncoderStd bwtenc(encfilename,0     ,outsuf,rlencoderblocksize);
-					#else
-					::libmaus2::gamma::GammaRLEncoder bwtenc(encfilename,albits,outsuf,rlencoderblocksize);
-					#endif
+					rl_encoder bwtenc(encfilename,albits,outsuf,rlencoderblocksize);
 
 					libmaus2::suffixsort::GapArrayByteDecoder::unique_ptr_type pgap3dec(GACR.G->getDecoder(ilow));
 					libmaus2::suffixsort::GapArrayByteDecoderBuffer::unique_ptr_type pgap3decbuf(new libmaus2::suffixsort::GapArrayByteDecoderBuffer(*pgap3dec,8192));
@@ -5975,11 +3232,7 @@ struct BwtMergeSort
 			#if 0
 			std::cerr << "[V] concatenating bwt parts...";			
 			rtc.start();
-			#if defined(HUFRL)
-			::libmaus2::huffman::RLEncoderStd::concatenate(encfilenames,result.getFiles().getBWT());
-			#else
-			::libmaus2::gamma::GammaRLEncoder::concatenate(encfilenames,result.getFiles().getBWT());
-			#endif
+			rl_encoder::concatenate(encfilenames,result.getFiles().getBWT());
 			std::cerr << "done, time " << rtc.getElapsedSeconds() << std::endl;
 			#endif
 			
@@ -6166,16 +3419,16 @@ struct BwtMergeSort
 		::libmaus2::timing::RealTimeClock mprtc;
 		mprtc.start();
 		if ( input_types_type::utf8Wavelet() )
-			RlToHwtBase<true>::rlToHwtTerm(result.getFiles().getBWT(),result.getFiles().getHWT(),tmpfilenamebase + "_wt",chist,bwtterm,result.getBlockP0Rank());
+			libmaus2::wavelet::RlToHwtBase<true,rl_decoder>::rlToHwtTerm(result.getFiles().getBWT(),result.getFiles().getHWT(),tmpfilenamebase + "_wt",chist,bwtterm,result.getBlockP0Rank());
 		else
-			RlToHwtBase<false>::rlToHwtTerm(result.getFiles().getBWT(),result.getFiles().getHWT(),tmpfilenamebase + "_wt",chist,bwtterm,result.getBlockP0Rank());
+			libmaus2::wavelet::RlToHwtBase<false,rl_decoder>::rlToHwtTerm(result.getFiles().getBWT(),result.getFiles().getHWT(),tmpfilenamebase + "_wt",chist,bwtterm,result.getBlockP0Rank());
 		std::cerr << "done, time " << mprtc.getElapsedSeconds() << std::endl;
 		#endif
 
 		libmaus2::util::TempFileRemovalContainer::addTempFile(result.getFiles().getHWTReq());
 		{
 		libmaus2::aio::OutputStreamInstance hwtreqCOS(result.getFiles().getHWTReq());
-		RlToHwtTermRequest::serialise(
+		libmaus2::wavelet::RlToHwtTermRequest::serialise(
 			hwtreqCOS,
 			result.getFiles().getBWT(),
 			result.getFiles().getHWT(),
@@ -6390,16 +3643,16 @@ struct BwtMergeSort
 		::libmaus2::timing::RealTimeClock mprtc;
 		mprtc.start();
 		if ( input_types_type::utf8Wavelet() )
-			RlToHwtBase<true>::rlToHwtTerm(result.getFiles().getBWT(),result.getFiles().getHWT(),tmpfilenamebase + "_wt",chist,bwtterm,result.getBlockP0Rank());
+			libmaus2::wavelet::RlToHwtBase<true,rl_decoder>::rlToHwtTerm(result.getFiles().getBWT(),result.getFiles().getHWT(),tmpfilenamebase + "_wt",chist,bwtterm,result.getBlockP0Rank());
 		else
-			RlToHwtBase<false>::rlToHwtTerm(result.getFiles().getBWT(),result.getFiles().getHWT(),tmpfilenamebase + "_wt",chist,bwtterm,result.getBlockP0Rank());
+			libmaus2::wavelet::RlToHwtBase<false,rl_decoder>::rlToHwtTerm(result.getFiles().getBWT(),result.getFiles().getHWT(),tmpfilenamebase + "_wt",chist,bwtterm,result.getBlockP0Rank());
 		std::cerr << "done, time " << mprtc.getElapsedSeconds() << std::endl;
 		#endif
 
 		libmaus2::util::TempFileRemovalContainer::addTempFile(result.getFiles().getHWTReq());
 		{
 		libmaus2::aio::OutputStreamInstance hwtreqCOS(result.getFiles().getHWTReq());
-		RlToHwtTermRequest::serialise(hwtreqCOS,
+		libmaus2::wavelet::RlToHwtTermRequest::serialise(hwtreqCOS,
 			result.getFiles().getBWT(),
 			result.getFiles().getHWT(),
 			tmpfilenamebase + "_wt",
@@ -6983,7 +4236,7 @@ struct BwtMergeSort
 		libmaus2::timing::RealTimeClock bwtclock;
 		bwtclock.start();
 	
-		#if defined(FERAMANZGEN_MEMORY_DEBUG)
+		#if defined(BWTB3M_MEMORY_DEBUG)
 		uint64_t mcnt = 0;
 		#endif
 		
@@ -7075,7 +4328,7 @@ struct BwtMergeSort
 		uint64_t const preisasamplingrate = std::min(::libmaus2::math::nextTwoPow(arginfo.getValue<uint64_t>("preisasamplingrate",256*1024)),blocksizeprevtwo);
 
 			
-		#if defined(FERAMANZGEN_MEMORY_DEBUG)
+		#if defined(BWTB3M_MEMORY_DEBUG)
 		std::cerr << "[M"<< (mcnt++) << "] " << libmaus2::util::MemUsage() << " " << libmaus2::autoarray::AutoArrayMemUsage() << std::endl;
 		#endif
 		
@@ -7166,7 +4419,7 @@ struct BwtMergeSort
 			uint64_t const nextblockstart = (blockstart + cblocksize) % fs;
 		
 			// find bounded lcp between this block and start of next
-			uint64_t const blcp = BwtMergeBlockSortRequest::findSplitCommonBounded<input_types_type>(fn,blockstart,cblocksize,nextblockstart,fs,largelcpthres);
+			uint64_t const blcp = libmaus2::suffixsort::BwtMergeBlockSortRequestBase::findSplitCommonBounded<input_types_type>(fn,blockstart,cblocksize,nextblockstart,fs,largelcpthres);
 
 			if ( blcp >= largelcpthres )
 			{
@@ -7200,7 +4453,7 @@ struct BwtMergeSort
 			uint64_t const nextblockstart = (blockstart + cblocksize) % fs;
 		
 			// find bounded lcp between this block and start of next
-			uint64_t const blcp = BwtMergeBlockSortRequest::findSplitCommon<input_types_type>(fn,blockstart,cblocksize,nextblockstart,fs);
+			uint64_t const blcp = libmaus2::suffixsort::BwtMergeBlockSortRequestBase::findSplitCommon<input_types_type>(fn,blockstart,cblocksize,nextblockstart,fs);
 
 			boundedlcpblockvalues[b] = blcp;
 		}
@@ -7209,7 +4462,7 @@ struct BwtMergeSort
 
 		::libmaus2::suffixsort::BwtMergeTempFileNameSetVector blocktmpnames(tmpfilenamebase, numblocks, numthreads /* bwt */, numthreads /* gt */);
 
-		#if defined(FERAMANZGEN_MEMORY_DEBUG)
+		#if defined(BWTB3M_MEMORY_DEBUG)
 		std::cerr << "[M"<< (mcnt++) << "] " << libmaus2::util::MemUsage() << " " << libmaus2::autoarray::AutoArrayMemUsage() << std::endl;
 		#endif
 
@@ -7268,7 +4521,7 @@ struct BwtMergeSort
 		chist[bwtterm] = 1;
 		uint64_t const maxsym = chist.size() ? chist.rbegin()->first : 0;
 
-		#if defined(FERAMANZGEN_MEMORY_DEBUG)
+		#if defined(BWTB3M_MEMORY_DEBUG)
 		std::cerr << "[M"<< (mcnt++) << "] " << libmaus2::util::MemUsage() << " " << libmaus2::autoarray::AutoArrayMemUsage() << std::endl;
 		#endif
 		
@@ -7282,7 +4535,7 @@ struct BwtMergeSort
 
 		std::cerr << "[V] bwtterm=" << bwtterm << std::endl;
 
-		#if defined(FERAMANZGEN_MEMORY_DEBUG)
+		#if defined(BWTB3M_MEMORY_DEBUG)
 		std::cerr << "[M"<< (mcnt++) << "] " << libmaus2::util::MemUsage() << " " << libmaus2::autoarray::AutoArrayMemUsage() << std::endl;
 		#endif
 
@@ -7294,14 +4547,14 @@ struct BwtMergeSort
 		// huftreeCOS->close();
 		huftreeCOS.reset();
 
-		#if defined(FERAMANZGEN_MEMORY_DEBUG)
+		#if defined(BWTB3M_MEMORY_DEBUG)
 		std::cerr << "[M"<< (mcnt++) << "] " << libmaus2::util::MemUsage() << " " << libmaus2::autoarray::AutoArrayMemUsage() << std::endl;
 		#endif
 		
 		::libmaus2::huffman::HuffmanTree::EncodeTable::unique_ptr_type EC(
 			new ::libmaus2::huffman::HuffmanTree::EncodeTable(*uhnode));
 
-		#if defined(FERAMANZGEN_MEMORY_DEBUG)
+		#if defined(BWTB3M_MEMORY_DEBUG)
 		std::cerr << "[M"<< (mcnt++) << "] " << libmaus2::util::MemUsage() << " " << libmaus2::autoarray::AutoArrayMemUsage() << std::endl;
 		#endif
 
@@ -7344,7 +4597,7 @@ struct BwtMergeSort
 			/* set up and register sort request */
 			::libmaus2::suffixsort::BwtMergeZBlockRequestVector zreqvec;
 			dynamic_cast<MergeStrategyBaseBlock *>(PMSB.get())->sortreq = 
-				BwtMergeBlockSortRequest(
+				libmaus2::suffixsort::BwtMergeBlockSortRequest(
 					input_types_type::getType(),
 					fn,fs,
 					chistfilename,
@@ -7365,7 +4618,7 @@ struct BwtMergeSort
 			
 			stratleafs[b] = PMSB;
 
-			#if defined(FERAMANZGEN_MEMORY_DEBUG)
+			#if defined(BWTB3M_MEMORY_DEBUG)
 			std::cerr << "[M"<< (mcnt++) << "] " << libmaus2::util::MemUsage() << " " << libmaus2::autoarray::AutoArrayMemUsage() << std::endl;
 			#endif
 		}
@@ -7373,7 +4626,7 @@ struct BwtMergeSort
 		uhnode.reset();
 		EC.reset();
 
-		#if defined(FERAMANZGEN_MEMORY_DEBUG)
+		#if defined(BWTB3M_MEMORY_DEBUG)
 		std::cerr << "[M"<< (mcnt++) << "] " << libmaus2::util::MemUsage() << " " << libmaus2::autoarray::AutoArrayMemUsage() << std::endl;
 		#endif
 
@@ -7386,7 +4639,7 @@ struct BwtMergeSort
 		// construct merge tree and register z requests
 		MergeStrategyBlock::shared_ptr_type mergetree = constructMergeTree(stratleafs,mem,numthreads,wordsperthread);
 		
-		#if defined(FERAMANZGEN_MEMORY_DEBUG)
+		#if defined(BWTB3M_MEMORY_DEBUG)
 		std::cerr << "[M"<< (mcnt++) << "] " << libmaus2::util::MemUsage() << " " << libmaus2::autoarray::AutoArrayMemUsage() << std::endl;
 		#endif
 
@@ -7395,7 +4648,7 @@ struct BwtMergeSort
 
 		std::cerr << "[V] sorting blocks" << std::endl;
 
-		#if defined(FERAMANZGEN_MEMORY_DEBUG)
+		#if defined(BWTB3M_MEMORY_DEBUG)
 		std::cerr << "[M"<< (mcnt++) << "] " << libmaus2::util::MemUsage() << " " << libmaus2::autoarray::AutoArrayMemUsage() << std::endl;
 		#endif
 		
@@ -7407,7 +4660,7 @@ struct BwtMergeSort
 
 		std::cerr << "[V] sorted blocks" << std::endl;
 		
-		#if defined(FERAMANZGEN_MEMORY_DEBUG)
+		#if defined(BWTB3M_MEMORY_DEBUG)
 		std::cerr << "[M"<< (mcnt++) << "] " << libmaus2::util::MemUsage() << " " << libmaus2::autoarray::AutoArrayMemUsage() << std::endl;
 		#endif
 
@@ -7420,7 +4673,7 @@ struct BwtMergeSort
 		std::cerr << "[V] filling gap request objects" << std::endl;
 		mergetree->fillGapRequestObjects(numthreads);
 
-		#if defined(FERAMANZGEN_MEMORY_DEBUG)
+		#if defined(BWTB3M_MEMORY_DEBUG)
 		std::cerr << "[M"<< (mcnt++) << "] " << libmaus2::util::MemUsage() << " " << libmaus2::autoarray::AutoArrayMemUsage() << std::endl;
 		#endif
 		
@@ -7495,7 +4748,7 @@ struct BwtMergeSort
 			if ( pfinished )
 				itodo.push_back(p->parent);
 				
-			#if defined(FERAMANZGEN_MEMORY_DEBUG)
+			#if defined(BWTB3M_MEMORY_DEBUG)
 			std::cerr << "[M"<< (mcnt++) << "] " << libmaus2::util::MemUsage() << " " << libmaus2::autoarray::AutoArrayMemUsage() << std::endl;
 			#endif
 		}
@@ -7508,11 +4761,7 @@ struct BwtMergeSort
 
 		::libmaus2::suffixsort::BwtMergeBlockSortResult const mergeresult = mergetree->sortresult;
 		
-		#if defined(HUFRL)
-		::libmaus2::huffman::RLEncoderStd::concatenate(mergeresult.getFiles().getBWT(),outfn,true /* removeinput */);
-		#else
-		::libmaus2::gamma::GammaRLEncoder::concatenate(mergeresult.getFiles().getBWT(),outfn,true /* removeinput */);
-		#endif
+		rl_encoder::concatenate(mergeresult.getFiles().getBWT(),outfn,true /* removeinput */);
 		// libmaus2::aio::OutputStreamFactoryContainer::rename ( mergeresult.getFiles().getBWT().c_str(), outfn.c_str() );
 		
 		std::cerr << "[V] BWT computed in time " << bwtclock.formatTime(bwtclock.getElapsedSeconds()) << std::endl;
@@ -7554,14 +4803,14 @@ struct BwtMergeSort
 			if ( input_types_type::utf8Wavelet() )
 			{
 				libmaus2::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type tICHWT(
-					RlToHwtBase<true>::rlToHwt(outfn, outhwt, tmpfilenamebase+"_finalhwttmp")
+					libmaus2::wavelet::RlToHwtBase<true,rl_decoder>::rlToHwt(outfn, outhwt, tmpfilenamebase+"_finalhwttmp")
 				);
 				pICHWT = UNIQUE_PTR_MOVE(tICHWT);
 			}
 			else
 			{
 				libmaus2::wavelet::ImpCompactHuffmanWaveletTree::unique_ptr_type tICHWT(
-					RlToHwtBase<false>::rlToHwt(outfn, outhwt, tmpfilenamebase+"_finalhwttmp")
+					libmaus2::wavelet::RlToHwtBase<false,rl_decoder>::rlToHwt(outfn, outhwt, tmpfilenamebase+"_finalhwttmp")
 				);		
 				pICHWT = UNIQUE_PTR_MOVE(tICHWT);
 			}
