@@ -37,3 +37,9 @@ src/digitsToCompact
 src/fagzToCompact
 src/hwtToRlHwt
 src/probeScanDna
+src/align
+src/align.cpp_
+src/bwtdecodeblock
+src/hwtToLCP
+src/sortPreIsa
+bumpversion.sh
