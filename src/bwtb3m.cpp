@@ -619,7 +619,7 @@ struct BaseBlockSorting
 	
 	void setup()
 	{
-		while ( freemem >= V[next]->directSortSpace() )
+		while ( next < V.size() && freemem >= V[next]->directSortSpace() )
 		{
 			freemem -= V[next]->directSortSpace();
 			pending.push_back(next);
