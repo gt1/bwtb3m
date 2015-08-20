@@ -1,3 +1,9 @@
+bwtb3m (0.0.7-1) unstable; urgency=medium
+
+  * fix race condition in block sorting stage 
+
+ -- German Tischler <gt1@sanger.ac.uk>  Thu, 20 Aug 2015 18:12:45 +0200
+
 bwtb3m (0.0.6-1) unstable; urgency=medium
 
   * add tmp file options (separate tmp path for sparse gap files, in memory tmp files) 
