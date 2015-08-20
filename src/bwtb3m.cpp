@@ -462,7 +462,9 @@ struct BaseBlockSortThread : public libmaus2::parallel::PosixThread
 	libmaus2::parallel::PosixMutex & freememlock;
 	//! inner node queue
 	std::deque<MergeStrategyBlock *> & itodo;
-	
+	//! pending
+	std::deque<uint64_t> & pending;
+		
 	BaseBlockSortThread(
 		uint64_t rtid,
 		libmaus2::parallel::PosixSemaphore & rP,
@@ -471,9 +473,10 @@ struct BaseBlockSortThread : public libmaus2::parallel::PosixThread
 		uint64_t & rfreemem,
 		uint64_t & rfinished,
 		libmaus2::parallel::PosixMutex & rfreememlock,
-		std::deque<MergeStrategyBlock *> & ritodo
+		std::deque<MergeStrategyBlock *> & ritodo,
+		std::deque<uint64_t> & rpending
 	) : tid(rtid), P(rP), V(rV), next(rnext), freemem(rfreemem), finished(rfinished), freememlock(rfreememlock),
-	    itodo(ritodo)
+	    itodo(ritodo), pending(rpending)
 	{
 	
 	}
@@ -494,16 +497,10 @@ struct BaseBlockSortThread : public libmaus2::parallel::PosixThread
 				// get lock
 				libmaus2::parallel::ScopePosixMutex scopelock(freememlock);
 
-				if ( next < V.size() )
+				if ( pending.size() )
 				{
-					if ( V[next]->directSortSpace() > freemem )
-						std::cerr << "unable to sort block " << next << ", memory required " << V[next]->directSortSpace() << " > " << freemem << std::endl;
-					assert ( V[next]->directSortSpace() <= freemem );
-					freemem -= V[next]->directSortSpace();
-					pack = next++;				
-					
-					if ( next >= V.size() || freemem >= V[next]->directSortSpace() )
-						P.post();			
+					pack = pending.front();	
+					pending.pop_front();					
 				}
 				else
 				{
@@ -531,9 +528,6 @@ struct BaseBlockSortThread : public libmaus2::parallel::PosixThread
 					libmaus2::parallel::ScopePosixMutex scopelock(freememlock);
 					
 					std::cerr << "[V] [" << tid << "] sorted block " << pack << std::endl;
-				
-					// "free" memory
-					freemem += V[pack]->directSortSpace();
 
 					if ( V[pack]->parent )
 					{
@@ -545,8 +539,19 @@ struct BaseBlockSortThread : public libmaus2::parallel::PosixThread
 						}
 					}
 					
+					// "free" memory
+					freemem += V[pack]->directSortSpace();
+					
 					// post if there is room for another active sorting thread
-					if ( next == V.size() || freemem >= V[next]->directSortSpace() )
+					while ( next < V.size() && freemem >= V[next]->directSortSpace() )
+					{
+						freemem -= V[next]->directSortSpace();
+						pending.push_back(static_cast<uint64_t>(next));
+						next += 1;
+						P.post();
+					}
+					
+					if ( next == V.size() )
 						P.post();
 				}
 			}
@@ -579,6 +584,7 @@ struct BaseBlockSorting
 	libmaus2::parallel::PosixMutex freememlock;
 	//! inner node queue
 	std::deque<MergeStrategyBlock *> & itodo;
+	std::deque<uint64_t> pending;
 
 	libmaus2::autoarray::AutoArray<BaseBlockSortThread::unique_ptr_type> threads;
 
@@ -604,11 +610,24 @@ struct BaseBlockSorting
 		for ( uint64_t i = 0; i < numthreads; ++i )
 		{
 			BaseBlockSortThread::unique_ptr_type tthreadsi(
-				new BaseBlockSortThread(i,P,V,next,freemem,finished,freememlock,itodo)			
+				new BaseBlockSortThread(i,P,V,next,freemem,finished,freememlock,itodo,pending)
 			);
 			threads[i] = UNIQUE_PTR_MOVE(tthreadsi);
 
 		}
+	}
+	
+	void setup()
+	{
+		while ( freemem >= V[next]->directSortSpace() )
+		{
+			freemem -= V[next]->directSortSpace();
+			pending.push_back(next);
+			next += 1;
+		}
+		uint64_t const p = pending.size();
+		for ( uint64_t i = 0; i < p; ++i )
+			P.post();
 	}
 	
 	void start(uint64_t const stacksize)
@@ -616,7 +635,7 @@ struct BaseBlockSorting
 		for ( uint64_t i = 0; i < threads.size(); ++i )
 			threads[i]->startStack(stacksize);
 			
-		P.post();
+		setup();
 	}
 
 	void start()
@@ -624,7 +643,7 @@ struct BaseBlockSorting
 		for ( uint64_t i = 0; i < threads.size(); ++i )
 			threads[i]->start();
 			
-		P.post();
+		setup();
 	}
 
 	void join()
