@@ -20,6 +20,9 @@
 #include "config.h"
 #endif
 
+#include <libmaus2/aio/InputStreamInstance.hpp>
+#include <libmaus2/aio/OutputStreamInstance.hpp>
+
 #include <libmaus2/suffixsort/BwtMergeBlockSortRequest.hpp>
 #include <libmaus2/wavelet/RlToHwtTermRequest.hpp>
 #include <libmaus2/suffixsort/BwtMergeBlockSortRequestBase.hpp>
@@ -3986,6 +3989,11 @@ struct BwtMergeSort
 		return 256*1024;
 	}
 	
+	static bool getDefaultCopyInputToMemory()
+	{
+		return false;
+	}
+	
 	static bool getDefaultBWTOnly()
 	{
 		return false;
@@ -4289,9 +4297,10 @@ struct BwtMergeSort
 		uint64_t const isasamplingrate = ::libmaus2::math::nextTwoPow(arginfo.getValue<uint64_t>("isasamplingrate",getDefaultIsaSamplingRate()));
 		// final suffix array sampling rate
 		uint64_t const sasamplingrate = ::libmaus2::math::nextTwoPow(arginfo.getValue<uint64_t>("sasamplingrate",getDefaultSaSamplingRate()));
+		bool const copyinputtomemory = arginfo.getValue<uint64_t>("copyinputtomemory",getDefaultCopyInputToMemory());
 
 		// file name		
-		std::string const fn = arginfo.getRestArg<std::string>(0);
+		std::string fn = arginfo.getRestArg<std::string>(0);
 		// check whether file exists
 		if ( ! ::libmaus2::util::GetFileSize::fileExists(fn) )
 		{
@@ -4299,6 +4308,27 @@ struct BwtMergeSort
 			se.getStream() << "File " << fn << " does not exist or cannot be opened." << std::endl;
 			se.finish();
 			throw se;
+		}
+		
+		if ( copyinputtomemory )
+		{
+			std::string const nfn = "mem://copied_" + fn;
+			libmaus2::aio::InputStreamInstance ininst(fn);
+			libmaus2::aio::OutputStreamInstance outinst(nfn);
+			uint64_t const fs = libmaus2::util::GetFileSize::getFileSize(ininst);
+			libmaus2::util::GetFileSize::copy(ininst,outinst,fs);
+			std::cerr << "[V] copied " << fn << " to " << nfn << std::endl;
+			
+			if ( input_types_type::utf8Wavelet() )
+			{
+				libmaus2::aio::InputStreamInstance ininst(fn + ".idx");
+				libmaus2::aio::OutputStreamInstance outinst(nfn + ".idx");
+				uint64_t const fs = libmaus2::util::GetFileSize::getFileSize(ininst);
+				libmaus2::util::GetFileSize::copy(ininst,outinst,fs);
+				std::cerr << "[V] copied " << fn+".idx" << " to " << nfn+".idx" << std::endl;		
+			}
+			
+			fn = nfn;
 		}
 
 		/* get file size */
@@ -4891,8 +4921,9 @@ int main(int argc, char * argv[])
 			str << "numthreads=[" << BwtMergeSort<libmaus2::suffixsort::ByteInputTypes>::getDefaultNumThreads() << "] number of threads" << std::endl;
 			#endif
 			str << "bwtonly=[" << BwtMergeSort<libmaus2::suffixsort::ByteInputTypes>::getDefaultBWTOnly() << "] compute BWT only (no sampled suffix array and reverse)" << std::endl;
-			str << std::string("tmpprefix=[") + arginfo.getDefaultTmpFileName() + " (prefix for tmp files)" << std::endl;
+			str << std::string("tmpprefix=[") + arginfo.getDefaultTmpFileName() + "] (prefix for tmp files)" << std::endl;
 			str << "sparsetmpprefix=[tmpprefix] (prefix for sparse gap tmp files)" << std::endl;
+			str << "copyinputtomemory=[" << BwtMergeSort<libmaus2::suffixsort::ByteInputTypes>::getDefaultCopyInputToMemory() << "] (copy input file to memory)" << std::endl;
 			// blocksize
 			
 			se.finish();
