@@ -36,7 +36,7 @@ if test ! -z "${with_libmaus2}" ; then
 	fi
 fi
 
-PKG_CHECK_MODULES([libmaus2],[libmaus2 >= 2.0.82])
+PKG_CHECK_MODULES([libmaus2],[libmaus2 >= 2.0.89])
 
 if test ! -z "${with_libmaus2}" ; then
 	if test ! -z "${PKGCONFIGPATHSAVE}" ; then
