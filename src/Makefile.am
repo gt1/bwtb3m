@@ -12,7 +12,9 @@ bin_PROGRAMS = \
 	digitsToCompact \
 	hwtToLCP \
 	sortPreIsa \
-	bwtdecodeblock
+	bwtdecodeblock \
+	bwtcomputessa \
+	bwttestdecodespeed
 noinst_HEADERS = 
 
 bwtb3m_SOURCES = bwtb3m.cpp
@@ -27,3 +29,5 @@ digitsToCompact_SOURCES = digitsToCompact.cpp
 hwtToLCP_SOURCES = hwtToLCP.cpp
 sortPreIsa_SOURCES = sortPreIsa.cpp
 bwtdecodeblock_SOURCES = bwtdecodeblock.cpp
+bwtcomputessa_SOURCES = bwtcomputessa.cpp
+bwttestdecodespeed_SOURCES = bwttestdecodespeed.cpp
