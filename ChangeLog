@@ -1,3 +1,9 @@
+bwtb3m (0.0.15-1) unstable; urgency=medium
+
+  * update bwtcomputessa to handle larger alphabets 
+
+ -- German Tischler <gt1@sanger.ac.uk>  Thu, 19 Nov 2015 13:41:04 +0100
+
 bwtb3m (0.0.14-1) unstable; urgency=medium
 
   * update to libmaus2 2.0.107 
