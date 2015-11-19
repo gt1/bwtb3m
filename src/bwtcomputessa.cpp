@@ -646,7 +646,6 @@ int main(int argc, char * argv[])
 			bwt = nbwt;
 		}
 
-
 		std::string const histfn = arginfo.getUnparsedRestArg(1);
 		std::string const preisa = arginfo.getUnparsedRestArg(2);
 		uint64_t const preisasamplingrate = libmaus2::util::ArgInfo::parseValueUnsignedNumeric<uint64_t>("preisasamplingrate",arginfo.getUnparsedRestArg(3));
@@ -1088,6 +1087,8 @@ int main(int argc, char * argv[])
 				#endif
 				uint64_t c = rfrom;
 
+				std::pair<int64_t,uint64_t> currun(-1,0);
+
 				while ( PII.getNext(P) && (P.first < rto) )
 				{
 					bool const ok = P.first >= rfrom;
@@ -1142,16 +1143,30 @@ int main(int argc, char * argv[])
 
 					while ( c < P.first )
 					{
-						int64_t const sym = rldec.decode();
+						// no more symbols in run? load next one
+						if ( ! currun.second )
+							currun = rldec.decodeRun();
+
+						int64_t const sym = currun.first;
 						assert ( sym >= 0 );
 						assert ( sym < static_cast<int64_t>(HH.size()) );
-						HH[sym] += 1;
-						c += 1;
+						assert ( currun.second );
+
+						uint64_t const dif = P.first - c;
+						uint64_t const touse = std::min(dif,currun.second);
+
+						HH[sym] += touse;
+						c += touse;
+						currun.second -= touse;
 					}
 
-					int64_t const sym = rldec.decode();
+					if ( ! currun.second )
+						currun = rldec.decodeRun();
+
+					int64_t const sym = currun.first;
 					assert ( sym >= 0 );
 					assert ( sym < static_cast<int64_t>(HH.size()) );
+					assert ( currun.second );
 
 					uint64_t const rout = HH[sym];
 					uint64_t const pout = (P.second + n - 1)%n;
@@ -1171,8 +1186,6 @@ int main(int argc, char * argv[])
 						Sout[fileid]->put(rout);
 						Sout[fileid]->put(pout);
 					}
-					HH[sym] += 1;
-					c += 1;
 				}
 
 				// post sort files storing data for more than one symbol
