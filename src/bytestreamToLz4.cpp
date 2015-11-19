@@ -40,7 +40,7 @@ void bytestreamToLz4(libmaus2::util::ArgInfo const & arginfo)
 		if ( r )
 			lzout.write(B.begin(),r);
 	}
-		
+
 	lzout.writeIndex();
 }
 
@@ -49,13 +49,13 @@ int main(int argc, char * argv[])
 	try
 	{
 		libmaus2::util::ArgInfo const arginfo(argc,argv);
-		
+
 		if ( arginfo.helpRequested() )
 		{
 			::libmaus2::exception::LibMausException se;
-			
+
 			std::ostream & str = se.getStream();
-			
+
 			str << "This is " << PACKAGE_NAME << " version " << PACKAGE_VERSION << std::endl;
 			str << std::endl;
 			str << "usage: " << arginfo.progname << " [options]" << std::endl;
@@ -64,7 +64,7 @@ int main(int argc, char * argv[])
 			str << "blocksize=[" << getDefaultBlockSize() << "] block size" << std::endl;
 			str << std::endl;
 			str << "bytestreamToLz4 reads a byte stream from standard input and produces an lz4 compressed stream for bwtb3m on standard output." << std::endl;
-			
+
 			se.finish();
 			throw se;
 		}

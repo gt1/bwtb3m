@@ -32,7 +32,7 @@ int bwttestdecodespeed(::libmaus2::util::ArgParser const & arg)
 	std::string const inputtype = arg.uniqueArgPresent("T") ? arg["T"] : "bytestream";
 	libmaus2::autoarray::AutoArray<uint8_t> BB(n);
 	std::string const isaname = libmaus2::util::OutputFileNameTools::clipOff(infn,".bwt") + ".isa";
-	
+
 	if ( inputtype == "bytestream" )
 	{
 		// read inverse sampled suffix array
@@ -40,7 +40,7 @@ int bwttestdecodespeed(::libmaus2::util::ArgParser const & arg)
 		libmaus2::fm::SampledISA<libmaus2::lf::LF>::readUnsignedInt(*isaISI); // isa rate
 		libmaus2::autoarray::AutoArray<uint64_t> Aisa = libmaus2::fm::SampledISA<libmaus2::lf::LF>::readArray64(*isaISI);
 		isaISI.reset();
-		
+
 		// decode BWT from run length encoding to byte array
 		std::pair<int64_t,uint64_t> P;
 		uint64_t z = 0;
@@ -54,23 +54,23 @@ int bwttestdecodespeed(::libmaus2::util::ArgParser const & arg)
 				throw se;
 			}
 			for ( uint64_t i = 0; i < P.second; ++i )
-				BB[z++] = P.first;				
+				BB[z++] = P.first;
 		}
-		
+
 		// compute maximum symbol
 		int64_t maxsym = -1;
 		for ( uint64_t i = 0; i < BB.size(); ++i )
 			maxsym = std::max(maxsym,static_cast<int64_t>(BB[i]));
 		// compute alphabet size
 		uint64_t const alsize = static_cast<uint64_t>(maxsym + 1);
-		
+
 		for ( uint64_t tpar = 1 ; tpar <= 8; ++tpar )
 		{
-			// clone BWT 
+			// clone BWT
 			libmaus2::autoarray::AutoArray<uint8_t> B = BB.clone();
 			// compute rank dictionary (one bit vector per symbol)
 			libmaus2::lf::MultiRankCacheLF LF(B.begin(),B.size(),alsize);
-			
+
 			// generate random data and read it back to remove B and LF from cache
 			{
 				libmaus2::autoarray::AutoArray<uint8_t> RANDin(128*1024*1024);
@@ -78,11 +78,11 @@ int bwttestdecodespeed(::libmaus2::util::ArgParser const & arg)
 					RANDin[i] = libmaus2::random::Random::rand8();
 				libmaus2::autoarray::AutoArray<uint8_t> RANDout = RANDin.clone();
 			}
-			
+
 			uint64_t const step = (Aisa.size() + tpar - 1)/tpar;
 			uint64_t const par = (Aisa.size() + step - 1)/step;
 			uint64_t const tsteps = std::min((n + par - 1)/par,static_cast<uint64_t>(128ull*1024ull*1024ull));
-						
+
 			libmaus2::autoarray::AutoArray<uint64_t> R(par);
 			for ( uint64_t i = 0; i < par; ++i )
 				R[i] = Aisa[i * step];
@@ -91,11 +91,11 @@ int bwttestdecodespeed(::libmaus2::util::ArgParser const & arg)
 			for ( uint64_t i = 0; i < tsteps; ++i )
 				for ( unsigned int j = 0; j < par; ++j )
 					R[j] = LF.step(B[R[j]],R[j]);
-			
+
 			double const t = rtc.getElapsedSeconds();
 			std::cout << tpar << "\t" << t/par << " " << (par * tsteps)/t << std::endl;
 		}
-		
+
 		return EXIT_SUCCESS;
 	}
 	else
@@ -112,13 +112,13 @@ int main(int argc, char * argv[])
 	try
 	{
 		::libmaus2::util::ArgParser const arg(argc,argv);
-		
+
 		if ( arg.size() < 1 )
 		{
 			std::cerr << "usage: " << arg.progname << " <in.bwt>" << std::endl;
 			return EXIT_FAILURE;
 		}
-		
+
 		return bwttestdecodespeed(arg);
 	}
 	catch(std::exception const & ex)

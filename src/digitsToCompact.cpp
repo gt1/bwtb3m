@@ -33,14 +33,14 @@ int digitsToCompact(libmaus2::util::ArgInfo const & arginfo)
 	std::string const outputfilename = arginfo.getUnparsedValue("outputfilename","output.compact");
 	libmaus2::autoarray::AutoArray<char> B(8*1024,false);
 	libmaus2::bitio::CompactArrayWriterFile compactout(outputfilename,4);
-	
+
 	// error table
 	libmaus2::autoarray::AutoArray<uint8_t> etable(256,false);
 	std::fill(etable.begin(),etable.end(),1);
 	for ( int i = '0'; i <= '9'; ++i )
 		etable[i] = 0;
 	uint8_t const termadd = addterm ? 1 : 0;
-	
+
 	libmaus2::lz::BufferedGzipStream::unique_ptr_type BGS;
 	std::istream * istr = 0;
 	if ( gz )
@@ -54,19 +54,19 @@ int digitsToCompact(libmaus2::util::ArgInfo const & arginfo)
 	{
 		istr = &std::cin;
 	}
-	
+
 	while ( *istr )
 	{
 		istr->read(B.begin(),B.size());
 		uint64_t const num = istr->gcount();
-		
+
 		uint8_t err = 0;
 		for ( uint64_t i = 0; i < num; ++i )
 		{
 			err = err | etable[B[i]];
 			B[i] = (B[i] - '0')+termadd;
 		}
-			
+
 		if ( err )
 		{
 			libmaus2::exception::LibMausException lme;
@@ -74,20 +74,20 @@ int digitsToCompact(libmaus2::util::ArgInfo const & arginfo)
 			lme.finish();
 			throw lme;
 		}
-	
+
 		// write
 		compactout.write(B.begin(),num);
 	}
-	
+
 	// add terminator if requested
 	if ( addterm )
 	{
 		uint8_t c = 0;
 		compactout.write(&c,1);
 	}
-	
+
 	compactout.flush();
-	
+
 	return EXIT_SUCCESS;
 }
 
@@ -97,7 +97,7 @@ int main(int argc, char * argv[])
 	try
 	{
 		libmaus2::util::ArgInfo const arginfo(argc,argv);
-		
+
 		if ( arginfo.helpRequested() )
 		{
 			std::cerr << "This is " << PACKAGE_NAME << " version " << PACKAGE_VERSION << std::endl;
@@ -108,7 +108,7 @@ int main(int argc, char * argv[])
 			std::cerr << "gz=[0|1] (input file is plain (0)/gzip compressed (1), default is uncompressed)" << std::endl;
 			std::cerr << "outputfilename=<output.compact> (name of output file, default is output.compact)" << std::endl;
 			std::cerr << "term=[0|1] (0: map digits to symbols 0-9, 1: map digits to symbols 1-10 and append 0 at the end)" << std::endl;
-		
+
 			return EXIT_SUCCESS;
 		}
 		else
@@ -123,7 +123,7 @@ int main(int argc, char * argv[])
 			for ( uint64_t i = 0; i < C.n; ++i )
 				std::cout.put(C[i]+'0');
 			#endif
-			
+
 			return r;
 		}
 	}

@@ -31,17 +31,17 @@ int main(int argc, char * argv[])
 		libmaus2::util::ArgInfo const arginfo(argc,argv);
 		std::string const isain = arginfo.getUnparsedRestArg(0);
 		std::string const isaout = arginfo.getUnparsedRestArg(1);
-		
+
 		std::string const tmpdir = arginfo.getUnparsedValue("tmpdir",arginfo.getCurDir());
 		std::string const tmpout = tmpdir + "/" + arginfo.getDefaultTmpFileName() + "_sort_isa.tmp";
-		
+
 		libmaus2::util::TempFileRemovalContainer::addTempFile(tmpout);
-		
+
 		// std::string const tmpout = isaout + ".tmp";
 		uint64_t const sortbufsize = arginfo.getValueUnsignedNumeric<uint64_t>("sortbufsize",16*1024*1024);
 		uint64_t const inbufsize = arginfo.getValueUnsignedNumeric<uint64_t>("inbufsize",8*1024);
 		bool const verbose = arginfo.getValue<int>("verbose",1);
-		
+
 		libmaus2::aio::OutputStream::unique_ptr_type Ptmp(libmaus2::aio::OutputStreamFactoryContainer::constructUnique(tmpout));
 		libmaus2::aio::SortingBufferedOutput< std::pair<uint64_t,uint64_t> >::unique_ptr_type Psortout(
 			new libmaus2::aio::SortingBufferedOutput< std::pair<uint64_t,uint64_t> >(*Ptmp,sortbufsize));
@@ -50,7 +50,7 @@ int main(int argc, char * argv[])
 		libmaus2::aio::SynchronousGenericInput<uint64_t> Sin(*Pin,inbufsize);
 		uint64_t v0 = 0, v1 = 0;
 		uint64_t c_in = 0;
-		
+
 		while ( Sin.peekNext(v0) )
 		{
 			bool const ok0 = Sin.getNext(v0);
@@ -65,7 +65,7 @@ int main(int argc, char * argv[])
 			}
 			Psortout->put(std::pair<uint64_t,uint64_t>(v1,v0));
 			c_in += 1;
-			
+
 			if ( verbose && (c_in & (1024*1024-1)) == 0 )
 				std::cerr << "[V] in " << c_in/(1024*1024) << std::endl;
 		}
@@ -74,12 +74,12 @@ int main(int argc, char * argv[])
 		Psortout.reset();
 		Ptmp->flush();
 		Ptmp.reset();
-				
+
 		// libmaus2::aio::InputStream::unique_ptr_type Ptmpin(libmaus2::aio::InputStreamFactoryContainer::constructUnique(tmpout));
 		libmaus2::sorting::MergingReadBack< std::pair<uint64_t,uint64_t> >::unique_ptr_type Min(
 			new libmaus2::sorting::MergingReadBack< std::pair<uint64_t,uint64_t> >(tmpout,blocksizes)
 		);
-		
+
 		std::pair<uint64_t,uint64_t> P;
 		libmaus2::aio::OutputStream::unique_ptr_type Pout(libmaus2::aio::OutputStreamFactoryContainer::constructUnique(isaout));
 		uint64_t c_out = 0;
@@ -94,12 +94,12 @@ int main(int argc, char * argv[])
 		{
 			libmaus2::util::NumberSerialisation::serialiseNumber(*Pout,P.first);
 			libmaus2::util::NumberSerialisation::serialiseNumber(*Pout,P.second);
-			
+
 			c_out += 1;
-			
+
 			if ( verbose && (c_out & (1024*1024-1)) == 0 )
 				std::cerr << "[V] out " << static_cast<double>(c_out) / c_in << " first pos " << firstpos << " first dif " << firstdif << " consistent " << difconsistent << std::endl;
-				
+
 			if ( ! gotfirst )
 			{
 				gotfirst = true;
@@ -110,9 +110,9 @@ int main(int argc, char * argv[])
 				assert ( prevpos != std::numeric_limits<uint64_t>::max() );
 				assert ( P.first > prevpos );
 				uint64_t const dif = P.first - prevpos;
-				
+
 				hist(dif);
-				
+
 				if ( ! gotfirstdif )
 				{
 					gotfirstdif = true;
@@ -126,15 +126,15 @@ int main(int argc, char * argv[])
 			}
 			prevpos = P.first;
 		}
-		
+
 		if ( verbose )
 			std::cerr << "[V] out " << static_cast<double>(c_out) / c_in << " first pos " << firstpos << " first dif " << firstdif << " consistent " << difconsistent << std::endl;
 
-		
+
 		Min.reset();
 		Pout->flush();
 		Pout.reset();
-		
+
 		hist.print(std::cerr);
 	}
 	catch(std::exception const & ex)

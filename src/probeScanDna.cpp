@@ -33,21 +33,21 @@ void evaluateAcc(std::ostream & out, std::vector<uint64_t> const & acccols, std:
 {
 	std::vector < uint64_t > acccnt(acccols.size());
 	std::sort(vacc.begin(),vacc.end());
-	
+
 	uint64_t l = 0;
 	while ( l != vacc.size() )
 	{
 		uint64_t h = l;
 		while ( h != vacc.size() && vacc[h] == vacc[l] )
 			++h;
-			
+
 		for ( uint64_t i = 0; i < acccols.size(); ++i )
 			if ( vacc[l] >= acccols[i] )
 				acccnt[i] += (h-l);
-			
+
 		l = h;
 	}
-	
+
 	for ( uint64_t i = 0; i < acccnt.size(); ++i )
 		out << "\t" << acccnt[i];
 }
@@ -84,9 +84,9 @@ int probeScanDnaHwt(
 		else
 		{
 			std::cout << pattern.sid << "\t" << pattern.spattern << "\t";
-			
+
 			std::vector<uint64_t> vacc;
-			
+
 			// look for probelen-mers
 			for ( uint64_t i = 0; i < pattern.spattern.size()-probelen+1; ++i )
 			{
@@ -104,9 +104,9 @@ int probeScanDnaHwt(
 					fnode = LF.step(libmaus2::fastx::mapChar(fquery[probelen-j-1])+1,fnode.first,fnode.second);
 					rnode = LF.step(libmaus2::fastx::mapChar(rquery[probelen-j-1])+1,rnode.first,rnode.second);
 				}
-				
+
 				uint64_t lcnt;
-		
+
 				if ( fquery == rquery )
 				{
 					lcnt = fnode.second-fnode.first;
@@ -115,21 +115,21 @@ int probeScanDnaHwt(
 				else
 				{
 					lcnt = (fnode.second-fnode.first)+(rnode.second-rnode.first);
-					std::cout << lcnt << "(" << fnode.second-fnode.first << "," << rnode.second-rnode.first << ")";				
+					std::cout << lcnt << "(" << fnode.second-fnode.first << "," << rnode.second-rnode.first << ")";
 				}
-				
+
 				if ( i + 1 < pattern.spattern.size()-probelen+1 )
 					std::cout.put(';');
-					
+
 				vacc.push_back(lcnt);
 			}
 
 			evaluateAcc(std::cout,acccols,vacc);
-			
-			std::cout << "\n";		
+
+			std::cout << "\n";
 		}
-	}	
-	
+	}
+
 	return EXIT_SUCCESS;
 }
 
@@ -153,7 +153,7 @@ int probeScanDna(
 
 	// bit mask for k-mers
 	uint_type mask = 0;
-	
+
 	for ( uint64_t i = 0; i < probelen; ++i )
 	{
 		mask <<= 3;
@@ -169,13 +169,13 @@ int probeScanDna(
 	while ( queriesIn.getNextPatternUnlocked(pattern) )
 	{
 		queries.push_back(std::pair<std::string,std::string>(pattern.sid,pattern.spattern));
-		
+
 		std::string & pat = pattern.spattern;
 
 		// unify symbols
 		for ( uint64_t i = 0; i < pat.size(); ++i )
 			pat[i] = libmaus2::fastx::remapChar(libmaus2::fastx::mapChar(pat[i]));
-		
+
 		if ( pat.size() < probelen )
 			continue;
 
@@ -195,7 +195,7 @@ int probeScanDna(
 
 			kmers.push_back(m);
 		}
-		
+
 		pat = libmaus2::fastx::reverseComplementUnmapped(pat);
 
 		// reverse complement k-mers
@@ -218,7 +218,7 @@ int probeScanDna(
 		pat = libmaus2::fastx::reverseComplementUnmapped(pat);
 	}
 	std::cerr << "done." << std::endl;
-	
+
 	std::cerr << "[V] sorting kmers...";
 	std::sort(kmers.begin(),kmers.end());
 	std::cerr << "done." << std::endl;
@@ -235,11 +235,11 @@ int probeScanDna(
 		uint64_t h = l;
 		while ( h != kmers.size() && (kmers[h]>>probeshiftbits)==(kmers[l]>>probeshiftbits) )
 			++h;
-			
+
 		assert ( (kmers[l]>>probeshiftbits) < Alookup.size() );
-		
+
 		Alookup[ kmers[l]>>probeshiftbits ] = std::pair<uint32_t,uint32_t>(l,h);
-			
+
 		l = h;
 	}
 	std::cerr << "done." << std::endl;
@@ -255,12 +255,12 @@ int probeScanDna(
 	while ( refin.getNextPatternUnlocked(pattern) )
 	{
 		std::cerr << "[V] matching " << pattern.sid << "...";
-		
+
 		// convert reference sequence to upper case
 		std::string & text = pattern.spattern;
 		for ( uint64_t i = 0; i < text.size(); ++i )
-			text[i] = text[i] = static_cast<char>((toup(static_cast<unsigned char>(text[i]))));	
-		
+			text[i] = text[i] = static_cast<char>((toup(static_cast<unsigned char>(text[i]))));
+
 		// do nothing if reference sequence is shorter than k-mer length
 		if ( text.size() < probelen )
 			continue;
@@ -274,28 +274,28 @@ int probeScanDna(
 		for ( uint64_t i = probelen-1; i < text.size() ; ++i )
 		{
 			v <<= 3;
-			v &= mask;		
+			v &= mask;
 			v |= libmaus2::fastx::mapChar(text[i]);
-			
+
 			uint64_t const il =  Alookup[ v >> probeshiftbits ].first;
 			uint64_t const ih = Alookup[ v >> probeshiftbits ].second;
-			
+
 			if ( ih != il )
 			{
 				typename std::vector<uint_type>::const_iterator low = kmers.begin() + il;
 				typename std::vector<uint_type>::const_iterator high = kmers.begin() + ih;
-				
+
 				std::pair<
-					typename std::vector<uint_type>::const_iterator, 
+					typename std::vector<uint_type>::const_iterator,
 					typename std::vector<uint_type>::const_iterator > eq = std::equal_range(low,high,v);
-				
+
 				if ( eq.second != eq.first )
 				{
 					assert ( *(eq.first) == v );
 					cnts[eq.first-kmers.begin()]++;
 				}
 			}
-			
+
 			if ( ((i+1) & (1024*1024-1)) == 0 )
 				std::cerr << "(" << (i+1)/static_cast<double>(text.size()) << ")";
 		}
@@ -308,7 +308,7 @@ int probeScanDna(
 	{
 		std::string const & id = queries[q].first;
 		std::string & pat = queries[q].second;
-		
+
 		if ( pat.size() < probelen )
 		{
 			std::cout << id << "\t" << pat << "\n";
@@ -317,7 +317,7 @@ int probeScanDna(
 		{
 			std::vector<uint_type> lkmersf;
 			std::vector<uint_type> lkmersr;
-			
+
 			uint_type m = 0;
 			for ( std::string::size_type i = 0; i < probelen-1; ++i )
 			{
@@ -333,7 +333,7 @@ int probeScanDna(
 
 				lkmersf.push_back(m);
 			}
-			
+
 			pat = libmaus2::fastx::reverseComplementUnmapped(pat);
 
 			uint_type r = 0;
@@ -353,45 +353,45 @@ int probeScanDna(
 			}
 
 			pat = libmaus2::fastx::reverseComplementUnmapped(pat);
-		
+
 			std::reverse(lkmersr.begin(),lkmersr.end());
 
 			std::ostringstream ostr;
 
 			std::vector<uint64_t> vacc;
-			
+
 			ostr << id << "\t" << pat << "\t";
-			
+
 			for ( uint64_t i = 0; i < lkmersf.size(); ++i )
 			{
 				std::pair<
-					typename std::vector<uint_type>::const_iterator, 
+					typename std::vector<uint_type>::const_iterator,
 					typename std::vector<uint_type>::const_iterator > eqf = std::equal_range(kmers.begin(),kmers.end(),lkmersf[i]);
-				
+
 				uint64_t fcnt = 0;
 				if ( eqf.first != eqf.second )
 				{
 					assert ( eqf.second-eqf.first == 1 );
 					fcnt = cnts[eqf.first - kmers.begin()];
 				}
-				
+
 				std::pair<
-					typename std::vector<uint_type>::const_iterator, 
-					typename std::vector<uint_type>::const_iterator > eqr = std::equal_range(kmers.begin(),kmers.end(),lkmersr[i]);	
-					
+					typename std::vector<uint_type>::const_iterator,
+					typename std::vector<uint_type>::const_iterator > eqr = std::equal_range(kmers.begin(),kmers.end(),lkmersr[i]);
+
 				uint64_t rcnt = 0;
 				if ( eqr.first != eqr.second )
 				{
-					assert ( eqr.second-eqr.first == 1 );					
+					assert ( eqr.second-eqr.first == 1 );
 					rcnt = cnts[eqr.first - kmers.begin()];
 				}
-				
+
 				uint64_t lcnt = (lkmersf[i] != lkmersr[i]) ? (fcnt + rcnt) : fcnt;
-				
+
 				ostr << lcnt;
-				
+
 				ostr << "(";
-				
+
 				if ( lkmersf[i] != lkmersr[i] )
 				{
 					ostr << fcnt << "," << rcnt;
@@ -400,9 +400,9 @@ int probeScanDna(
 				{
 					ostr << fcnt;
 				}
-				
+
 				ostr << ")";
-				
+
 				if ( i+1 < lkmersf.size() )
 					ostr << ";";
 
@@ -411,13 +411,13 @@ int probeScanDna(
 
 
 			evaluateAcc(ostr,acccols,vacc);
-			
+
 			std::cout << ostr.str() << "\n";
 		}
 	}
-	
+
 	std::cout.flush();
-	                                                                   		
+
 	return EXIT_SUCCESS;
 }
 
@@ -425,7 +425,7 @@ static std::vector<uint64_t> parseAccCols(std::string const & scols)
 {
 	std::deque<std::string> const stokens = libmaus2::util::stringFunctions::tokenize(scols,std::string(","));
 	std::vector<uint64_t> acccols;
-	
+
 	for ( uint64_t i = 0; i < stokens.size(); ++i )
 	{
 		std::string const stoken = stokens[i];
@@ -447,10 +447,10 @@ static std::vector<uint64_t> parseAccCols(std::string const & scols)
 				v += static_cast<unsigned char>(stoken[j]) - '0';
 			}
 		}
-		
+
 		acccols.push_back(v);
 	}
-	
+
 	return acccols;
 }
 
@@ -459,7 +459,7 @@ int main(int argc, char * argv[])
 	try
 	{
 		libmaus2::util::ArgInfo const arginfo(argc, argv);
-		
+
 		if ( arginfo.restargs.size() < 1 )
 		{
 			std::cerr << "[E] usage: " << argv[0] << " <ref_fa.gz>" << std::endl;
@@ -469,12 +469,12 @@ int main(int argc, char * argv[])
 		uint64_t const probelen = arginfo.getValue<unsigned int>("probelen",20);
 		std::string const mode = arginfo.getValue<std::string>("mode","words");
 		std::vector<uint64_t> acccols = parseAccCols(arginfo.getUnparsedValue("acccols",std::string("2,4,10,20,50,100")));
-		
+
 		std::cerr << "[V] accumulation columns ";
 		for ( uint64_t i = 0; i < acccols.size(); ++i )
 			std::cerr << acccols[i] << ((i+1<acccols.size())?",":"");
 		std::cerr << std::endl;
-	
+
 		if ( mode == "words" )
 		{
 			if ( 3*probelen <= 64 )

@@ -34,18 +34,18 @@ int main(int argc, char * argv[])
 	try
 	{
 		::libmaus2::util::ArgInfo const arginfo(argc,argv);
-		
+
 		if ( arginfo.helpRequested() || arginfo.restargs.size() < 3 )
 		{
 			::libmaus2::exception::LibMausException se;
 			std::ostream & str = se.getStream();
 			str << "usage: " << argv[0] << " <in.bwt> <out.bwt> <out.sa>" << std::endl;
 			str << std::endl;
-			
+
 			se.finish();
 			throw se;
 		}
-		
+
 		bwtb3mtobwa(arginfo);
 
 		return EXIT_SUCCESS;

@@ -30,7 +30,7 @@ struct WordPairAccessor
 	libmaus2::aio::InputStream::unique_ptr_type Pin;
 	std::istream & in;
 	uint64_t const n;
-	
+
 	static uint64_t getNumberOfEntries(std::istream & in)
 	{
 		in.seekg(0,std::ios::end);
@@ -42,21 +42,21 @@ struct WordPairAccessor
 			lme.finish();
 			throw lme;
 		}
-		
+
 		return p / (2*sizeof(uint64_t));
 	}
-	
+
 	WordPairAccessor(std::string const & sortedisa)
 	: Pin(libmaus2::aio::InputStreamFactoryContainer::constructUnique(sortedisa)), in(*Pin), n(getNumberOfEntries(in))
 	{
-	
+
 	}
-	
+
 	WordPairAccessor(std::istream & rin) : in(rin), n(getNumberOfEntries(in))
 	{
-		
+
 	}
-	
+
 	std::pair<uint64_t,uint64_t> get(uint64_t const i) const
 	{
 		if ( i >= n )
@@ -64,21 +64,21 @@ struct WordPairAccessor
 			libmaus2::exception::LibMausException lme;
 			lme.getStream() << "WordPairAccessor::get(): index " << i << " is out of range [" << 0 << "," << i << ")" << std::endl;
 			lme.finish();
-			throw lme;		
+			throw lme;
 		}
-	
+
 		in.clear();
 		in.seekg(i*(2*sizeof(uint64_t)));
 		uint64_t const v0 = libmaus2::util::NumberSerialisation::deserialiseNumber(in);
 		uint64_t const v1 = libmaus2::util::NumberSerialisation::deserialiseNumber(in);
 		return std::pair<uint64_t,uint64_t>(v0,v1);
 	}
-	
+
 	std::pair<uint64_t,uint64_t> operator[](uint64_t const i) const
 	{
 		return get(i);
 	}
-	
+
 	uint64_t size() const
 	{
 		return n;
@@ -88,9 +88,9 @@ struct WordPairAccessor
 struct WordPairAccessorFirstAdapter
 {
 	WordPairAccessor * acc;
-	
+
 	WordPairAccessorFirstAdapter(WordPairAccessor & racc) : acc(&racc) {}
-	
+
 	uint64_t get(uint64_t const i) const
 	{
 		return acc->get(i).first;
@@ -100,7 +100,7 @@ struct WordPairAccessorFirstAdapter
 	{
 		return get(i);
 	}
-	
+
 	uint64_t size() const
 	{
 		return acc->size();
@@ -113,11 +113,11 @@ std::pair<uint64_t,uint64_t> getNextLarger(WordPairAccessor & W, uint64_t const 
 	libmaus2::util::ConstIterator<WordPairAccessorFirstAdapter,uint64_t> it(&adp);
 	libmaus2::util::ConstIterator<WordPairAccessorFirstAdapter,uint64_t> ite = it;
 	ite += adp.size();
-	libmaus2::util::ConstIterator<WordPairAccessorFirstAdapter,uint64_t> itc = 
+	libmaus2::util::ConstIterator<WordPairAccessorFirstAdapter,uint64_t> itc =
 		std::lower_bound(
 			it,ite,p
 		);
-	
+
 	if ( itc == ite )
 		return W.get(0);
 	else
@@ -126,7 +126,7 @@ std::pair<uint64_t,uint64_t> getNextLarger(WordPairAccessor & W, uint64_t const 
 
 std::pair<uint64_t,uint64_t> getNextLarger(std::string const & sortedisa, uint64_t const p)
 {
-	WordPairAccessor W(sortedisa);	
+	WordPairAccessor W(sortedisa);
 	return getNextLarger(W,p);
 }
 
@@ -138,12 +138,12 @@ struct SparseRank
 	int64_t const maxsym;
 	std::vector<uint64_t> const D;
 	uint64_t const n;
-	
+
 	SparseRank(std::string const & bwt, std::string const & hist, int64_t const rminsym, int64_t const rmaxsym)
 	: idda(std::vector<std::string>(1,bwt)), sparserankfd(bwt + ".sparserank"), minsym(rminsym), maxsym(rmaxsym), D(loadHMap(hist)),
 	  n(std::accumulate(D.begin(),D.end(),0ull))
 	{
-	
+
 	}
 
 	static std::vector<uint64_t> loadHMap(std::string const & hist)
@@ -151,7 +151,7 @@ struct SparseRank
 		libmaus2::aio::InputStream::unique_ptr_type Phist(libmaus2::aio::InputStreamFactoryContainer::constructUnique(hist));
 		std::map<int64_t,uint64_t> const hmap = ::libmaus2::util::NumberMapSerialisation::deserialiseMap<libmaus2::aio::InputStream,int64_t,uint64_t>(*Phist);
 		std::vector<uint64_t> D;
-					
+
 		if ( hmap.size() && hmap.begin()->first >= 0 )
 		{
 			D.resize(hmap.rbegin()->first+1);
@@ -167,7 +167,7 @@ struct SparseRank
 				std::cerr << i << "\t" << D[i] << std::endl;
 			#endif
 		}
-	
+
 		return D;
 	}
 
@@ -184,9 +184,9 @@ struct SparseRank
 			libmaus2::exception::LibMausException lme;
 			lme.getStream() << "LFStep::getMaxSym: no symbols" << std::endl;
 			lme.finish();
-			throw lme;		
-		
-		}	
+			throw lme;
+
+		}
 	}
 
 	static int64_t getMinSym(std::string const & hist)
@@ -201,11 +201,11 @@ struct SparseRank
 			libmaus2::exception::LibMausException lme;
 			lme.getStream() << "LFStep::getMinSym: no symbols" << std::endl;
 			lme.finish();
-			throw lme;		
-		
-		}	
+			throw lme;
+
+		}
 	}
-	
+
 	uint64_t rankm(int64_t const sym, uint64_t const i)
 	{
 		libmaus2::huffman::FileBlockOffset const FBO = idda.findVBlock(i);
@@ -217,17 +217,17 @@ struct SparseRank
 			FBO.blockptr * (maxsym-minsym+1) * sizeof(uint64_t)
 		);
 		std::vector<uint64_t> H(maxsym-minsym+1,0);
-		
+
 		for ( uint64_t i = 0; i < H.size(); ++i )
 			H[i] = libmaus2::util::NumberSerialisation::deserialiseNumber(sparserankfd);
-		
+
 		uint64_t offset = FBO.offset;
 		::libmaus2::huffman::IndexDecoderData const & idata = idda.data[FBO.fileptr];
 		::libmaus2::huffman::IndexEntry const data = idata.readEntry(FBO.blockptr);
 		uint64_t const rlstart = data.vcnt;
 		libmaus2::huffman::RLDecoder rldec(idda,rlstart);
 		assert ( offset == i - rlstart );
-		
+
 		while ( offset )
 		{
 			std::pair<int64_t,uint64_t> const P = rldec.decodeRun();
@@ -236,9 +236,9 @@ struct SparseRank
 			H [ P.first - minsym ] += touse;
 			offset -= touse;
 		}
-		
+
 		return H[sym-minsym];
-	}	
+	}
 
 	std::pair<int64_t,uint64_t> inverseSelect(uint64_t const i)
 	{
@@ -247,26 +247,26 @@ struct SparseRank
 		sparserankfd.clear();
 		sparserankfd.seekg(FBO.blockptr * (maxsym-minsym+1) * sizeof(uint64_t));
 		std::vector<uint64_t> H(maxsym-minsym+1,0);
-		
+
 		for ( uint64_t i = 0; i < H.size(); ++i )
 			H[i] = libmaus2::util::NumberSerialisation::deserialiseNumber(sparserankfd);
-		
+
 		uint64_t offset = FBO.offset;
 		::libmaus2::huffman::IndexDecoderData const & idata = idda.data[FBO.fileptr];
 		::libmaus2::huffman::IndexEntry const data = idata.readEntry(FBO.blockptr);
 		uint64_t const rlstart = data.vcnt;
 		libmaus2::huffman::RLDecoder rldec(idda,rlstart);
 		assert ( offset == i - rlstart );
-		
+
 		while ( true )
 		{
 			std::pair<int64_t,uint64_t> const P = rldec.decodeRun();
 			assert ( P.first != -1 );
-			
+
 			if ( offset >= P.second )
 			{
 				H [ P.first - minsym ] += P.second;
-				offset -= P.second;	
+				offset -= P.second;
 			}
 			else
 			{
@@ -274,43 +274,43 @@ struct SparseRank
 				return std::pair<int64_t,uint64_t>(P.first,H [ P.first - minsym ]);
 			}
 		}
-	}	
+	}
 
 	std::pair<int64_t,uint64_t> lf(uint64_t const i)
 	{
 		std::pair<int64_t,uint64_t> const P = inverseSelect(i);
 		return std::pair<int64_t,uint64_t>(P.first,D [ P.first ] + P.second);
 	}
-	
+
 	std::string decode(std::string const & sortedisa, uint64_t const low, uint64_t const len)
 	{
 		std::pair<uint64_t,uint64_t> const PP = getNextLarger(sortedisa,low+len);
 		// std::cerr << "low+len=" << low+len << " PP.first=" << PP.first << " PP.second=" << PP.second << std::endl;
 		uint64_t p = PP.first % n;
 		uint64_t r = PP.second;
-		
+
 		while ( p != ((low+len)%n) )
 		{
 			// std::cerr << "p=" << p << " r=" << r << std::endl;
 			r = lf(r).second;
 			--p;
 		}
-		
+
 		std::vector<char> V(len,0);
 		for ( uint64_t i = 0; i < len; ++i )
 		{
 			std::pair<int64_t,uint64_t> const P = lf(r);
-			
+
 			// std::cerr << P.first << std::endl;
-			
+
 			if ( P.first )
 				V[len-i-1] = libmaus2::fastx::remapChar(P.first-1);
 			else
 				V[len-i-1] = '\n';
-			
+
 			r = P.second;
 		}
-		
+
 		return std::string(V.begin(),V.end());
 	}
 };
@@ -326,19 +326,19 @@ int main(int argc, char * argv[])
 		std::string const compact = arginfo.getUnparsedRestArg(3);
 		uint64_t low = libmaus2::util::ArgInfo::parseValueUnsignedNumeric<uint64_t>("low",arginfo.getUnparsedRestArg(4));
 		uint64_t len = libmaus2::util::ArgInfo::parseValueUnsignedNumeric<uint64_t>("len",arginfo.getUnparsedRestArg(5));
-		
+
 		libmaus2::aio::InputStream::unique_ptr_type Psortedisa(libmaus2::aio::InputStreamFactoryContainer::constructUnique(sortedisa));
-		
+
 		std::vector<std::string> Vbwtin(1,bwt);
-		
+
 		uint64_t const n = libmaus2::huffman::RLDecoder::getLength(Vbwtin);
-		
+
 		if ( low+len > n )
 		{
 			libmaus2::exception::LibMausException lme;
 			lme.getStream() << "low+len=" << low+len << " > n=" << n << std::endl;
 			lme.finish();
-			throw lme;		
+			throw lme;
 		}
 
 		int64_t const maxsym = SparseRank::getMaxSym(histfn);
@@ -347,10 +347,10 @@ int main(int argc, char * argv[])
 			libmaus2::exception::LibMausException lme;
 			lme.getStream() << "maxsym < 0" << std::endl;
 			lme.finish();
-			throw lme;				
+			throw lme;
 		}
 		int64_t const minsym = SparseRank::getMinSym(histfn);
-		
+
 		if ( ! libmaus2::aio::InputStreamFactoryContainer::tryOpen(bwt + ".sparserank") )
 			libmaus2::huffman::RLDecoder::getBlockSymHistograms(
 				bwt,
@@ -360,9 +360,9 @@ int main(int argc, char * argv[])
 				maxsym,
 				&std::cerr
 			);
-		
+
 		SparseRank SR(bwt,histfn,minsym,maxsym);
-		
+
 		uint64_t const bs = 2048;
 		while ( len )
 		{
@@ -370,7 +370,7 @@ int main(int argc, char * argv[])
 			std::cerr << "[V] decoding [" << low << "," << low+todecode << ")" << std::endl;
 			std::string const block = SR.decode(sortedisa,low,todecode);
 			std::cout << block;
-			
+
 			libmaus2::bitio::CompactDecoderWrapper wrap(compact);
 			wrap.clear();
 			wrap.seekg(low);
@@ -390,14 +390,14 @@ int main(int argc, char * argv[])
 			len -= todecode;
 			low += todecode;
 		}
-		
+
 		#if 0
 		libmaus2::huffman::RLDecoder rldec(std::vector<std::string>(1,bwt));
 		std::vector<uint64_t> H(maxsym-minsym+1,0);
 		for ( uint64_t i = 0; i < 128000; ++i )
 		{
 			int64_t const sym = rldec.decode();
-			
+
 			for ( int64_t j = minsym; j <= maxsym; ++j )
 			{
 				uint64_t const r = SR.rankm(j,i);
@@ -412,8 +412,8 @@ int main(int argc, char * argv[])
 		}
 		#endif
 
-		
-		
+
+
 		#if 0
 		for ( uint64_t i = 0; i < 1024; ++i )
 		{

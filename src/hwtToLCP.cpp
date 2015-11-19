@@ -39,7 +39,7 @@ int main(int argc, char * argv[])
 		std::string const tmpfilenamebase = arginfo.getDefaultTmpFileName();
 		libmaus2::util::TempFileNameGenerator tmpgen(tmpfilenamebase+"_lcpdir",3);
 		libmaus2::util::FileTempFileContainer tmpcont(tmpgen);
-		
+
 		std::string const namebase = arginfo.getRestArg<std::string>(0);
 		bool const showavg = arginfo.getValue<bool>("showavg",false);
 		bool const checklcp = arginfo.getValue<bool>("checklcp",false);
@@ -60,10 +60,10 @@ int main(int argc, char * argv[])
 		// compute LCP array
 		std::cerr << "[V] Computing LCP array...";
 		rtc.start();
-		::libmaus2::lcp::WaveletLCPResult::unique_ptr_type LCP = 
+		::libmaus2::lcp::WaveletLCPResult::unique_ptr_type LCP =
 			::libmaus2::lcp::WaveletLCP::computeLCP(&IHWLF,false /* zero symbols are not distinct */);
 		std::cerr << "done, time " << rtc.getElapsedSeconds() << std::endl;
-		
+
 		std::cerr << "[V] Writing LCP array...";
 		{
 		::libmaus2::aio::OutputStreamInstance ulcpCOS(ulcpname);
@@ -82,7 +82,7 @@ int main(int argc, char * argv[])
 		::libmaus2::aio::InputStreamInstance isain(isaname);
 		::libmaus2::fm::SampledISA< ::libmaus2::lf::ImpCompactHuffmanWaveletLF > ISA(&IHWLF,isain);
 		std::cerr << "done." << std::endl;
-				
+
 		std::cerr << "[V] Serialising succinct PLCP array...";
 		rtc.start();
 		{
@@ -92,7 +92,7 @@ int main(int argc, char * argv[])
 		}
 		std::cerr << "done, time " << rtc.getElapsedSeconds()  << std::endl;
 
-		#if defined(_OPENMP)		
+		#if defined(_OPENMP)
 		uint64_t const numthreads = omp_get_max_threads();
 		#else
 		uint64_t const numthreads = 1;
@@ -104,7 +104,7 @@ int main(int argc, char * argv[])
 			::libmaus2::lcp::WaveletLCPResult const & LCPref = *LCP;
 			typedef libmaus2::rmq::RMMTree< ::libmaus2::lcp::WaveletLCPResult ,3> rmm_tree_type;
 			rmm_tree_type rmmtree(LCPref,PIHWLF->n);
-			
+
 			libmaus2::aio::OutputStream::unique_ptr_type Prmmout(libmaus2::aio::OutputStreamFactoryContainer::constructUnique(rmmname));
 			rmmtree.serialise(*Prmmout);
 		}
@@ -120,7 +120,7 @@ int main(int argc, char * argv[])
 			::libmaus2::aio::InputStreamInstance lcpCIS(lcpname);
 			succinct_lcp_type const SLCP(lcpCIS,SA);
 			std::cerr << "done." << std::endl;
-		
+
 			uint64_t const symsperblock = (IHWLF.n + numthreads - 1)/numthreads;
 			::libmaus2::parallel::OMPLock lock;
 			uint64_t gacc = 0;
@@ -129,32 +129,32 @@ int main(int argc, char * argv[])
 
 			#if defined(_OPENMP)
 			#pragma omp parallel for
-			#endif		
+			#endif
 			for ( int64_t b = 0; b < static_cast<int64_t>(numthreads); ++b )
 			{
 				uint64_t const low = std::min(b*symsperblock,IHWLF.n);
 				uint64_t const high = std::min(low+symsperblock,IHWLF.n);
-				
+
 				uint64_t acc = 0;
 				::libmaus2::util::Histogram lhist;
 				for ( uint64_t i = low; i < high; ++i )
 				{
 					uint64_t const lcp = (SLCP)[i];
 					uint64_t const caplcp = std::min(lcpthres,lcp);
-					acc += lcp; 
+					acc += lcp;
 					lhist(caplcp);
 				}
-				
+
 				lock.lock();
 				gacc += acc;
 				ghist.merge(lhist);
 				lock.unlock();
 			}
-			
+
 			std::cerr << "[V] avg LCP is " << static_cast<double>(gacc) / IHWLF.n << std::endl;
 			ghist.print(std::cerr);
 		}
-			
+
 		if ( checklcp )
 		{
 			std::cerr << "[V] Loading sa...";
@@ -167,19 +167,19 @@ int main(int argc, char * argv[])
 			succinct_lcp_type const SLCP(lcpCIS,SA);
 			std::cerr << "done." << std::endl;
 
-			std::cerr << "[V] Checking succinct LCP against non succinct version...";			
+			std::cerr << "[V] Checking succinct LCP against non succinct version...";
 			#if defined(_OPENMP)
 			#pragma omp parallel for
 			#endif
 			for ( int64_t r = 0; r < static_cast<int64_t>(IHWLF.n); ++r )
 				assert ( (*LCP)[r] == SLCP[r] );
 			std::cerr << "done." << std::endl;
-			
+
 			uint64_t const checkranks = IHWLF.n ? (IHWLF.n-1) : 0;
 			uint64_t const checkpacksize = (checkranks + numthreads-1)/numthreads;
 			uint64_t const numcheckpacks = (checkranks + checkpacksize-1)/checkpacksize;
 			::libmaus2::parallel::SynchronousCounter<uint64_t> cnt(0);
-			
+
 			#if defined(_OPENMP)
 			#pragma omp parallel for
 			#endif
@@ -187,25 +187,25 @@ int main(int argc, char * argv[])
 			{
 				uint64_t const checklow = std::min(packid * checkpacksize,checkranks);
 				uint64_t const checkhigh = std::min(checklow + checkpacksize,checkranks);
-				
+
 				for ( uint64_t r = checklow+1; r < (checkhigh+1); ++r )
 				{
 					uint64_t l = SLCP[r];
 					uint64_t r1 = ISA[(SA[r-1] + l + 1)%IHWLF.n];
 					uint64_t r0 = ISA[(SA[r-0] + l + 1)%IHWLF.n];
-					
+
 					assert ( IHWLF[r0] != IHWLF[r1] );
-					
+
 					while ( l-- )
 					{
 						r0 = IHWLF(r0);
 						r1 = IHWLF(r1);
 						assert ( IHWLF[r0] == IHWLF[r1] );
 					}
-					
+
 					uint64_t const lcnt = ++cnt;
 					if ( lcnt % (1024*1024) == 0 || lcnt == checkranks )
-						std::cerr << static_cast<double>(lcnt)/checkranks << std::endl;			
+						std::cerr << static_cast<double>(lcnt)/checkranks << std::endl;
 				}
 			}
 		}

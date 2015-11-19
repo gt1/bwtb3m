@@ -26,21 +26,21 @@
 std::string formatBytes(uint64_t n)
 {
 	char const * units[] = { "", "k", "m", "g", "t", "p", "e", "z", "y" };
-	
+
 	std::vector < std::string > parts;
 	unsigned int uindex = 0;
-	
+
 	for ( ; n; ++uindex )
 	{
 		std::ostringstream ostr;
 		ostr << (n%1024) << units[uindex];
 		parts.push_back(ostr.str());
-		
+
 		n /= 1024;
 	}
-	
+
 	std::reverse(parts.begin(),parts.end());
-	
+
 	std::ostringstream ostr;
 	for ( uint64_t i = 0; i < parts.size(); ++i )
 	{
@@ -48,7 +48,7 @@ std::string formatBytes(uint64_t n)
 		if ( i+1 < parts.size() )
 			ostr << " ";
 	}
-	
+
 	return ostr.str();
 }
 
@@ -58,7 +58,7 @@ std::string basename(std::string const s)
 	for ( uint64_t i = 0; i < s.size(); ++i )
 		if ( s[i] == '/' )
 			l = i;
-			
+
 	if ( l != s.size() )
 		return s.substr(l+1);
 	else
@@ -70,7 +70,7 @@ std::string stripAfterDot(std::string const s)
 	for ( uint64_t i = 0; i < s.size(); ++i )
 		if ( s[i] == '.' )
 			return s.substr(0,i);
-	
+
 	return s;
 }
 
@@ -83,13 +83,13 @@ int fagzToCompact(libmaus2::util::ArgInfo const & arginfo)
 	int const verbose = arginfo.getValue<int>("verbose",1);
 	libmaus2::autoarray::AutoArray<char> B(8*1024,false);
 	libmaus2::bitio::CompactArrayWriterFile compactout(outputfilename,3);
-		
+
 	if ( ! rc )
 		std::cerr << "[V] not storing reverse complements" << std::endl;
-	
+
 	std::vector<std::string> inputfilenames;
 	inputfilenames = arginfo.restargs;
-	
+
 	if ( arginfo.hasArg("inputfilenames") )
 	{
 		std::string const inf = arginfo.getUnparsedValue("inputfilenames",std::string());
@@ -103,13 +103,13 @@ int fagzToCompact(libmaus2::util::ArgInfo const & arginfo)
 		}
 	}
 
-	// forward mapping table		
+	// forward mapping table
 	libmaus2::autoarray::AutoArray<uint8_t> ftable(256,false);
 	// reverse complement mapping table
 	libmaus2::autoarray::AutoArray<uint8_t> rtable(256,false);
 	// rc mapping for mapped symbols
 	libmaus2::autoarray::AutoArray<uint8_t> ctable(256,false);
-	
+
 	std::fill(ftable.begin(),ftable.end(),5);
 	std::fill(rtable.begin(),rtable.end(),5);
 	std::fill(ctable.begin(),ctable.end(),5);
@@ -118,12 +118,12 @@ int fagzToCompact(libmaus2::util::ArgInfo const & arginfo)
 	ftable['g'] = ftable['G'] = rtable['c'] = rtable['C'] = 3;
 	ftable['t'] = ftable['T'] = rtable['a'] = rtable['A'] = 4;
 	uint64_t insize = 0;
-	
+
 	ctable[1] = 4; // A->T
 	ctable[2] = 3; // C->G
 	ctable[3] = 2; // G->C
 	ctable[4] = 1; // T->A
-			
+
 	for ( uint64_t i = 0; i < inputfilenames.size() && insize < limit; ++i )
 	{
 		std::string const fn = inputfilenames[i];
@@ -139,16 +139,16 @@ int fagzToCompact(libmaus2::util::ArgInfo const & arginfo)
 		}
 		else
 		{
-			istr = &CIS;			
+			istr = &CIS;
 		}
 		libmaus2::fastx::StreamFastAReaderWrapper fain(*istr);
 		libmaus2::fastx::StreamFastAReaderWrapper::pattern_type pattern;
-		
+
 		while ( fain.getNextPatternUnlocked(pattern) )
 		{
 			if ( verbose )
 				std::cerr << (i+1) << " " << stripAfterDot(basename(fn)) << " " << pattern.sid << "...";
-		
+
 			// map symbols
 			for ( uint64_t j = 0; j < pattern.spattern.size(); ++j )
 				pattern.spattern[j] = ftable[static_cast<uint8_t>(pattern.spattern[j])];
@@ -156,7 +156,7 @@ int fagzToCompact(libmaus2::util::ArgInfo const & arginfo)
 			// write
 			compactout.write(pattern.spattern.c_str(),pattern.spattern.size());
 			compactout.put(0);
-	
+
 			if ( rc )
 			{
 				// reverse complement
@@ -168,18 +168,18 @@ int fagzToCompact(libmaus2::util::ArgInfo const & arginfo)
 				compactout.write(pattern.spattern.c_str(),pattern.spattern.size());
 				compactout.put(0);
 			}
-						
+
 			insize += pattern.spattern.size()+1;
-			
+
 			if ( verbose )
 				std::cerr << "done, input size " << formatBytes(pattern.spattern.size()+1) << " acc " << formatBytes(insize) << std::endl;
 		}
 	}
-	
+
 	std::cerr << "Done, total input size " << insize << std::endl;
-	
+
 	compactout.flush();
-	
+
 	return EXIT_SUCCESS;
 }
 

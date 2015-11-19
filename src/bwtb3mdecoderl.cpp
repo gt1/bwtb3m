@@ -26,7 +26,7 @@ void bwtb3mdecode(::libmaus2::util::ArgInfo const & arginfo)
 	std::string const infn = arginfo.getRestArg<std::string>(0);
 	libmaus2::huffman::RLDecoder dec(std::vector<std::string>(1,infn));
 	std::string const inputtype = arginfo.getUnparsedValue("inputtype","bytestream");
-	
+
 	if ( inputtype == "bytestream" )
 	{
 		std::pair<int64_t,uint64_t> P;
@@ -43,7 +43,7 @@ void bwtb3mdecode(::libmaus2::util::ArgInfo const & arginfo)
 			for ( uint64_t i = 0; i < P.second; ++i )
 				SGO.put(P.first);
 		}
-		
+
 		SGO.flush();
 	}
 	else if ( inputtype == "utf-8" )
@@ -55,7 +55,7 @@ void bwtb3mdecode(::libmaus2::util::ArgInfo const & arginfo)
 			for ( uint64_t i = 0; i < P.second; ++i )
 				libmaus2::util::UTF8::encodeUTF8(P.first,SGO);
 		}
-		
+
 		SGO.flush();
 	}
 	else
@@ -72,18 +72,18 @@ int main(int argc, char * argv[])
 	try
 	{
 		::libmaus2::util::ArgInfo const arginfo(argc,argv);
-		
+
 		if ( arginfo.helpRequested() || arginfo.restargs.size() < 1 )
 		{
 			::libmaus2::exception::LibMausException se;
 			std::ostream & str = se.getStream();
 			str << "usage: " << argv[0] << " <in.bwt>" << std::endl;
 			str << std::endl;
-			
+
 			se.finish();
 			throw se;
 		}
-		
+
 		bwtb3mdecode(arginfo);
 
 		return EXIT_SUCCESS;
