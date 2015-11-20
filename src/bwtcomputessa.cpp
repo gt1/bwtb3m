@@ -28,6 +28,7 @@
 #include <libmaus2/aio/SynchronousGenericInput.hpp>
 #include <libmaus2/util/TempFileRemovalContainer.hpp>
 #include <libmaus2/sorting/SortingBufferedOutputFile.hpp>
+#include <libmaus2/util/OutputFileNameTools.hpp>
 
 static std::vector<uint64_t> loadHMap(std::string const & hist)
 {
@@ -1337,7 +1338,7 @@ int main(int argc, char * argv[])
 			deletein = true;
 		}
 
-		libmaus2::aio::OutputStreamInstance saout(origbwt + ".sa");
+		libmaus2::aio::OutputStreamInstance saout(libmaus2::util::OutputFileNameTools::clipOff(origbwt,".bwt") + ".sa");
 		::libmaus2::serialize::Serialize<uint64_t>::serialize(saout,sasamplingrate);
 		::libmaus2::serialize::Serialize<uint64_t>::serialize(saout,(n+sasamplingrate-1)/sasamplingrate);
 		libmaus2::sorting::SortingBufferedOutputFile<SaPair>::merger_ptr_type samerger(sasorter.getMerger());
@@ -1358,7 +1359,7 @@ int main(int argc, char * argv[])
 				prevr = SaT.r;
 			}
 
-		libmaus2::aio::OutputStreamInstance isaout(origbwt + ".isa");
+		libmaus2::aio::OutputStreamInstance isaout(libmaus2::util::OutputFileNameTools::clipOff(origbwt,".bwt") + ".isa");
 		::libmaus2::serialize::Serialize<uint64_t>::serialize(isaout,isasamplingrate);
 		::libmaus2::serialize::Serialize<uint64_t>::serialize(isaout,(n+isasamplingrate-1)/isasamplingrate);
 		libmaus2::sorting::SortingBufferedOutputFile<IsaPair>::merger_ptr_type isamerger(isasorter.getMerger());
