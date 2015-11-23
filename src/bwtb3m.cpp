@@ -4277,6 +4277,26 @@ struct BwtMergeSort
 		uint64_t const numthreads = 1;
 		#endif
 
+		// file name
+		std::string fn = arginfo.getRestArg<std::string>(0);
+		// check whether file exists
+		if ( ! ::libmaus2::util::GetFileSize::fileExists(fn) )
+		{
+			::libmaus2::exception::LibMausException se;
+			se.getStream() << "File " << fn << " does not exist or cannot be opened." << std::endl;
+			se.finish();
+			throw se;
+		}
+
+		std::vector<std::string> endClipS;
+		endClipS.push_back(".txt");
+		endClipS.push_back(".compact");
+		libmaus2::autoarray::AutoArray<char const *> endClipC(endClipS.size()+1);
+		for ( uint64_t i = 0; i < endClipS.size(); ++i )
+			endClipC[i] = endClipS[i].c_str();
+		endClipC[endClipS.size()] = 0;
+		std::string const defoutfn = libmaus2::util::OutputFileNameTools::endClip(fn,endClipC.begin()) + ".bwt";
+
 		// compute BWT only? (no SA and ISA)
 		bool const bwtonly = arginfo.getValue<unsigned int>("bwtonly",getDefaultBWTOnly());
 		// total memory available
@@ -4292,23 +4312,12 @@ struct BwtMergeSort
 		::libmaus2::util::TempFileRemovalContainer::addTempFile(chistfilename);
 		::libmaus2::util::TempFileRemovalContainer::addTempFile(huftreefilename);
 		// output file name
-		std::string const outfn = arginfo.getValue<std::string>("outputfilename",tmpfilenamebase+".bwt");
+		std::string const outfn = arginfo.getValue<std::string>("outputfilename",defoutfn);
 		// final inverse suffix array sampling rate
 		uint64_t const isasamplingrate = ::libmaus2::math::nextTwoPow(arginfo.getValue<uint64_t>("isasamplingrate",getDefaultIsaSamplingRate()));
 		// final suffix array sampling rate
 		uint64_t const sasamplingrate = ::libmaus2::math::nextTwoPow(arginfo.getValue<uint64_t>("sasamplingrate",getDefaultSaSamplingRate()));
 		bool const copyinputtomemory = arginfo.getValue<uint64_t>("copyinputtomemory",getDefaultCopyInputToMemory());
-
-		// file name
-		std::string fn = arginfo.getRestArg<std::string>(0);
-		// check whether file exists
-		if ( ! ::libmaus2::util::GetFileSize::fileExists(fn) )
-		{
-			::libmaus2::exception::LibMausException se;
-			se.getStream() << "File " << fn << " does not exist or cannot be opened." << std::endl;
-			se.finish();
-			throw se;
-		}
 
 		if ( copyinputtomemory )
 		{
@@ -4374,7 +4383,7 @@ struct BwtMergeSort
 		uint64_t const blocksizeprevtwo = (blocksize == blocksizenexttwo) ? blocksize : (blocksizenexttwo / 2);
 
 		// ISA sampling rate during block merging
-		uint64_t const preisasamplingrate = std::min(::libmaus2::math::nextTwoPow(arginfo.getValue<uint64_t>("preisasamplingrate",256*1024)),blocksizeprevtwo);
+		uint64_t const preisasamplingrate = std::min(::libmaus2::math::nextTwoPow(arginfo.getValue<uint64_t>("preisasamplingrate",bwtonly ? 64 : 256*1024)),blocksizeprevtwo);
 
 
 		#if defined(BWTB3M_MEMORY_DEBUG)
@@ -4843,6 +4852,10 @@ struct BwtMergeSort
 			std::string const mergedisaname = mergeresult.getFiles().getSampledISA();
 			std::string const outisa = ::libmaus2::util::OutputFileNameTools::clipOff(outfn,".bwt") + ".preisa";
 			libmaus2::aio::OutputStreamFactoryContainer::rename(mergedisaname.c_str(),outisa.c_str());
+
+			std::string const outisameta = outisa + ".meta";
+			libmaus2::aio::OutputStreamInstance outisametaOSI(outisameta);
+			libmaus2::util::NumberSerialisation::serialiseNumber(outisametaOSI,preisasamplingrate);
 		}
 		else
 		{
