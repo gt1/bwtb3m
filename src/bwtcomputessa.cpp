@@ -1009,142 +1009,163 @@ int main(int argc, char * argv[])
 
 			std::vector<std::string> goutfilenames((piasplit.size()-1)*numfiles);
 			libmaus2::parallel::PosixSpinLock goutfilenameslock;
+			
+			libmaus2::exception::LibMausException::unique_ptr_type lmex;
+			libmaus2::parallel::PosixSpinLock lmexlock;
 
 			#if defined(_OPENMP)
 			#pragma omp parallel for
 			#endif
 			for ( uint64_t t = 1; t < piasplit.size(); ++t )
 			{
-				uint64_t const rfrom = piasplit[t-1].first;
-				uint64_t const rto = piasplit[t].first;
-				uint64_t const preisafrom = piasplit[t-1].second;
-
-				salock.lock();
-				std::cerr << "[V] t=" << t << " rfrom=" << rfrom << " rto=" << rto << " preisafrom=" << preisafrom << std::endl;
-				salock.unlock();
-
-				std::ostringstream threadtmpprefixstr;
-				threadtmpprefixstr << tmpfilenamebase << "_" << run << "_" << (t-1);
-				std::string const threadtmpprefix = threadtmpprefixstr.str();
-
-				// output file pointers
-				libmaus2::autoarray::AutoArray<libmaus2::aio::OutputStreamInstance::unique_ptr_type > Aout(numfiles);
-				// output file buffers
-				libmaus2::autoarray::AutoArray<libmaus2::aio::SynchronousGenericOutput<uint64_t>::unique_ptr_type > Sout(numfiles);
-				// sorting output buffers (for files storing data for more than one symbol)
-				libmaus2::autoarray::AutoArray<libmaus2::sorting::SortingBufferedOutputFile<IsaTriple>::unique_ptr_type > Tout(numfiles);
-				// output file names
-				std::vector<std::string> outfilenames(numfiles);
-				// multi sort output file names
-				std::vector<std::string> multisortfilenames(numfiles);
-
-				//std::cerr << "[V+] " << numfiles << std::endl;
-
-				// iterate over output files for this run
-				for ( int64_t i = 0; i < numfiles; ++i )
+				try
 				{
-					std::ostringstream fnostr;
-					fnostr << threadtmpprefix << "_" << std::setw(6) << std::setfill('0') << i << std::setw(0);
-					std::string const fn = fnostr.str();
-					outfilenames[i] = fn;
+					uint64_t const rfrom = piasplit[t-1].first;
+					uint64_t const rto = piasplit[t].first;
+					uint64_t const preisafrom = piasplit[t-1].second;
 
-					libmaus2::util::TempFileRemovalContainer::addTempFile(fn);
-					libmaus2::aio::OutputStreamInstance::unique_ptr_type Tptr(new libmaus2::aio::OutputStreamInstance(fn));
-					Aout[i] = UNIQUE_PTR_MOVE(Tptr);
+					salock.lock();
+					std::cerr << "[V] t=" << t << " rfrom=" << rfrom << " rto=" << rto << " preisafrom=" << preisafrom << std::endl;
+					salock.unlock();
 
-					libmaus2::aio::SynchronousGenericOutput<uint64_t>::unique_ptr_type Sptr(new libmaus2::aio::SynchronousGenericOutput<uint64_t>(*(Aout[i]),64*1024));
-					Sout[i] = UNIQUE_PTR_MOVE(Sptr);
+					std::ostringstream threadtmpprefixstr;
+					threadtmpprefixstr << tmpfilenamebase << "_" << run << "_" << (t-1);
+					std::string const threadtmpprefix = threadtmpprefixstr.str();
 
-					multisortfilenames[i] = fn + ".multisort";
-					if ( filemulti[i] )
+					// output file pointers
+					libmaus2::autoarray::AutoArray<libmaus2::aio::OutputStreamInstance::unique_ptr_type > Aout(numfiles);
+					// output file buffers
+					libmaus2::autoarray::AutoArray<libmaus2::aio::SynchronousGenericOutput<uint64_t>::unique_ptr_type > Sout(numfiles);
+					// sorting output buffers (for files storing data for more than one symbol)
+					libmaus2::autoarray::AutoArray<libmaus2::sorting::SortingBufferedOutputFile<IsaTriple>::unique_ptr_type > Tout(numfiles);
+					// output file names
+					std::vector<std::string> outfilenames(numfiles);
+					// multi sort output file names
+					std::vector<std::string> multisortfilenames(numfiles);
+
+					//std::cerr << "[V+] " << numfiles << std::endl;
+
+					// iterate over output files for this run
+					for ( int64_t i = 0; i < numfiles; ++i )
 					{
-						libmaus2::util::TempFileRemovalContainer::addTempFile(multisortfilenames[i]);
-						libmaus2::sorting::SortingBufferedOutputFile<IsaTriple>::unique_ptr_type Tptr(
-							new libmaus2::sorting::SortingBufferedOutputFile<IsaTriple>(multisortfilenames[i],64*1024)
-						);
-						Tout[i] = UNIQUE_PTR_MOVE(Tptr);
-					}
-				}
+						std::ostringstream fnostr;
+						fnostr << threadtmpprefix << "_" << std::setw(6) << std::setfill('0') << i << std::setw(0);
+						std::string const fn = fnostr.str();
+						outfilenames[i] = fn;
 
-				goutfilenameslock.lock();
+						libmaus2::util::TempFileRemovalContainer::addTempFile(fn);
+						libmaus2::aio::OutputStreamInstance::unique_ptr_type Tptr(new libmaus2::aio::OutputStreamInstance(fn));
+						Aout[i] = UNIQUE_PTR_MOVE(Tptr);
 
-				for ( int64_t i = 0; i < numfiles; ++i )
-				{
-					goutfilenames . at( i * (piasplit.size()-1) + (t-1) ) = outfilenames[i];
-				}
+						libmaus2::aio::SynchronousGenericOutput<uint64_t>::unique_ptr_type Sptr(new libmaus2::aio::SynchronousGenericOutput<uint64_t>(*(Aout[i]),64*1024));
+						Sout[i] = UNIQUE_PTR_MOVE(Sptr);
 
-				goutfilenameslock.unlock();
-
-				// open decoder for RL
-				libmaus2::huffman::RLDecoder rldec(std::vector<std::string>(1,bwt),rfrom);
-
-				std::vector<uint64_t> HH = Vblocksymhist[t-1];
-
-				PreIsaInput PII(isain,preisafrom);
-
-				std::pair<uint64_t,uint64_t> P;
-				#if 0
-				uint64_t lc = rfrom;
-				#endif
-				uint64_t c = rfrom;
-
-				std::pair<int64_t,uint64_t> currun(-1,0);
-
-				while ( PII.getNext(P) && (P.first < rto) )
-				{
-					bool const ok = P.first >= rfrom;
-
-					if ( ! ok )
-					{
-						std::cerr << "P.first=" << P.first << " rfrom=" << rfrom << std::endl;
-					}
-
-					assert ( P.first >= rfrom );
-
-					if ( (P.first & sasamplingmask) == 0 )
-					{
-						salock.lock();
-						sasorter.put(SaPair(P.first,P.second));
-						salock.unlock();
-
-						if ( ref_sa )
+						multisortfilenames[i] = fn + ".multisort";
+						if ( filemulti[i] )
 						{
-							bool const ok = (*ref_sa)[P.first / sasamplingrate] == P.second;
-							if ( ! ok )
-							{
-								std::cerr << "P.first=" << P.first << std::endl;
-								std::cerr << "P.first/sasamplingrate=" << P.first/sasamplingrate << std::endl;
-								std::cerr << "P.second=" << P.second << std::endl;
-								std::cerr << "expected=" << (*ref_sa)[P.first / sasamplingrate] << std::endl;
-							}
-							assert ( ok );
-							//std::cerr << "ok 1" << std::endl;
-						}
-					}
-					if ( (P.second & isasamplingmask) == 0 )
-					{
-						isalock.lock();
-						isasorter.put(IsaPair(P.second,P.first));
-						isalock.unlock();
-
-						if ( ref_isa )
-						{
-							assert ( (*ref_isa)[P.second / isasamplingrate] == P.first );
-							//std::cerr << "ok 2" << std::endl;
+							libmaus2::util::TempFileRemovalContainer::addTempFile(multisortfilenames[i]);
+							libmaus2::sorting::SortingBufferedOutputFile<IsaTriple>::unique_ptr_type Tptr(
+								new libmaus2::sorting::SortingBufferedOutputFile<IsaTriple>(multisortfilenames[i],64*1024)
+							);
+							Tout[i] = UNIQUE_PTR_MOVE(Tptr);
 						}
 					}
 
+					goutfilenameslock.lock();
+
+					for ( int64_t i = 0; i < numfiles; ++i )
+					{
+						goutfilenames . at( i * (piasplit.size()-1) + (t-1) ) = outfilenames[i];
+					}
+
+					goutfilenameslock.unlock();
+
+					// open decoder for RL
+					libmaus2::huffman::RLDecoder rldec(std::vector<std::string>(1,bwt),rfrom);
+
+					std::vector<uint64_t> HH = Vblocksymhist[t-1];
+
+					PreIsaInput PII(isain,preisafrom);
+
+					std::pair<uint64_t,uint64_t> P;
 					#if 0
-					if ( (c >> 26) != (lc >> 26) )
-					{
-						std::cerr << "run=" << (run+1) << "/" << preisasamplingrate << " frac=" << static_cast<double>(c) / n << std::endl;
-						lc = c;
-					}
+					uint64_t lc = rfrom;
 					#endif
+					uint64_t c = rfrom;
 
-					while ( c < P.first )
+					std::pair<int64_t,uint64_t> currun(-1,0);
+
+					while ( PII.getNext(P) && (P.first < rto) )
 					{
-						// no more symbols in run? load next one
+						bool const ok = P.first >= rfrom;
+
+						if ( ! ok )
+						{
+							std::cerr << "P.first=" << P.first << " rfrom=" << rfrom << std::endl;
+						}
+
+						assert ( P.first >= rfrom );
+
+						if ( (P.first & sasamplingmask) == 0 )
+						{
+							salock.lock();
+							sasorter.put(SaPair(P.first,P.second));
+							salock.unlock();
+
+							if ( ref_sa )
+							{
+								bool const ok = (*ref_sa)[P.first / sasamplingrate] == P.second;
+								if ( ! ok )
+								{
+									std::cerr << "P.first=" << P.first << std::endl;
+									std::cerr << "P.first/sasamplingrate=" << P.first/sasamplingrate << std::endl;
+									std::cerr << "P.second=" << P.second << std::endl;
+									std::cerr << "expected=" << (*ref_sa)[P.first / sasamplingrate] << std::endl;
+								}
+								assert ( ok );
+								//std::cerr << "ok 1" << std::endl;
+							}
+						}
+						if ( (P.second & isasamplingmask) == 0 )
+						{
+							isalock.lock();
+							isasorter.put(IsaPair(P.second,P.first));
+							isalock.unlock();
+
+							if ( ref_isa )
+							{
+								assert ( (*ref_isa)[P.second / isasamplingrate] == P.first );
+								//std::cerr << "ok 2" << std::endl;
+							}
+						}
+
+						#if 0
+						if ( (c >> 26) != (lc >> 26) )
+						{
+							std::cerr << "run=" << (run+1) << "/" << preisasamplingrate << " frac=" << static_cast<double>(c) / n << std::endl;
+							lc = c;
+						}
+						#endif
+
+						while ( c < P.first )
+						{
+							// no more symbols in run? load next one
+							if ( ! currun.second )
+								currun = rldec.decodeRun();
+
+							int64_t const sym = currun.first;
+							assert ( sym >= 0 );
+							assert ( sym < static_cast<int64_t>(HH.size()) );
+							assert ( currun.second );
+
+							uint64_t const dif = P.first - c;
+							uint64_t const touse = std::min(dif,currun.second);
+
+							HH[sym] += touse;
+							c += touse;
+							currun.second -= touse;
+						}
+
 						if ( ! currun.second )
 							currun = rldec.decodeRun();
 
@@ -1153,76 +1174,81 @@ int main(int argc, char * argv[])
 						assert ( sym < static_cast<int64_t>(HH.size()) );
 						assert ( currun.second );
 
-						uint64_t const dif = P.first - c;
-						uint64_t const touse = std::min(dif,currun.second);
+						uint64_t const rout = HH[sym];
+						uint64_t const pout = (P.second + n - 1)%n;
+						assert ( filemap[sym] >= 0 );
+						uint64_t const fileid = filemap[sym];
 
-						HH[sym] += touse;
-						c += touse;
-						currun.second -= touse;
-					}
+						// std::cerr << "sym=" << sym << " fileid=" << fileid << std::endl;
 
-					if ( ! currun.second )
-						currun = rldec.decodeRun();
+						bool const multi = filemulti[fileid];
 
-					int64_t const sym = currun.first;
-					assert ( sym >= 0 );
-					assert ( sym < static_cast<int64_t>(HH.size()) );
-					assert ( currun.second );
-
-					uint64_t const rout = HH[sym];
-					uint64_t const pout = (P.second + n - 1)%n;
-					assert ( filemap[sym] >= 0 );
-					uint64_t const fileid = filemap[sym];
-
-					// std::cerr << "sym=" << sym << " fileid=" << fileid << std::endl;
-
-					bool const multi = filemulti[fileid];
-
-					if ( multi )
-					{
-						Tout[fileid]->put(IsaTriple(sym,rout,pout));
-					}
-					else
-					{
-						Sout[fileid]->put(rout);
-						Sout[fileid]->put(pout);
-					}
-				}
-
-				// post sort files storing data for more than one symbol
-				for ( int64_t fileid = 0; fileid < numfiles; ++fileid )
-					if ( filemulti[fileid] )
-					{
-						libmaus2::sorting::SortingBufferedOutputFile<IsaTriple>::merger_ptr_type merger(Tout[fileid]->getMerger());
-						IsaTriple T;
-						IsaTriple Tprev;
-						bool haveprev = false;
-
-						while ( merger->getNext(T) )
+						if ( multi )
 						{
-							if ( haveprev )
-								assert ( T.r >= Tprev.r );
-
-							Sout[fileid]->put(T.r);
-							Sout[fileid]->put(T.p);
-
-							Tprev = T;
-							haveprev = true;
+							Tout[fileid]->put(IsaTriple(sym,rout,pout));
+						}
+						else
+						{
+							Sout[fileid]->put(rout);
+							Sout[fileid]->put(pout);
 						}
 					}
 
-				for ( int64_t i = 0; i < numfiles; ++i )
-				{
-					Sout[i]->flush();
-					Sout[i].reset();
-					Aout[i]->flush();
-					Aout[i].reset();
+					// post sort files storing data for more than one symbol
+					for ( int64_t fileid = 0; fileid < numfiles; ++fileid )
+						if ( filemulti[fileid] )
+						{
+							libmaus2::sorting::SortingBufferedOutputFile<IsaTriple>::merger_ptr_type merger(Tout[fileid]->getMerger());
+							IsaTriple T;
+							IsaTriple Tprev;
+							bool haveprev = false;
+
+							while ( merger->getNext(T) )
+							{
+								if ( haveprev )
+									assert ( T.r >= Tprev.r );
+
+								Sout[fileid]->put(T.r);
+								Sout[fileid]->put(T.p);
+
+								Tprev = T;
+								haveprev = true;
+							}
+						}
+
+					for ( int64_t i = 0; i < numfiles; ++i )
+					{
+						Sout[i]->flush();
+						Sout[i].reset();
+						Aout[i]->flush();
+						Aout[i].reset();
+					}
+
+					for ( int64_t i = 0; i < numfiles; ++i )
+						libmaus2::aio::FileRemoval::removeFile(multisortfilenames[i]);
 				}
-
-				for ( int64_t i = 0; i < numfiles; ++i )
-					libmaus2::aio::FileRemoval::removeFile(multisortfilenames[i]);
-
+				catch(libmaus2::exception::LibMausException const & ex)
+				{
+					libmaus2::parallel::ScopePosixSpinLock slock(lmexlock);
+					if ( ! lmex )
+					{
+						libmaus2::exception::LibMausException::unique_ptr_type tptr(ex.uclone());
+						lmex = UNIQUE_PTR_MOVE(tptr);
+					}
+				}
+				catch(std::exception const & ex)
+				{
+					libmaus2::parallel::ScopePosixSpinLock slock(lmexlock);
+					if ( ! lmex )
+					{
+						libmaus2::exception::LibMausException::unique_ptr_type tptr(libmaus2::exception::LibMausException::uclone(ex));
+						lmex = UNIQUE_PTR_MOVE(tptr);
+					}
+				}
 			}
+			
+			if ( lmex )
+				throw *lmex;
 
 			for ( int64_t fileid = 0; fileid < numfiles; ++fileid )
 				if ( filemulti[fileid] )
