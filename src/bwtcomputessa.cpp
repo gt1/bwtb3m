@@ -625,14 +625,24 @@ int main(int argc, char * argv[])
 	{
 		libmaus2::util::ArgInfo const arginfo(argc,argv);
 
-		if ( arginfo.getNumRestArgs() < 4 )
+		if ( arginfo.getNumRestArgs() < 1 )
 		{
-			std::cerr << "usage: " << argv[0] << " <bwt> <hist> <preisa> <preisasamplingrate>" << std::endl;
+			std::cerr << "usage: " << argv[0] << " <bwt>" << std::endl;
 			return EXIT_FAILURE;
 		}
 
 		std::string bwt = arginfo.getUnparsedRestArg(0);
 		std::string const origbwt = bwt;
+		std::string const dictprefix = libmaus2::util::OutputFileNameTools::clipOff(origbwt,".bwt");
+		std::string const histfn = dictprefix + ".hist";
+		std::string const preisa = dictprefix + ".preisa";
+		std::string const preisameta = preisa + ".meta";
+
+		uint64_t preisasamplingrate;
+		{
+			libmaus2::aio::InputStreamInstance ISI(preisameta);
+			preisasamplingrate = libmaus2::util::NumberSerialisation::deserialiseNumber(ISI);
+		}
 
 		bool const copyinputtomemory = arginfo.getValue<uint64_t>("copyinputtomemory",false);
 
@@ -647,9 +657,6 @@ int main(int argc, char * argv[])
 			bwt = nbwt;
 		}
 
-		std::string const histfn = arginfo.getUnparsedRestArg(1);
-		std::string const preisa = arginfo.getUnparsedRestArg(2);
-		uint64_t const preisasamplingrate = libmaus2::util::ArgInfo::parseValueUnsignedNumeric<uint64_t>("preisasamplingrate",arginfo.getUnparsedRestArg(3));
 		uint64_t const sasamplingrate = arginfo.getValueUnsignedNumeric<uint64_t>("sasamplingrate",32);
 		uint64_t const isasamplingrate = arginfo.getValueUnsignedNumeric<uint64_t>("isasamplingrate",32);
 		std::string const tmpfilenamebase = arginfo.getUnparsedValue("tmpprefix",arginfo.getDefaultTmpFileName());
@@ -1009,7 +1016,7 @@ int main(int argc, char * argv[])
 
 			std::vector<std::string> goutfilenames((piasplit.size()-1)*numfiles);
 			libmaus2::parallel::PosixSpinLock goutfilenameslock;
-			
+
 			libmaus2::exception::LibMausException::unique_ptr_type lmex;
 			libmaus2::parallel::PosixSpinLock lmexlock;
 
@@ -1246,7 +1253,7 @@ int main(int argc, char * argv[])
 					}
 				}
 			}
-			
+
 			if ( lmex )
 				throw *lmex;
 
