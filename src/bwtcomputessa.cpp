@@ -15,6 +15,7 @@
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
+#include <libmaus2/sorting/SemiExternalKeyTupleSort.hpp>
 #include <libmaus2/util/ArgInfo.hpp>
 #include <libmaus2/aio/InputStreamFactoryContainer.hpp>
 #include <libmaus2/aio/OutputStreamFactoryContainer.hpp>
@@ -29,6 +30,88 @@
 #include <libmaus2/util/TempFileRemovalContainer.hpp>
 #include <libmaus2/sorting/SortingBufferedOutputFile.hpp>
 #include <libmaus2/util/OutputFileNameTools.hpp>
+#include <libmaus2/math/ilog.hpp>
+#include <libmaus2/sorting/InPlaceParallelSort.hpp>
+#include <libmaus2/random/Random.hpp>
+
+template<typename data_type, typename projector_type>
+struct DataAccessor
+{
+	std::vector<std::string> const & infn;
+	mutable libmaus2::aio::ConcatInputStream conc;
+	unsigned int const shift;
+	
+	typedef DataAccessor<data_type,projector_type> this_type;
+	typedef libmaus2::util::ConstIterator<this_type,uint64_t> const_iterator;
+	
+	DataAccessor(std::vector<std::string> const & rinfn, unsigned int const rshift)
+	: infn(rinfn), conc(infn), shift(rshift)
+	{
+	
+	}
+	
+	const_iterator begin() const
+	{
+		const_iterator it(this,0);
+		return it;
+	}
+	
+	const_iterator end() const
+	{
+		const_iterator it = begin();
+		it += size();
+		return it;
+	}
+	
+	uint64_t size() const
+	{
+		conc.clear();
+		conc.seekg(0,std::ios::end);
+		std::streampos const p = conc.tellg();
+		assert ( p >= 0 );
+		assert ( p % sizeof(data_type) == 0 );
+		return p / sizeof(data_type);
+	}
+	
+	uint64_t get(uint64_t const i) const
+	{
+		conc.clear();
+		conc.seekg(i*sizeof(data_type),std::ios::beg);
+		assert ( conc.tellg() == static_cast<std::streampos>(i*sizeof(data_type)) );
+		data_type D;
+		conc.read(reinterpret_cast<char *>(&D),sizeof(D));
+		assert ( conc.gcount() == sizeof(D) );
+		return (projector_type::project(D) >> shift);
+	}
+};
+
+template<typename a_type, typename b_type>
+struct PairFirstProjectorType
+{
+	static a_type project(std::pair<a_type,b_type> const & P)
+	{
+		return P.first;
+	}
+};
+
+template<typename a_type, typename b_type>
+struct PairSecondProjectorType
+{
+	static a_type project(std::pair<a_type,b_type> const & P)
+	{
+		return P.second;
+	}
+};
+
+template<typename data_type>
+struct IdentityProjector
+{
+	static data_type project(data_type const & D)
+	{
+		return D;
+	}
+};
+
 
 static std::vector<uint64_t> loadHMap(std::string const & hist)
 {
@@ -619,11 +702,64 @@ static std::vector< uint64_t > getSplitBlocks(uint64_t const tnum, uint64_t cons
 	return V;
 }
 
+
 int main(int argc, char * argv[])
 {
 	try
 	{
 		libmaus2::util::ArgInfo const arginfo(argc,argv);
+		std::string const tmpfilenamebase = arginfo.getUnparsedValue("tmpprefix",arginfo.getDefaultTmpFileName());
+
+		#if 0
+		{
+			uint64_t const n = 512ull*1024ull*1024ull; //*1024;
+			uint64_t const m = 128ull*1024ull*1024ull; //*1024;
+			std::vector<uint64_t> V;
+			std::string const tmpin = tmpfilenamebase + "_primin";
+			libmaus2::util::TempFileRemovalContainer::addTempFile(tmpin);
+			{
+				libmaus2::aio::OutputStreamInstance OSI(tmpin);
+				libmaus2::aio::SynchronousGenericOutput<uint64_t> S(OSI,64*1024);
+				for ( uint64_t i = 0; i < m; ++i )
+				{
+					uint64_t const v = libmaus2::random::Random::rand64() % n;
+					S.put(v);
+					V.push_back(v);
+				}
+				std::sort(V.begin(),V.end());
+				std::vector<uint64_t>::iterator it = std::unique(V.begin(),V.end());
+				V.resize(it-V.begin());
+				
+				S.flush();
+				OSI.flush();
+			}
+
+			libmaus2::util::TempFileRemovalContainer::addTempFile(tmpfilenamebase+"_out");
+			SemiExternalKeyTupleSort::sort< uint64_t,IdentityProjector<uint64_t>,uint64_t,IdentityProjector<uint64_t> >(
+				std::vector<std::string>(1,tmpin), 
+				tmpfilenamebase, tmpfilenamebase+"_out", n, 32 /* num threads */, 2048 /* max files */, 
+				1024 /* max mem */, true /* remove input */
+			);
+			
+			libmaus2::aio::SynchronousGenericInput<uint64_t> Sin(tmpfilenamebase+"_out",8*1024);
+			int64_t prev = -1;
+			uint64_t v = 0;
+			uint64_t i = 0;
+			while ( Sin.getNext(v) )
+			{
+				assert ( i < V.size() );
+				assert ( static_cast<int64_t>(v) > prev );
+				
+				if ( V[i] != v )
+					std::cerr << "expecting " << V[i] << " got " << v << std::endl;
+				assert ( v == V[i++] );
+			}
+			
+			libmaus2::aio::FileRemoval::removeFile(tmpfilenamebase+"_out");
+
+			return 0;
+		}
+		#endif
 
 		if ( arginfo.getNumRestArgs() < 1 )
 		{
@@ -659,7 +795,6 @@ int main(int argc, char * argv[])
 
 		uint64_t const sasamplingrate = arginfo.getValueUnsignedNumeric<uint64_t>("sasamplingrate",32);
 		uint64_t const isasamplingrate = arginfo.getValueUnsignedNumeric<uint64_t>("isasamplingrate",32);
-		std::string const tmpfilenamebase = arginfo.getUnparsedValue("tmpprefix",arginfo.getDefaultTmpFileName());
 
 		libmaus2::autoarray::AutoArray<uint64_t>::unique_ptr_type ref_isa;
 		if ( arginfo.hasArg("ref_isa") )
@@ -722,10 +857,6 @@ int main(int argc, char * argv[])
 		// bit masks for sa and isa sampling rates
 		uint64_t const sasamplingmask = sasamplingrate-1;
 		uint64_t const isasamplingmask = isasamplingrate-1;
-
-		// sorting output buffers for sa and isa
-		libmaus2::sorting::SortingBufferedOutputFile<SaPair> sasorter(satmpfn,64*1024);
-		libmaus2::sorting::SortingBufferedOutputFile<IsaPair> isasorter(isatmpfn,64*1024);
 
 		// input file vector
 		std::vector<std::string> Vbwtin(1,bwt);
@@ -976,6 +1107,40 @@ int main(int argc, char * argv[])
 		libmaus2::parallel::PosixSpinLock salock;
 		libmaus2::parallel::PosixSpinLock isalock;
 
+		uint64_t const numrblocks =  Vsplitblocks.size() - 1;
+		std::vector<std::string> Vsatmpfn(numrblocks);
+		std::vector<std::string> Visatmpfn(numrblocks);
+		libmaus2::autoarray::AutoArray< libmaus2::aio::SynchronousGenericOutput<std::pair<uint64_t,uint64_t> >::unique_ptr_type  > Asaout(numrblocks);
+		libmaus2::autoarray::AutoArray< libmaus2::aio::SynchronousGenericOutput<std::pair<uint64_t,uint64_t> >::unique_ptr_type  > Aisaout(numrblocks);
+
+		#if 0
+		libmaus2::autoarray::AutoArray< libmaus2::sorting::SortingBufferedOutputFile<SaPair>::unique_ptr_type  > Asasorters(numrblocks);
+		libmaus2::autoarray::AutoArray< libmaus2::sorting::SortingBufferedOutputFile<IsaPair>::unique_ptr_type > Aisasorters(numrblocks);
+		#endif
+		
+		for ( uint64_t i = 0; i < numrblocks; ++i )
+		{
+			Vsatmpfn[i] = satmpfn + "_" + libmaus2::util::NumberSerialisation::formatNumber(i,6);
+			libmaus2::util::TempFileRemovalContainer::addTempFile(Vsatmpfn[i]);
+			#if 0
+			libmaus2::sorting::SortingBufferedOutputFile<SaPair>::unique_ptr_type tptr(new libmaus2::sorting::SortingBufferedOutputFile<SaPair>(Vsatmpfn[i],8*1024));
+			Asasorters[i] = UNIQUE_PTR_MOVE(tptr);
+			#endif
+			libmaus2::aio::SynchronousGenericOutput<std::pair<uint64_t,uint64_t> >::unique_ptr_type Tptr(new libmaus2::aio::SynchronousGenericOutput<std::pair<uint64_t,uint64_t> >(Vsatmpfn[i],8*1024));
+			Asaout[i] = UNIQUE_PTR_MOVE(Tptr);
+		}
+		for ( uint64_t i = 0; i < numrblocks; ++i )
+		{
+			Visatmpfn[i] = isatmpfn + "_" + libmaus2::util::NumberSerialisation::formatNumber(i,6);
+			libmaus2::util::TempFileRemovalContainer::addTempFile(Visatmpfn[i]);
+			#if 0
+			libmaus2::sorting::SortingBufferedOutputFile<IsaPair>::unique_ptr_type tptr(new libmaus2::sorting::SortingBufferedOutputFile<IsaPair>(Visatmpfn[i],8*1024));
+			Aisasorters[i] = UNIQUE_PTR_MOVE(tptr);
+			#endif
+			libmaus2::aio::SynchronousGenericOutput<std::pair<uint64_t,uint64_t> >::unique_ptr_type Tptr(new libmaus2::aio::SynchronousGenericOutput<std::pair<uint64_t,uint64_t> >(Visatmpfn[i],8*1024));
+			Aisaout[i] = UNIQUE_PTR_MOVE(Tptr);
+		}
+
 		// iterate pre isa sampling rate times (pre isa samples are at most at distance preisasamplingrate from each other)
 		for ( uint64_t run = 0; run < preisasamplingrate; ++run )
 		{
@@ -1030,6 +1195,13 @@ int main(int argc, char * argv[])
 					uint64_t const rfrom = piasplit[t-1].first;
 					uint64_t const rto = piasplit[t].first;
 					uint64_t const preisafrom = piasplit[t-1].second;
+
+					#if 0
+					libmaus2::sorting::SortingBufferedOutputFile<SaPair> & sasorter  = *(Asasorters[t-1]);
+					libmaus2::sorting::SortingBufferedOutputFile<IsaPair> & isasorter = *(Aisasorters[t-1]);
+					#endif
+					libmaus2::aio::SynchronousGenericOutput<std::pair<uint64_t,uint64_t> > & saout = *(Asaout[t-1]);
+					libmaus2::aio::SynchronousGenericOutput<std::pair<uint64_t,uint64_t> > & isaout = *(Aisaout[t-1]);
 
 					salock.lock();
 					std::cerr << "[V] t=" << t << " rfrom=" << rfrom << " rto=" << rto << " preisafrom=" << preisafrom << std::endl;
@@ -1115,9 +1287,10 @@ int main(int argc, char * argv[])
 
 						if ( (P.first & sasamplingmask) == 0 )
 						{
-							salock.lock();
-							sasorter.put(SaPair(P.first,P.second));
-							salock.unlock();
+							//salock.lock();
+							//sasorter.put(SaPair(P.first,P.second));
+							saout.put(std::pair<uint64_t,uint64_t>(P.first,P.second));
+							//salock.unlock();
 
 							if ( ref_sa )
 							{
@@ -1135,9 +1308,10 @@ int main(int argc, char * argv[])
 						}
 						if ( (P.second & isasamplingmask) == 0 )
 						{
-							isalock.lock();
-							isasorter.put(IsaPair(P.second,P.first));
-							isalock.unlock();
+							//isalock.lock();
+							//isasorter.put(IsaPair(P.second,P.first));
+							isaout.put(std::pair<uint64_t,uint64_t>(P.second,P.first));
+							//isalock.unlock();
 
 							if ( ref_isa )
 							{
@@ -1370,11 +1544,61 @@ int main(int argc, char * argv[])
 			isain = goutfilenames;
 			deletein = true;
 		}
+		
+		for ( uint64_t i = 0; i < Asaout.size(); ++i )
+		{
+			Asaout[i]->flush();
+			Asaout[i].reset();
+		}
 
-		libmaus2::aio::OutputStreamInstance saout(libmaus2::util::OutputFileNameTools::clipOff(origbwt,".bwt") + ".sa");
-		::libmaus2::serialize::Serialize<uint64_t>::serialize(saout,sasamplingrate);
-		::libmaus2::serialize::Serialize<uint64_t>::serialize(saout,(n+sasamplingrate-1)/sasamplingrate);
-		libmaus2::sorting::SortingBufferedOutputFile<SaPair>::merger_ptr_type samerger(sasorter.getMerger());
+		for ( uint64_t i = 0; i < Aisaout.size(); ++i )
+		{
+			Aisaout[i]->flush();
+			Aisaout[i].reset();
+		}
+
+		libmaus2::aio::OutputStreamInstance::unique_ptr_type saout(new libmaus2::aio::OutputStreamInstance(libmaus2::util::OutputFileNameTools::clipOff(origbwt,".bwt") + ".sa"));
+		::libmaus2::serialize::Serialize<uint64_t>::serialize(*saout,sasamplingrate);
+		::libmaus2::serialize::Serialize<uint64_t>::serialize(*saout,(n+sasamplingrate-1)/sasamplingrate);
+		libmaus2::sorting::SemiExternalKeyTupleSort::sort< std::pair<uint64_t,uint64_t>,PairFirstProjectorType<uint64_t,uint64_t>,uint64_t,PairSecondProjectorType<uint64_t,uint64_t> >(Vsatmpfn,tmpfilenamebase + "_final_sa_tmp_",*saout,n,numthreads,1024 /* max files */,2ull*1024ull*1024ull*1024ull /* max mem */, true /* remove input */);
+		saout->flush();
+		saout.reset();
+
+		libmaus2::aio::OutputStreamInstance::unique_ptr_type isaout(new libmaus2::aio::OutputStreamInstance(libmaus2::util::OutputFileNameTools::clipOff(origbwt,".bwt") + ".isa"));
+		::libmaus2::serialize::Serialize<uint64_t>::serialize(*isaout,isasamplingrate);
+		::libmaus2::serialize::Serialize<uint64_t>::serialize(*isaout,(n+isasamplingrate-1)/isasamplingrate);
+		libmaus2::sorting::SemiExternalKeyTupleSort::sort< std::pair<uint64_t,uint64_t>,PairFirstProjectorType<uint64_t,uint64_t>,uint64_t,PairSecondProjectorType<uint64_t,uint64_t> >(Visatmpfn,tmpfilenamebase + "_final_isa_tmp_",*isaout,n,numthreads,1024 /* max files */,2ull*1024ull*1024ull*1024ull /* max mem */, true /* remove input */);
+		isaout->flush();
+		isaout.reset();
+
+		// final sorting output buffers for sa and isa
+		#if 0
+		libmaus2::sorting::SortingBufferedOutputFile<SaPair> sasorter(satmpfn,64*1024);
+		libmaus2::sorting::SortingBufferedOutputFile<IsaPair> isasorter(isatmpfn,64*1024);
+
+		for ( uint64_t i = 0; i < Vsatmpfn.size(); ++i )
+		{
+			libmaus2::sorting::SortingBufferedOutputFile<SaPair>::merger_ptr_type Pmerger(Asasorters[i]->getMerger(8*1024));
+			SaPair P;
+			while ( Pmerger->getNext(P) )
+				sasorter.put(P);
+			Asasorters[i].reset();
+			libmaus2::aio::FileRemoval::removeFile(Vsatmpfn[i]);
+		}
+		for ( uint64_t i = 0; i < Visatmpfn.size(); ++i )
+		{
+			libmaus2::sorting::SortingBufferedOutputFile<IsaPair>::merger_ptr_type Pmerger(Aisasorters[i]->getMerger(8*1024));
+			IsaPair P;
+			while ( Pmerger->getNext(P) )
+				isasorter.put(P);
+			Aisasorters[i].reset();
+			libmaus2::aio::FileRemoval::removeFile(Visatmpfn[i]);
+		}
+
+		libmaus2::aio::OutputStreamInstance::unique_ptr_type saout(new libmaus2::aio::OutputStreamInstance(libmaus2::util::OutputFileNameTools::clipOff(origbwt,".bwt") + ".sa"));
+		::libmaus2::serialize::Serialize<uint64_t>::serialize(*saout,sasamplingrate);
+		::libmaus2::serialize::Serialize<uint64_t>::serialize(*saout,(n+sasamplingrate-1)/sasamplingrate);
+		libmaus2::sorting::SortingBufferedOutputFile<SaPair>::merger_ptr_type samerger(sasorter.getMerger(8*1024));
 		SaPair SaT;
 		uint64_t prevr = std::numeric_limits<uint64_t>::max();
 		uint64_t esa = 0;
@@ -1388,14 +1612,16 @@ int main(int argc, char * argv[])
 				bool const ok = (SaT.r/sasamplingrate) == (esa++);
 				assert ( ok );
 
-				::libmaus2::serialize::Serialize<uint64_t>::serialize(saout,SaT.p);
+				::libmaus2::serialize::Serialize<uint64_t>::serialize(*saout,SaT.p);
 				prevr = SaT.r;
 			}
+		saout->flush();
+		saout.reset();
 
-		libmaus2::aio::OutputStreamInstance isaout(libmaus2::util::OutputFileNameTools::clipOff(origbwt,".bwt") + ".isa");
-		::libmaus2::serialize::Serialize<uint64_t>::serialize(isaout,isasamplingrate);
-		::libmaus2::serialize::Serialize<uint64_t>::serialize(isaout,(n+isasamplingrate-1)/isasamplingrate);
-		libmaus2::sorting::SortingBufferedOutputFile<IsaPair>::merger_ptr_type isamerger(isasorter.getMerger());
+		libmaus2::aio::OutputStreamInstance::unique_ptr_type isaout(new libmaus2::aio::OutputStreamInstance(libmaus2::util::OutputFileNameTools::clipOff(origbwt,".bwt") + ".isa"));
+		::libmaus2::serialize::Serialize<uint64_t>::serialize(*isaout,isasamplingrate);
+		::libmaus2::serialize::Serialize<uint64_t>::serialize(*isaout,(n+isasamplingrate-1)/isasamplingrate);
+		libmaus2::sorting::SortingBufferedOutputFile<IsaPair>::merger_ptr_type isamerger(isasorter.getMerger(8*1024));
 		IsaPair IsaT;
 		uint64_t prevp = std::numeric_limits<uint64_t>::max();
 		uint64_t eisa = 0;
@@ -1410,9 +1636,12 @@ int main(int argc, char * argv[])
 				bool const ok = (IsaT.p/isasamplingrate) == (eisa++);
 				assert ( ok );
 
-				::libmaus2::serialize::Serialize<uint64_t>::serialize(isaout,IsaT.r);
+				::libmaus2::serialize::Serialize<uint64_t>::serialize(*isaout,IsaT.r);
 				prevp = IsaT.p;
 			}
+		isaout->flush();
+		isaout.reset();
+		#endif
 	}
 	catch(std::exception const & ex)
 	{

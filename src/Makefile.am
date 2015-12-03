@@ -7,6 +7,7 @@ bin_PROGRAMS = \
 	bwtb3mtobwa \
 	bytestreamToLz4 \
 	fagzToCompact \
+	fagzToCompact4 \
 	hwtToRlHwt \
 	probeScanDna \
 	digitsToCompact \
@@ -14,7 +15,10 @@ bin_PROGRAMS = \
 	sortPreIsa \
 	bwtdecodeblock \
 	bwtcomputessa \
-	bwttestdecodespeed
+	bwttestdecodespeed \
+	arraytocompact \
+	fa4suffixarraytocompact \
+	bwttodnarank
 noinst_HEADERS = 
 
 bwtb3m_SOURCES = bwtb3m.cpp
@@ -25,9 +29,13 @@ allHamDna_SOURCES = allHamDna.cpp
 hwtToRlHwt_SOURCES = hwtToRlHwt.cpp
 probeScanDna_SOURCES = probeScanDna.cpp
 fagzToCompact_SOURCES = fagzToCompact.cpp
+fagzToCompact4_SOURCES = fagzToCompact4.cpp
 digitsToCompact_SOURCES = digitsToCompact.cpp
 hwtToLCP_SOURCES = hwtToLCP.cpp
 sortPreIsa_SOURCES = sortPreIsa.cpp
 bwtdecodeblock_SOURCES = bwtdecodeblock.cpp
 bwtcomputessa_SOURCES = bwtcomputessa.cpp
 bwttestdecodespeed_SOURCES = bwttestdecodespeed.cpp
+arraytocompact_SOURCES = arraytocompact.cpp
+fa4suffixarraytocompact_SOURCES = fa4suffixarraytocompact.cpp
+bwttodnarank_SOURCES = bwttodnarank.cpp
