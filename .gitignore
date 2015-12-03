@@ -45,3 +45,8 @@ src/sortPreIsa
 bumpversion.sh
 src/bwtcomputessa
 src/bwttestdecodespeed
+src/arraytocompact
+src/bwttodnarank
+src/bwttodnkarank
+src/fa4suffixarraytocompact
+src/fagzToCompact4
