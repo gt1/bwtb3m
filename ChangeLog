@@ -1,3 +1,16 @@
+bwtb3m (0.0.16-1) unstable; urgency=medium
+
+  * improve external memory sorting in bwtcomputessa
+  * add arraytocompact, bwttodnarank, fa4suffixarraytocompact and fagzToCompact4 programs
+  * change default output file name for bwt file in bwtb3m
+  * change default preisasamplingrate to 64 if bwtonly=1 in bwtb3m
+  * construct additional input file names from BWT file name instead of expecting them on the command line
+  * improve exception handling in OMP area
+  * update output file names in bwtcomputessa
+  * switch to using runlength encoding instead of decoding single symbols in bwtcomputessa
+
+ -- German Tischler <gt1@sanger.ac.uk>  Thu, 03 Dec 2015 20:52:18 +0100
+
 bwtb3m (0.0.15-1) unstable; urgency=medium
 
   * update bwtcomputessa to handle larger alphabets 
