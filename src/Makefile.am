@@ -18,7 +18,8 @@ bin_PROGRAMS = \
 	bwttestdecodespeed \
 	arraytocompact \
 	fa4suffixarraytocompact \
-	bwttodnarank
+	bwttodnarank \
+	sasubsample
 noinst_HEADERS = 
 
 bwtb3m_SOURCES = bwtb3m.cpp
@@ -39,3 +40,4 @@ bwttestdecodespeed_SOURCES = bwttestdecodespeed.cpp
 arraytocompact_SOURCES = arraytocompact.cpp
 fa4suffixarraytocompact_SOURCES = fa4suffixarraytocompact.cpp
 bwttodnarank_SOURCES = bwttodnarank.cpp
+sasubsample_SOURCES = sasubsample.cpp
