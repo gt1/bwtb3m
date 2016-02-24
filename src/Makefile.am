@@ -19,7 +19,9 @@ bin_PROGRAMS = \
 	arraytocompact \
 	fa4suffixarraytocompact \
 	bwttodnarank \
-	sasubsample
+	sasubsample \
+	fagzToCompact4BigBand \
+	decodecompact
 noinst_HEADERS = 
 
 bwtb3m_SOURCES = bwtb3m.cpp
@@ -41,3 +43,5 @@ arraytocompact_SOURCES = arraytocompact.cpp
 fa4suffixarraytocompact_SOURCES = fa4suffixarraytocompact.cpp
 bwttodnarank_SOURCES = bwttodnarank.cpp
 sasubsample_SOURCES = sasubsample.cpp
+fagzToCompact4BigBand_SOURCES = fagzToCompact4BigBand.cpp
+decodecompact_SOURCES = decodecompact.cpp
