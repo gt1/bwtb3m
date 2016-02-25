@@ -51,3 +51,7 @@ src/bwttodnkarank
 src/fa4suffixarraytocompact
 src/fagzToCompact4
 src/sasubsample
+src/decodecompact
+src/fagzToCompact4BigBand
+testit.sh
+testit.sh.log
