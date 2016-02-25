@@ -24,11 +24,11 @@ int main(int argc, char * argv[])
 	{
 		libmaus2::util::ArgParser const arg(argc,argv);
 		libmaus2::autoarray::AutoArray<char> B(8*1024,false);
-		
+
 		for ( uint64_t i = 0; i < arg.size(); ++i )
 		{
 			libmaus2::bitio::CompactDecoderWrapper CDW(arg[i]);
-			
+
 			while ( CDW )
 			{
 				CDW.read(B.begin(),B.size());
