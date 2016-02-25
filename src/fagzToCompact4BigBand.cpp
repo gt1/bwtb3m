@@ -23,6 +23,7 @@
 #include <libmaus2/util/ArgInfo.hpp>
 #include <libmaus2/aio/InputStreamFactoryContainer.hpp>
 #include <libmaus2/util/OutputFileNameTools.hpp>
+#include <libmaus2/util/TempFileRemovalContainer.hpp>
 
 /*
  * produce 2 bit representation plus meta data from (compressed) fasta file
@@ -112,7 +113,7 @@ int fagzToCompact4BigBand(libmaus2::util::ArgInfo const & arginfo)
 	int const verbose = arginfo.getValue<int>("verbose",1);
 	libmaus2::autoarray::AutoArray<char> B(8*1024,false);
 	libmaus2::bitio::CompactArrayWriterFile compactout(outputfilename,2 /* bits per symbol */);
-	
+
 	libmaus2::aio::OutputStreamInstance::unique_ptr_type replOSI(new libmaus2::aio::OutputStreamInstance(repfastaoutputfilename));
 
 	if ( ! rc )
@@ -138,7 +139,7 @@ int fagzToCompact4BigBand(libmaus2::util::ArgInfo const & arginfo)
 	ctable[1] = 2; // C->G
 	ctable[2] = 1; // G->C
 	ctable[3] = 0; // T->A
-	
+
 	rtable[0] = 'A';
 	rtable[1] = 'C';
 	rtable[2] = 'G';
@@ -149,7 +150,24 @@ int fagzToCompact4BigBand(libmaus2::util::ArgInfo const & arginfo)
 	uint64_t nseq = 0;
 	std::vector<uint64_t> lvec;
 
+	std::string const rcfile = outputfilename + ".rctmp";
+
 	for ( unsigned int rci = 0; rci < (rc?2:1); ++rci )
+	{
+		libmaus2::aio::OutputStreamInstance::unique_ptr_type rctmpOSI;
+		libmaus2::aio::InputStreamInstance::unique_ptr_type rctmpISI;
+		if ( rci == 0 )
+		{
+			libmaus2::util::TempFileRemovalContainer::addTempFile(rcfile);
+			libmaus2::aio::OutputStreamInstance::unique_ptr_type trctmpOSI(new libmaus2::aio::OutputStreamInstance(rcfile));
+			rctmpOSI = UNIQUE_PTR_MOVE(trctmpOSI);
+		}
+		if ( rci == 1 )
+		{
+			libmaus2::aio::InputStreamInstance::unique_ptr_type rrctmpISI(new libmaus2::aio::InputStreamInstance(rcfile));
+			rctmpISI = UNIQUE_PTR_MOVE(rrctmpISI);
+		}
+
 		for ( uint64_t i = 0; i < inputfilenames.size(); ++i )
 		{
 			std::string const fn = inputfilenames[i];
@@ -178,7 +196,6 @@ int fagzToCompact4BigBand(libmaus2::util::ArgInfo const & arginfo)
 				libmaus2::util::NumberSerialisation::serialiseNumber(*metaOut,pattern.spattern.size());
 				lvec.push_back(pattern.spattern.size());
 				libmaus2::util::NumberSerialisation::serialiseNumber(*metaOut,0);
-				
 
 				// map symbols
 				if ( rci )
@@ -192,6 +209,8 @@ int fagzToCompact4BigBand(libmaus2::util::ArgInfo const & arginfo)
 					for ( uint64_t j = 0; j < pattern.spattern.size(); ++j )
 						pattern.spattern[j] = ftable[static_cast<uint8_t>(pattern.spattern[j])];
 				}
+
+				std::vector < std::pair<uint64_t,uint64_t > > Vreplace;
 
 				// replace blocks of N symbols by random bases
 				uint64_t l = 0;
@@ -212,9 +231,7 @@ int fagzToCompact4BigBand(libmaus2::util::ArgInfo const & arginfo)
 					// if non regular block is not empty
 					if ( h-l )
 					{
-						// replace by random bases
-						for ( uint64_t j = l; j < h; ++j )
-							pattern.spattern[j] = (libmaus2::random::Random::rand8() & 3);
+						Vreplace.push_back(std::pair<uint64_t,uint64_t>(l,h));
 
 						// write bounds
 						libmaus2::util::NumberSerialisation::serialiseNumber(*metaOut,l);
@@ -224,6 +241,44 @@ int fagzToCompact4BigBand(libmaus2::util::ArgInfo const & arginfo)
 					}
 
 					l = h;
+				}
+
+				if ( rci == 0 )
+				{
+					// replace N blocks, back to front
+					for ( uint64_t zz = 0; zz < Vreplace.size(); ++zz )
+					{
+						// index back to front
+						uint64_t const z = Vreplace.size()-zz-1;
+						// get interval
+						std::pair<uint64_t,uint64_t > const P = Vreplace[z];
+						uint64_t const l = P.first;
+						uint64_t const h = P.second;
+
+						// replace by random bases
+						for ( uint64_t j = l; j < h; ++j )
+							pattern.spattern[j] = (libmaus2::random::Random::rand8() & 3);
+						// write out WC complement back to front
+						for ( uint64_t j = 0; j < (h-l); ++j )
+							rctmpOSI->put(ctable[pattern.spattern[h-j-1]]);
+					}
+				}
+				else
+				{
+					// replace N blocks front to back
+					for ( uint64_t z = 0; z < Vreplace.size(); ++z )
+					{
+						// get interval
+						std::pair<uint64_t,uint64_t > const P = Vreplace[z];
+						uint64_t const l = P.first;
+						uint64_t const h = P.second;
+						for ( uint64_t j = l; j < h; ++j )
+						{
+							int const c = rctmpISI->get();
+							assert ( c != std::istream::traits_type::eof() );
+							pattern.spattern[j] = c;
+						}
+					}
 				}
 
 				// make sure there are no more irregular bases
@@ -244,7 +299,7 @@ int fagzToCompact4BigBand(libmaus2::util::ArgInfo const & arginfo)
 				{
 					for ( uint64_t j = 0; j < pattern.spattern.size(); ++j )
 						pattern.spattern[j] = rtable[pattern.spattern[j]];
-					
+
 					(*replOSI) << '>' << pattern.sid << '\n';
 					(*replOSI).write(pattern.spattern.c_str(),pattern.spattern.size());
 					replOSI->put('\n');
@@ -257,6 +312,19 @@ int fagzToCompact4BigBand(libmaus2::util::ArgInfo const & arginfo)
 					std::cerr << "done, input size " << formatBytes(pattern.spattern.size()+1) << " acc " << formatBytes(insize) << std::endl;
 			}
 		}
+
+		if ( rctmpOSI )
+		{
+			rctmpOSI->flush();
+			rctmpOSI.reset();
+		}
+		if ( rctmpISI )
+		{
+			assert ( rctmpISI->get() == std::istream::traits_type::eof() );
+		}
+	}
+
+	libmaus2::aio::FileRemoval::removeFile(rcfile);
 
 	metaOut->seekp(0);
 	libmaus2::util::NumberSerialisation::serialiseNumber(*metaOut,nseq);
