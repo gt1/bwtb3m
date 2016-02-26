@@ -1,3 +1,9 @@
+bwtb3m (0.0.19-1) unstable; urgency=medium
+
+  * update to libmaus2 2.0.132 
+
+ -- German Tischler <gt1@sanger.ac.uk>  Fri, 26 Feb 2016 10:44:00 +0100
+
 bwtb3m (0.0.18-1) unstable; urgency=medium
 
   * ensure blocks of indeterminate bases are replace consistently in forward and reverse complement sequences 
