@@ -171,43 +171,54 @@ int fagzToCompact4(libmaus2::util::ArgInfo const & arginfo)
 			for ( uint64_t j = 0; j < pattern.spattern.size(); ++j )
 				pattern.spattern[j] = ftable[static_cast<uint8_t>(pattern.spattern[j])];
 
+			// replace blocks of N symbols by random bases
 			uint64_t l = 0;
+			// number of replaced blocks
 			uint64_t nr = 0;
 			while ( l < pattern.spattern.size() )
 			{
+				// skip regular bases
 				while ( l < pattern.spattern.size() && pattern.spattern[l] < 4 )
 					++l;
 				assert ( l == pattern.spattern.size() || pattern.spattern[l] == 4 );
 
+				// go to end of non regular bases block
 				uint64_t h = l;
 				while ( h < pattern.spattern.size() && pattern.spattern[h] == 4 )
 					++h;
 
+				// if non regular block is not empty
 				if ( h-l )
 				{
+					// replace by random bases
 					for ( uint64_t j = l; j < h; ++j )
 						pattern.spattern[j] = (libmaus2::random::Random::rand8() & 3);
 
+					// write bounds
 					libmaus2::util::NumberSerialisation::serialiseNumber(*metaOut,l);
 					libmaus2::util::NumberSerialisation::serialiseNumber(*metaOut,h);
+					// add to interval counter
 					nr += 1;
 				}
 
 				l = h;
 			}
 
+			// make sure there are no more irregular bases
 			for ( uint64_t j = 0; j < pattern.spattern.size(); ++j )
-			{
 				assert ( pattern.spattern[j] < 4 );
-			}
 
+			// go back to start of meta data
 			metaOut->seekp( - static_cast<int64_t>(2*nr+1)*sizeof(uint64_t), std::ios::cur );
+			// write number of intervals replaced
 			libmaus2::util::NumberSerialisation::serialiseNumber(*metaOut,nr);
+			// skip interval bounds already written
 			metaOut->seekp(   static_cast<int64_t>(2*nr  )*sizeof(uint64_t), std::ios::cur );
 
-			// write
+			// write bases
 			compactout.write(pattern.spattern.c_str(),pattern.spattern.size());
 
+			// write reverse complement if requested
 			if ( rc )
 			{
 				// reverse complement

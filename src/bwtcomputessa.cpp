@@ -40,29 +40,29 @@ struct DataAccessor
 	std::vector<std::string> const & infn;
 	mutable libmaus2::aio::ConcatInputStream conc;
 	unsigned int const shift;
-	
+
 	typedef DataAccessor<data_type,projector_type> this_type;
 	typedef libmaus2::util::ConstIterator<this_type,uint64_t> const_iterator;
-	
+
 	DataAccessor(std::vector<std::string> const & rinfn, unsigned int const rshift)
 	: infn(rinfn), conc(infn), shift(rshift)
 	{
-	
+
 	}
-	
+
 	const_iterator begin() const
 	{
 		const_iterator it(this,0);
 		return it;
 	}
-	
+
 	const_iterator end() const
 	{
 		const_iterator it = begin();
 		it += size();
 		return it;
 	}
-	
+
 	uint64_t size() const
 	{
 		conc.clear();
@@ -72,7 +72,7 @@ struct DataAccessor
 		assert ( p % sizeof(data_type) == 0 );
 		return p / sizeof(data_type);
 	}
-	
+
 	uint64_t get(uint64_t const i) const
 	{
 		conc.clear();
@@ -729,18 +729,18 @@ int main(int argc, char * argv[])
 				std::sort(V.begin(),V.end());
 				std::vector<uint64_t>::iterator it = std::unique(V.begin(),V.end());
 				V.resize(it-V.begin());
-				
+
 				S.flush();
 				OSI.flush();
 			}
 
 			libmaus2::util::TempFileRemovalContainer::addTempFile(tmpfilenamebase+"_out");
 			SemiExternalKeyTupleSort::sort< uint64_t,IdentityProjector<uint64_t>,uint64_t,IdentityProjector<uint64_t> >(
-				std::vector<std::string>(1,tmpin), 
-				tmpfilenamebase, tmpfilenamebase+"_out", n, 32 /* num threads */, 2048 /* max files */, 
+				std::vector<std::string>(1,tmpin),
+				tmpfilenamebase, tmpfilenamebase+"_out", n, 32 /* num threads */, 2048 /* max files */,
 				1024 /* max mem */, true /* remove input */
 			);
-			
+
 			libmaus2::aio::SynchronousGenericInput<uint64_t> Sin(tmpfilenamebase+"_out",8*1024);
 			int64_t prev = -1;
 			uint64_t v = 0;
@@ -749,12 +749,12 @@ int main(int argc, char * argv[])
 			{
 				assert ( i < V.size() );
 				assert ( static_cast<int64_t>(v) > prev );
-				
+
 				if ( V[i] != v )
 					std::cerr << "expecting " << V[i] << " got " << v << std::endl;
 				assert ( v == V[i++] );
 			}
-			
+
 			libmaus2::aio::FileRemoval::removeFile(tmpfilenamebase+"_out");
 
 			return 0;
@@ -1117,7 +1117,7 @@ int main(int argc, char * argv[])
 		libmaus2::autoarray::AutoArray< libmaus2::sorting::SortingBufferedOutputFile<SaPair>::unique_ptr_type  > Asasorters(numrblocks);
 		libmaus2::autoarray::AutoArray< libmaus2::sorting::SortingBufferedOutputFile<IsaPair>::unique_ptr_type > Aisasorters(numrblocks);
 		#endif
-		
+
 		for ( uint64_t i = 0; i < numrblocks; ++i )
 		{
 			Vsatmpfn[i] = satmpfn + "_" + libmaus2::util::NumberSerialisation::formatNumber(i,6);
@@ -1544,7 +1544,7 @@ int main(int argc, char * argv[])
 			isain = goutfilenames;
 			deletein = true;
 		}
-		
+
 		for ( uint64_t i = 0; i < Asaout.size(); ++i )
 		{
 			Asaout[i]->flush();

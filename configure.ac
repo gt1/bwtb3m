@@ -1,4 +1,4 @@
-AC_INIT(bwtb3m,0.0.16,[gt1@sanger.ac.uk],[bwtb3m],[http://www.sanger.ac.uk])
+AC_INIT(bwtb3m,0.0.19,[gt1@sanger.ac.uk],[bwtb3m],[http://www.sanger.ac.uk])
 AC_CANONICAL_SYSTEM
 AC_PROG_LIBTOOL
 
@@ -36,7 +36,7 @@ if test ! -z "${with_libmaus2}" ; then
 	fi
 fi
 
-PKG_CHECK_MODULES([libmaus2],[libmaus2 >= 2.0.111])
+PKG_CHECK_MODULES([libmaus2],[libmaus2 >= 2.0.132])
 
 if test ! -z "${with_libmaus2}" ; then
 	if test ! -z "${PKGCONFIGPATHSAVE}" ; then
