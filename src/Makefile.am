@@ -19,7 +19,7 @@ bin_PROGRAMS = \
 	arraytocompact \
 	fa4suffixarraytocompact \
 	bwttodnarank \
-	bwttohwt
+	bwttohwt \
 	sasubsample \
 	fagzToCompact4BigBand \
 	decodecompact
@@ -47,4 +47,3 @@ bwttohwt_SOURCES = bwttohwt.cpp
 sasubsample_SOURCES = sasubsample.cpp
 fagzToCompact4BigBand_SOURCES = fagzToCompact4BigBand.cpp
 decodecompact_SOURCES = decodecompact.cpp
-
