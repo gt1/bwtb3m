@@ -1,3 +1,9 @@
+bwtb3m (0.0.20-1) unstable; urgency=medium
+
+  * add replrc parameter in fagzToCompact4BigBand 
+
+ -- German Tischler <gt1@sanger.ac.uk>  Sun, 28 Feb 2016 13:27:12 +0100
+
 bwtb3m (0.0.19-1) unstable; urgency=medium
 
   * update to libmaus2 2.0.132 
