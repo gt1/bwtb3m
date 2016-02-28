@@ -84,6 +84,7 @@ int fagzToCompact4BigBand(libmaus2::util::ArgInfo const & arginfo)
 {
 	bool const rc = arginfo.getValue<unsigned int>("rc",1);
 	bool const gz = arginfo.getValue<unsigned int>("gz",1);
+	bool const replrc = arginfo.getValue<unsigned int>("replrc",1);
 
 	std::vector<std::string> inputfilenames;
 	inputfilenames = arginfo.restargs;
@@ -295,7 +296,7 @@ int fagzToCompact4BigBand(libmaus2::util::ArgInfo const & arginfo)
 				// write bases
 				compactout.write(pattern.spattern.c_str(),pattern.spattern.size());
 
-				// if ( ! rci )
+				if ( (!rci) || (rci && replrc) )
 				{
 					for ( uint64_t j = 0; j < pattern.spattern.size(); ++j )
 						pattern.spattern[j] = rtable[pattern.spattern[j]];
@@ -346,7 +347,8 @@ int fagzToCompact4BigBand(libmaus2::util::ArgInfo const & arginfo)
 	}
 	assert ( metaISI->peek() == std::istream::traits_type::eof() );
 
-	std::cerr << "Done, total input size " << insize << std::endl;
+	if ( verbose )
+		std::cerr << "[V] Done, total input size " << insize << std::endl;
 
 	compactout.flush();
 
