@@ -55,3 +55,4 @@ src/decodecompact
 src/fagzToCompact4BigBand
 testit.sh
 testit.sh.log
+src/bwttohwt
