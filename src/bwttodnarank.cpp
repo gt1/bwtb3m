@@ -18,6 +18,7 @@
 #include <libmaus2/util/ArgParser.hpp>
 #include <libmaus2/util/OutputFileNameTools.hpp>
 #include <libmaus2/rank/DNARank.hpp>
+#include <libmaus2/parallel/NumCpus.hpp>
 
 /**
  * convert a BWT over 4 symbols (0,1,2,3) to a serialised DNARank object
@@ -27,9 +28,10 @@ int main(int argc, char * argv[])
 	try
 	{
 		libmaus2::util::ArgParser const arg(argc,argv);
+		unsigned int const numthreads = libmaus2::parallel::NumCpus::getNumLogicalProcessors();
 		std::string const fn = arg[0];
 		std::string const outfn = libmaus2::util::OutputFileNameTools::clipOff(fn,".bwt") + ".dnarank";
-		libmaus2::rank::DNARank::unique_ptr_type Prank(libmaus2::rank::DNARank::loadFromRunLength(fn));
+		libmaus2::rank::DNARank::unique_ptr_type Prank(libmaus2::rank::DNARank::loadFromRunLength(fn,numthreads));
 		libmaus2::aio::OutputStreamInstance::unique_ptr_type OSI(new libmaus2::aio::OutputStreamInstance(outfn));
 		Prank->serialise(*OSI);
 		OSI->flush();
