@@ -29,6 +29,7 @@
 #include <libmaus2/util/FileTempFileContainer.hpp>
 #include <libmaus2/util/Histogram.hpp>
 #include <libmaus2/wavelet/ImpHuffmanWaveletTree.hpp>
+#include <libmaus2/parallel/NumCpus.hpp>
 
 int main(int argc, char * argv[])
 {
@@ -40,6 +41,7 @@ int main(int argc, char * argv[])
 		libmaus2::util::TempFileNameGenerator tmpgen(tmpfilenamebase+"_lcpdir",3);
 		libmaus2::util::FileTempFileContainer tmpcont(tmpgen);
 
+		uint64_t const numthreads = libmaus2::parallel::NumCpus::getNumLogicalProcessors();
 		std::string const namebase = arginfo.getRestArg<std::string>(0);
 		bool const showavg = arginfo.getValue<bool>("showavg",false);
 		bool const checklcp = arginfo.getValue<bool>("checklcp",false);
@@ -53,7 +55,7 @@ int main(int argc, char * argv[])
 
 		std::cerr << "[V] Loading index...";
 		::libmaus2::lf::ImpCompactHuffmanWaveletLF::unique_ptr_type PIHWLF =
-			UNIQUE_PTR_MOVE(::libmaus2::lf::ImpCompactHuffmanWaveletLF::load(hwtname));
+			UNIQUE_PTR_MOVE(::libmaus2::lf::ImpCompactHuffmanWaveletLF::load(hwtname,numthreads));
 		::libmaus2::lf::ImpCompactHuffmanWaveletLF const & IHWLF = *PIHWLF;
 		std::cerr << "done." << std::endl;
 
@@ -61,7 +63,7 @@ int main(int argc, char * argv[])
 		std::cerr << "[V] Computing LCP array...";
 		rtc.start();
 		::libmaus2::lcp::WaveletLCPResult::unique_ptr_type LCP =
-			::libmaus2::lcp::WaveletLCP::computeLCP(&IHWLF,false /* zero symbols are not distinct */);
+			::libmaus2::lcp::WaveletLCP::computeLCP(&IHWLF,numthreads,false /* zero symbols are not distinct */,&(std::cerr));
 		std::cerr << "done, time " << rtc.getElapsedSeconds() << std::endl;
 
 		std::cerr << "[V] Writing LCP array...";
@@ -87,23 +89,18 @@ int main(int argc, char * argv[])
 		rtc.start();
 		{
 		::libmaus2::aio::OutputStreamInstance lcpCOS(lcpname);
-		succinct_lcp_type::writeSuccinctLCP(IHWLF,ISA,*LCP,lcpCOS,tmpcont,false /* verbose */);
+		succinct_lcp_type::writeSuccinctLCP(IHWLF,ISA,*LCP,lcpCOS,tmpcont,numthreads,&(std::cerr) /* verbose */);
 		lcpCOS.flush();
 		}
 		std::cerr << "done, time " << rtc.getElapsedSeconds()  << std::endl;
-
-		#if defined(_OPENMP)
-		uint64_t const numthreads = omp_get_max_threads();
-		#else
-		uint64_t const numthreads = 1;
-		#endif
 
 		// create rmm tree
 		if ( creatermmtree )
 		{
 			::libmaus2::lcp::WaveletLCPResult const & LCPref = *LCP;
 			typedef libmaus2::rmq::RMMTree< ::libmaus2::lcp::WaveletLCPResult ,3> rmm_tree_type;
-			rmm_tree_type rmmtree(LCPref,PIHWLF->n);
+			uint64_t const rmmbuildblocksize = 8*1024*1024;
+			rmm_tree_type rmmtree(LCPref,PIHWLF->n,numthreads,rmmbuildblocksize,&(std::cerr));
 
 			libmaus2::aio::OutputStream::unique_ptr_type Prmmout(libmaus2::aio::OutputStreamFactoryContainer::constructUnique(rmmname));
 			rmmtree.serialise(*Prmmout);
