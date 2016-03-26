@@ -121,7 +121,7 @@ int fagzToCompact4BigBandBiDir(libmaus2::util::ArgInfo const & arginfo)
 	int const verbose = arginfo.getValue<int>("verbose",1);
 
 	libmaus2::aio::OutputStreamInstance::unique_ptr_type replOSI(new libmaus2::aio::OutputStreamInstance(repfastaoutputfilename));
-	
+
 	libmaus2::util::TempFileRemovalContainer::addTempFile(seqtmpfilename);
 	libmaus2::util::TempFileRemovalContainer::addTempFile(metametaoutputfilename);
 
@@ -191,7 +191,7 @@ int fagzToCompact4BigBandBiDir(libmaus2::util::ArgInfo const & arginfo)
 		{
 			if ( verbose )
 				std::cerr << (i+1) << " " << stripAfterDot(basename(fn)) << " " << pattern.sid << "...";
-				
+
 			std::string const & id = pattern.sid;
 			std::string & spattern = pattern.spattern;
 			uint64_t const seqlen = spattern.size();
@@ -199,11 +199,11 @@ int fagzToCompact4BigBandBiDir(libmaus2::util::ArgInfo const & arginfo)
 			assert ( static_cast<int64_t>(metapos) == metaOut->tellp() );
 			libmaus2::util::NumberSerialisation::serialiseNumber(*metametaOut,metapos);
 			libmaus2::util::NumberSerialisation::serialiseNumber(*metametaOut,seqoff);
-			
+
 			// length of sequence
 			libmaus2::util::NumberSerialisation::serialiseNumber(*metaOut,seqlen);
 			lvec.push_back(seqlen);
-			
+
 			for ( uint64_t i = 0; i < seqlen; ++i )
 				spattern[i] = ftable[spattern[i]];
 
@@ -214,7 +214,7 @@ int fagzToCompact4BigBandBiDir(libmaus2::util::ArgInfo const & arginfo)
 			{
 				while ( low < seqlen && spattern[low] < 4 )
 					++low;
-				
+
 				if ( low < seqlen )
 				{
 					assert ( spattern[low] >= 4 );
@@ -227,16 +227,16 @@ int fagzToCompact4BigBandBiDir(libmaus2::util::ArgInfo const & arginfo)
 						assert ( spattern[low-1] < 4 );
 					if ( high < seqlen )
 						assert ( spattern[high] < 4 );
-						
+
 					for ( uint64_t i = low; i < high; ++i )
 						pattern.spattern[i] = (libmaus2::random::Random::rand8() & 3);
-						
+
 					Vreplace.push_back(std::pair<uint64_t,uint64_t>(low,high));
 
 					low = high;
 				}
 			}
-			
+
 			assert ( seqtmpOut->tellp() == static_cast<int64_t>(seqoff) );
 			seqtmpOut->write(spattern.c_str(),seqlen);
 			seqoff += seqlen;
@@ -254,13 +254,13 @@ int fagzToCompact4BigBandBiDir(libmaus2::util::ArgInfo const & arginfo)
 				uint64_t const rest = route-rout;
 				uint64_t const cols = 80;
 				uint64_t const towrite = std::min(rest,cols);
-				
+
 				repfastaOut->write(rout,towrite);
 				repfastaOut->put('\n');
-				
+
 				rout += towrite;
 			}
-			
+
 			// number of replaced intervals
 			libmaus2::util::NumberSerialisation::serialiseNumber(*metaOut,Vreplace.size());
 			// replaced intervals
@@ -271,8 +271,8 @@ int fagzToCompact4BigBandBiDir(libmaus2::util::ArgInfo const & arginfo)
 			}
 
 			metapos += 2*sizeof(uint64_t) + 2 * Vreplace.size() * sizeof(uint64_t);
-			assert ( static_cast<int64_t>(metapos) == metaOut->tellp() );			
-			
+			assert ( static_cast<int64_t>(metapos) == metaOut->tellp() );
+
 			nseq += 1;
 
 			if ( verbose )
@@ -286,7 +286,7 @@ int fagzToCompact4BigBandBiDir(libmaus2::util::ArgInfo const & arginfo)
 	metaOut.reset();
 	metametaOut->flush();
 	metametaOut.reset();
-	
+
 	seqtmpOut->flush();
 	seqtmpOut.reset();
 
@@ -303,7 +303,7 @@ int fagzToCompact4BigBandBiDir(libmaus2::util::ArgInfo const & arginfo)
 	libmaus2::bitio::CompactArrayWriterFile::unique_ptr_type Pcompactrecoout(
 		new libmaus2::bitio::CompactArrayWriterFile(outputfilenamereco,2 /* bits per symbol */)
 	);
-	
+
 	libmaus2::aio::OutputStreamInstance::unique_ptr_type finalmetaOut(new libmaus2::aio::OutputStreamInstance(finalmetaoutputfilename));
 	libmaus2::util::NumberSerialisation::serialiseNumber(*finalmetaOut,2*nseq);
 
@@ -312,23 +312,23 @@ int fagzToCompact4BigBandBiDir(libmaus2::util::ArgInfo const & arginfo)
 	{
 		metametaISI->clear();
 		metametaISI->seekg(i * 2 * sizeof(uint64_t));
-		
+
 		uint64_t const metapos = libmaus2::util::NumberSerialisation::deserialiseNumber(*metametaISI);
 		uint64_t const seqoff = libmaus2::util::NumberSerialisation::deserialiseNumber(*metametaISI);
-		
+
 		metaISI->clear();
 		metaISI->seekg(metapos);
 
 		uint64_t const seqlen = libmaus2::util::NumberSerialisation::deserialiseNumber(*metaISI);
 		uint64_t const replintv = libmaus2::util::NumberSerialisation::deserialiseNumber(*metaISI);
-		
+
 		std::vector < std::pair<uint64_t,uint64_t> > Vreplace(replintv);
 		for ( uint64_t j = 0; j < replintv; ++j )
 		{
 			Vreplace[j].first = libmaus2::util::NumberSerialisation::deserialiseNumber(*metaISI);
 			Vreplace[j].second = libmaus2::util::NumberSerialisation::deserialiseNumber(*metaISI);
 		}
-		
+
 		// write meta data
 		libmaus2::util::NumberSerialisation::serialiseNumber(*finalmetaOut,seqlen);
 		libmaus2::util::NumberSerialisation::serialiseNumber(*finalmetaOut,replintv);
@@ -337,22 +337,22 @@ int fagzToCompact4BigBandBiDir(libmaus2::util::ArgInfo const & arginfo)
 			libmaus2::util::NumberSerialisation::serialiseNumber(*finalmetaOut,Vreplace[j].first);
 			libmaus2::util::NumberSerialisation::serialiseNumber(*finalmetaOut,Vreplace[j].second);
 		}
-				
-		
+
+
 		seqtmpISI->clear();
 		seqtmpISI->seekg(seqoff);
-		
+
 		uint64_t todo = seqlen;
-		
+
 		while ( todo )
 		{
 			uint64_t const tocopy = std::min(todo,B.size());
-			
+
 			seqtmpISI->read(B.begin(),tocopy);
 			assert ( seqtmpISI->gcount() == static_cast<int64_t>(tocopy) );
 			Pcompactout->write(B.begin(),tocopy);
 			Pcompactforwout->write(B.begin(),tocopy);
-			
+
 			todo -= tocopy;
 		}
 
@@ -367,52 +367,52 @@ int fagzToCompact4BigBandBiDir(libmaus2::util::ArgInfo const & arginfo)
 	for ( uint64_t ii = 0; ii < nseq; ++ii )
 	{
 		uint64_t const i = nseq-ii-1;
-	
+
 		metametaISI->clear();
 		metametaISI->seekg(i * 2 * sizeof(uint64_t));
-		
+
 		uint64_t const metapos = libmaus2::util::NumberSerialisation::deserialiseNumber(*metametaISI);
 		uint64_t const seqoff = libmaus2::util::NumberSerialisation::deserialiseNumber(*metametaISI);
-		
+
 		metaISI->clear();
 		metaISI->seekg(metapos);
 
 		uint64_t const seqlen = libmaus2::util::NumberSerialisation::deserialiseNumber(*metaISI);
 		uint64_t const replintv = libmaus2::util::NumberSerialisation::deserialiseNumber(*metaISI);
-		
+
 		std::vector < std::pair<uint64_t,uint64_t> > Vreplace(replintv);
 		for ( uint64_t j = 0; j < replintv; ++j )
 		{
 			Vreplace[j].first = libmaus2::util::NumberSerialisation::deserialiseNumber(*metaISI);
 			Vreplace[j].second = libmaus2::util::NumberSerialisation::deserialiseNumber(*metaISI);
 		}
-		
+
 		// write meta data
 		libmaus2::util::NumberSerialisation::serialiseNumber(*finalmetaOut,seqlen);
 		libmaus2::util::NumberSerialisation::serialiseNumber(*finalmetaOut,replintv);
 		for ( uint64_t jj = 0; jj < replintv; ++jj )
 		{
 			uint64_t const j = replintv - jj - 1;
-			
+
 			libmaus2::util::NumberSerialisation::serialiseNumber(*finalmetaOut,seqlen-Vreplace[j].second);
 			libmaus2::util::NumberSerialisation::serialiseNumber(*finalmetaOut,seqlen-Vreplace[j].first);
 		}
-				
+
 		libmaus2::aio::CircularReverseWrapper seqtmp(seqtmpfilename,seqoff+seqlen);
 
-		uint64_t todo = seqlen;		
+		uint64_t todo = seqlen;
 		while ( todo )
 		{
 			uint64_t const tocopy = std::min(todo,B.size());
-						
+
 			seqtmp.read(B.begin(),tocopy);
-			
+
 			for ( uint64_t j = 0; j < tocopy; ++j )
 				B[j] ^= 3;
-			
+
 			Pcompactout->write(B.begin(),tocopy);
 			Pcompactrecoout->write(B.begin(),tocopy);
-			
+
 			todo -= tocopy;
 		}
 
@@ -422,7 +422,7 @@ int fagzToCompact4BigBandBiDir(libmaus2::util::ArgInfo const & arginfo)
 
 	Pcompactrecoout->flush();
 	Pcompactrecoout.reset();
-	
+
 	metametaISI.reset();
 	libmaus2::aio::FileRemoval::removeFile(metametaoutputfilename);
 	metaISI.reset();
@@ -432,16 +432,16 @@ int fagzToCompact4BigBandBiDir(libmaus2::util::ArgInfo const & arginfo)
 
 	Pcompactout->flush();
 	Pcompactout.reset();
-	
+
 	finalmetaOut->flush();
 	finalmetaOut.reset();
 
 	libmaus2::fastx::DNAIndexMetaDataBigBandBiDir::unique_ptr_type Pindex(
 		libmaus2::fastx::DNAIndexMetaDataBigBandBiDir::load(finalmetaoutputfilename)
 	);
-	
+
 	assert ( Pindex->S.size() == 2*nseq );
-		
+
 	for ( uint64_t i = 0; i < nseq; ++i )
 	{
 		libmaus2::fastx::DNAIndexMetaDataSequence const & forw = Pindex->S[i];
@@ -449,18 +449,18 @@ int fagzToCompact4BigBandBiDir(libmaus2::util::ArgInfo const & arginfo)
 
 		assert ( forw.l == reve.l );
 		assert ( forw.nblocks.size() == reve.nblocks.size() );
-		
+
 		for ( uint64_t j = 0; j < forw.nblocks.size(); ++j )
 		{
-		
+
 			std::pair<uint64_t,uint64_t> const & fblock = forw.nblocks[j];
 			std::pair<uint64_t,uint64_t> const & rblock = reve.nblocks[reve.nblocks.size()-j-1];
-			
+
 			assert ( rblock.second == forw.l - fblock.first );
 			assert ( rblock.first  == forw.l - fblock.second );
 		}
 	}
-	
+
 	libmaus2::bitio::CompactArray::unique_ptr_type CA(libmaus2::bitio::CompactArray::load(outputfilename));
 
 	uint64_t suml = 0;
@@ -468,19 +468,19 @@ int fagzToCompact4BigBandBiDir(libmaus2::util::ArgInfo const & arginfo)
 	{
 		libmaus2::fastx::DNAIndexMetaDataSequence const & forw = Pindex->S[i];
 		// libmaus2::fastx::DNAIndexMetaDataSequence const & reve = Pindex->S[2*nseq-i-1];
-		
+
 		uint64_t pf = Pindex->L[i];
 		uint64_t pr = Pindex->L[2*nseq-i-1] + forw.l;
-		
+
 		for ( uint64_t j = 0; j < forw.l; ++j )
 			assert ( (*CA)[pf++] == ((*CA)[--pr]^3) );
-		
+
 		suml += forw.l;
 	}
-	
+
 	for ( uint64_t i = 0; i < suml; ++i )
 		assert (  (*CA)[i] == ((*CA)[2*suml-i-1]^3) );
-	
+
 	return EXIT_SUCCESS;
 }
 
