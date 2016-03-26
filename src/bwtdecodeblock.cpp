@@ -24,6 +24,7 @@
 #include <libmaus2/util/TempFileRemovalContainer.hpp>
 #include <libmaus2/fastx/acgtnMap.hpp>
 #include <libmaus2/bitio/CompactDecoderBuffer.hpp>
+#include <libmaus2/parallel/NumCpus.hpp>
 
 struct WordPairAccessor
 {
@@ -326,6 +327,7 @@ int main(int argc, char * argv[])
 		std::string const compact = arginfo.getUnparsedRestArg(3);
 		uint64_t low = libmaus2::util::ArgInfo::parseValueUnsignedNumeric<uint64_t>("low",arginfo.getUnparsedRestArg(4));
 		uint64_t len = libmaus2::util::ArgInfo::parseValueUnsignedNumeric<uint64_t>("len",arginfo.getUnparsedRestArg(5));
+		unsigned int const numthreads = arginfo.getValue<unsigned int>("numthreads", libmaus2::parallel::NumCpus::getNumLogicalProcessors());
 
 		libmaus2::aio::InputStream::unique_ptr_type Psortedisa(libmaus2::aio::InputStreamFactoryContainer::constructUnique(sortedisa));
 
@@ -358,6 +360,7 @@ int main(int argc, char * argv[])
 				bwt + "_prerank",
 				minsym,
 				maxsym,
+				numthreads,
 				&std::cerr
 			);
 
