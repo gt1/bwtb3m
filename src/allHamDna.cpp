@@ -55,7 +55,8 @@ int allHamDna(libmaus2::util::ArgInfo const & arginfo)
 	}
 
 	std::cerr << "[V] loading index...";
-	libmaus2::fm::BidirectionalDnaIndexImpCompactHuffmanWaveletTree index(arginfo.restargs[0]);
+	uint64_t const numloadthreads = 1;
+	libmaus2::fm::BidirectionalDnaIndexImpCompactHuffmanWaveletTree index(arginfo.restargs[0],numloadthreads);
 	std::cerr << "done." << std::endl;
 
 	std::string const & basename = index.basename;
