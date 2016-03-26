@@ -254,166 +254,6 @@ std::pair<uint64_t,uint64_t> getNextLarger(std::string const & sortedisa, uint64
 	return getNextLarger(W,p);
 }
 
-struct SparseRank
-{
-	::libmaus2::huffman::IndexDecoderDataArray idda;
-	libmaus2::aio::InputStreamInstance sparserankfd;
-	int64_t const minsym;
-	int64_t const maxsym;
-	std::vector<uint64_t> const D;
-	uint64_t const n;
-
-	SparseRank(std::string const & bwt, std::string const & hist, int64_t const rminsym, int64_t const rmaxsym)
-	: idda(std::vector<std::string>(1,bwt)), sparserankfd(bwt + ".sparserank"), minsym(rminsym), maxsym(rmaxsym), D(loadHMap(hist)),
-	  n(std::accumulate(D.begin(),D.end(),0ull))
-	{
-
-	}
-
-
-	static int64_t getMaxSym(std::string const & hist)
-	{
-		libmaus2::aio::InputStream::unique_ptr_type Phist(libmaus2::aio::InputStreamFactoryContainer::constructUnique(hist));
-		std::map<int64_t,uint64_t> const hmap = ::libmaus2::util::NumberMapSerialisation::deserialiseMap<libmaus2::aio::InputStream,int64_t,uint64_t>(*Phist);
-
-		if ( hmap.size() )
-			return hmap.rbegin()->first;
-		else
-		{
-			libmaus2::exception::LibMausException lme;
-			lme.getStream() << "LFStep::getMaxSym: no symbols" << std::endl;
-			lme.finish();
-			throw lme;
-
-		}
-	}
-
-	static int64_t getMinSym(std::string const & hist)
-	{
-		libmaus2::aio::InputStream::unique_ptr_type Phist(libmaus2::aio::InputStreamFactoryContainer::constructUnique(hist));
-		std::map<int64_t,uint64_t> const hmap = ::libmaus2::util::NumberMapSerialisation::deserialiseMap<libmaus2::aio::InputStream,int64_t,uint64_t>(*Phist);
-
-		if ( hmap.size() )
-			return hmap.begin()->first;
-		else
-		{
-			libmaus2::exception::LibMausException lme;
-			lme.getStream() << "LFStep::getMinSym: no symbols" << std::endl;
-			lme.finish();
-			throw lme;
-
-		}
-	}
-
-	uint64_t rankm(int64_t const sym, uint64_t const i)
-	{
-		libmaus2::huffman::FileBlockOffset const FBO = idda.findVBlock(i);
-		assert ( FBO.fileptr == 0 );
-		assert ( sym >= minsym );
-		assert ( sym <= maxsym );
-		sparserankfd.clear();
-		sparserankfd.seekg(
-			FBO.blockptr * (maxsym-minsym+1) * sizeof(uint64_t)
-		);
-		std::vector<uint64_t> H(maxsym-minsym+1,0);
-
-		for ( uint64_t i = 0; i < H.size(); ++i )
-			H[i] = libmaus2::util::NumberSerialisation::deserialiseNumber(sparserankfd);
-
-		uint64_t offset = FBO.offset;
-		::libmaus2::huffman::IndexDecoderData const & idata = idda.data[FBO.fileptr];
-		::libmaus2::huffman::IndexEntry const data = idata.readEntry(FBO.blockptr);
-		uint64_t const rlstart = data.vcnt;
-		libmaus2::huffman::RLDecoder rldec(idda,rlstart);
-		assert ( offset == i - rlstart );
-
-		while ( offset )
-		{
-			std::pair<int64_t,uint64_t> const P = rldec.decodeRun();
-			assert ( P.first != -1 );
-			uint64_t touse = std::min(offset,P.second);
-			H [ P.first - minsym ] += touse;
-			offset -= touse;
-		}
-
-		return H[sym-minsym];
-	}
-
-	std::pair<int64_t,uint64_t> inverseSelect(uint64_t const i)
-	{
-		libmaus2::huffman::FileBlockOffset const FBO = idda.findVBlock(i);
-		assert ( FBO.fileptr == 0 );
-		sparserankfd.clear();
-		sparserankfd.seekg(FBO.blockptr * (maxsym-minsym+1) * sizeof(uint64_t));
-		std::vector<uint64_t> H(maxsym-minsym+1,0);
-
-		for ( uint64_t i = 0; i < H.size(); ++i )
-			H[i] = libmaus2::util::NumberSerialisation::deserialiseNumber(sparserankfd);
-
-		uint64_t offset = FBO.offset;
-		::libmaus2::huffman::IndexDecoderData const & idata = idda.data[FBO.fileptr];
-		::libmaus2::huffman::IndexEntry const data = idata.readEntry(FBO.blockptr);
-		uint64_t const rlstart = data.vcnt;
-		libmaus2::huffman::RLDecoder rldec(idda,rlstart);
-		assert ( offset == i - rlstart );
-
-		while ( true )
-		{
-			std::pair<int64_t,uint64_t> const P = rldec.decodeRun();
-			assert ( P.first != -1 );
-
-			if ( offset >= P.second )
-			{
-				H [ P.first - minsym ] += P.second;
-				offset -= P.second;
-			}
-			else
-			{
-				H [ P.first - minsym ] += offset;
-				return std::pair<int64_t,uint64_t>(P.first,H [ P.first - minsym ]);
-			}
-		}
-	}
-
-	std::pair<int64_t,uint64_t> lf(uint64_t const i)
-	{
-		std::pair<int64_t,uint64_t> const P = inverseSelect(i);
-		return std::pair<int64_t,uint64_t>(P.first,D [ P.first ] + P.second);
-	}
-
-	std::string decode(std::string const & sortedisa, uint64_t const low, uint64_t const len)
-	{
-		std::pair<uint64_t,uint64_t> const PP = getNextLarger(sortedisa,low+len);
-		// std::cerr << "low+len=" << low+len << " PP.first=" << PP.first << " PP.second=" << PP.second << std::endl;
-		uint64_t p = PP.first % n;
-		uint64_t r = PP.second;
-
-		while ( p != ((low+len)%n) )
-		{
-			// std::cerr << "p=" << p << " r=" << r << std::endl;
-			r = lf(r).second;
-			--p;
-		}
-
-		std::vector<char> V(len,0);
-		for ( uint64_t i = 0; i < len; ++i )
-		{
-			std::pair<int64_t,uint64_t> const P = lf(r);
-
-			// std::cerr << P.first << std::endl;
-
-			if ( P.first )
-				V[len-i-1] = libmaus2::fastx::remapChar(P.first-1);
-			else
-				V[len-i-1] = '\n';
-
-			r = P.second;
-		}
-
-		return std::string(V.begin(),V.end());
-	}
-};
-
 uint64_t computeNF(std::vector<uint64_t> const & H, std::vector<uint64_t> const & NZH, uint64_t const bm, std::vector<uint64_t> * HID = 0)
 {
 	uint64_t nf = 0;
@@ -955,7 +795,7 @@ int main(int argc, char * argv[])
 			std::string const rlhisttmp = tmpfilenamebase + "_rlhist_tmp";
 			std::string const blockhisttmp = tmpfilenamebase + "_rlhist_final";
 			libmaus2::util::TempFileRemovalContainer::addTempFile(blockhisttmp);
-			libmaus2::huffman::RLDecoder::getFragmentSymHistograms(bwt,blockhisttmp,rlhisttmp,0,maxsym,numthreads);
+			libmaus2::huffman::RLDecoder::getFragmentSymHistograms(bwt,blockhisttmp,rlhisttmp,0,maxsym,numthreads /* numpacks */,numthreads);
 
 			std::vector<uint64_t> rlblockhist(maxsym+1,0);
 			std::vector<uint64_t> rlblockhistacc(maxsym+1,0);
@@ -998,7 +838,7 @@ int main(int argc, char * argv[])
 			std::string const rlhisttmp = tmpfilenamebase + "_rlhist_tmp";
 			std::string const blockhisttmp = tmpfilenamebase + "_rlhist_final";
 			libmaus2::util::TempFileRemovalContainer::addTempFile(blockhisttmp);
-			libmaus2::huffman::RLDecoder::getBlockSymHistograms(bwt,blockhisttmp,rlhisttmp,0,maxsym);
+			libmaus2::huffman::RLDecoder::getBlockSymHistograms(bwt,blockhisttmp,rlhisttmp,0,maxsym,numthreads);
 
 			libmaus2::aio::InputStreamInstance::unique_ptr_type rlhistISI(new libmaus2::aio::InputStreamInstance(blockhisttmp));
 			// rlhistISI->seekg(0,std::ios::end);
