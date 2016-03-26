@@ -212,13 +212,13 @@ void hwtToRlHwt(::libmaus2::util::ArgInfo const & arginfo)
 
 		for ( uint64_t i = 0; i < ICRLHWT.dicts.size(); ++i )
 		{
-			double const avg = ICRLHWT.dicts[i]->getAvgBlockBitLength();
+			double const avg = ICRLHWT.dicts[i]->getAvgBlockBitLength(numthreads);
 			std::cerr << "node " << i << " avg block bit length "
 				<< avg
 				<< " (" << avg / 8.0 << " bytes)"
 				<< std::endl;
 
-			libmaus2::util::Histogram::unique_ptr_type hist(ICRLHWT.dicts[i]->getRunLengthHistogram());
+			libmaus2::util::Histogram::unique_ptr_type hist(ICRLHWT.dicts[i]->getRunLengthHistogram(numthreads));
 			hist->printFrac(std::cerr);
 		}
 
