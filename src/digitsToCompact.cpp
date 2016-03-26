@@ -17,7 +17,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 **/
 #include <config.h>
-#include <libmaus2/aio/PosixFdInputStream.hpp>
+#include <libmaus2/aio/InputStreamInstance.hpp>
 #include <libmaus2/bitio/CompactArray.hpp>
 #include <libmaus2/bitio/CompactArrayWriterFile.hpp>
 #include <libmaus2/lz/BufferedGzipStream.hpp>
@@ -118,7 +118,7 @@ int main(int argc, char * argv[])
 			#if 0
 			// read array and output data
 			std::string const outputfilename = arginfo.getUnparsedValue("outputfilename","output.compact");
-			libmaus2::aio::PosixFdInputStream PFIS(outputfilename);
+			libmaus2::aio::InputStreamInstance PFIS(outputfilename);
 			libmaus2::bitio::CompactArray C(PFIS);
 			for ( uint64_t i = 0; i < C.n; ++i )
 				std::cout.put(C[i]+'0');
