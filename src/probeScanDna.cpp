@@ -66,7 +66,8 @@ int probeScanDnaHwt(
 	std::string const prefix = arginfo.getRestArg<std::string>(0);
 	std::string const hwtname = prefix+suffix;
 	std::cerr << "[V] loading index...";
-	lf_type LF(hwtname);
+	uint64_t const numloadthreads = 1;
+	lf_type LF(hwtname,numloadthreads);
 	std::cerr << "done." << std::endl;
 
 	// open queries
