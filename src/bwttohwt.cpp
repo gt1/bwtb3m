@@ -21,6 +21,7 @@
 #include <libmaus2/huffman/RLDecoder.hpp>
 #include <libmaus2/wavelet/Utf8ToImpCompactHuffmanWaveletTree.hpp>
 #include <libmaus2/util/OutputFileNameTools.hpp>
+#include <libmaus2/parallel/NumCpus.hpp>
 
 int main(int argc, char * argv[])
 {
@@ -29,12 +30,13 @@ int main(int argc, char * argv[])
 		libmaus2::util::ArgParser const arg(argc,argv);
 		std::string const bwt = arg[0];
 		std::string const hwt = ::libmaus2::util::OutputFileNameTools::clipOff(bwt,".bwt") + ".hwt";
+		unsigned int const numthreads = libmaus2::parallel::NumCpus::getNumLogicalProcessors();
 
-		::libmaus2::util::Histogram::unique_ptr_type mhist(libmaus2::wavelet::RlToHwtBase<true,libmaus2::huffman::RLDecoder>::computeRlSymHist(bwt));
+		::libmaus2::util::Histogram::unique_ptr_type mhist(libmaus2::wavelet::RlToHwtBase<true,libmaus2::huffman::RLDecoder>::computeRlSymHist(bwt,numthreads));
 		::std::map<int64_t,uint64_t> const chist = mhist->getByType<int64_t>();
 		::libmaus2::huffman::HuffmanTree H ( chist.begin(), chist.size(), false, true, true );
 		libmaus2::wavelet::Utf8ToImpCompactHuffmanWaveletTree::constructWaveletTreeFromRl<libmaus2::huffman::RLDecoder,true>(
-			bwt,hwt,hwt + "_tmp",H
+			bwt,hwt,hwt + "_tmp",H,libmaus2::wavelet::Utf8ToImpCompactHuffmanWaveletTree::getDefaultTPartSizeMax(),numthreads
 		);
 	}
 	catch(std::exception const & ex)
