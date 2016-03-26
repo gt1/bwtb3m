@@ -56,3 +56,4 @@ src/fagzToCompact4BigBand
 testit.sh
 testit.sh.log
 src/bwttohwt
+src/fagzToCompact4BigBandBiDir
