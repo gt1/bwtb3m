@@ -24,7 +24,7 @@
 void bwtb3mdecode(::libmaus2::util::ArgInfo const & arginfo)
 {
 	std::string const infn = arginfo.getRestArg<std::string>(0);
-	libmaus2::huffman::RLDecoder dec(std::vector<std::string>(1,infn));
+	libmaus2::huffman::RLDecoder dec(std::vector<std::string>(1,infn),0 /* offset */,1 /* numthreads */);
 	std::string const inputtype = arginfo.getUnparsedValue("inputtype","bytestream");
 
 	if ( inputtype == "bytestream" )

@@ -26,7 +26,7 @@ void bwtb3mtobwa(::libmaus2::util::ArgInfo const & arginfo)
 	std::string const outbwt = arginfo.getRestArg<std::string>(1);
 	std::string const outsa = arginfo.getRestArg<std::string>(2);
 
-	::libmaus2::fm::MausFmToBwaConversion::rewrite(infn,outbwt,outsa);
+	::libmaus2::fm::MausFmToBwaConversion::rewrite(infn,outbwt,outsa,1 /* numthreads */);
 }
 
 int main(int argc, char * argv[])

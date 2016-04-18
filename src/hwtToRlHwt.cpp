@@ -119,7 +119,7 @@ void hwtToRlHwt(::libmaus2::util::ArgInfo const & arginfo)
 			rlgens[i] = UNIQUE_PTR_MOVE(tgen);
 		}
 
-		libmaus2::huffman::RLDecoder dec(std::vector<std::string>(1,infn));
+		libmaus2::huffman::RLDecoder dec(std::vector<std::string>(1,infn),0 /* offset */,1 /* numthreads */);
 		int64_t sym = -1;
 		uint64_t fin = 0;
 		while ( (sym=dec.get()) >= 0 )
@@ -237,7 +237,7 @@ void hwtToRlHwt(::libmaus2::util::ArgInfo const & arginfo)
 			uint64_t const low = t * packsize;
 			uint64_t const high = std::min(low+packsize,n);
 
-			libmaus2::huffman::RLDecoder debdec(std::vector<std::string>(1,infn),low);
+			libmaus2::huffman::RLDecoder debdec(std::vector<std::string>(1,infn),low,1 /* numthreads */);
 
 			for ( uint64_t i = low; i < high; ++i )
 			{

@@ -27,8 +27,8 @@
 int bwttestdecodespeed(::libmaus2::util::ArgParser const & arg)
 {
 	std::string const infn = arg[0];
-	uint64_t const n = libmaus2::huffman::RLDecoder::getLength(infn);
-	libmaus2::huffman::RLDecoder dec(std::vector<std::string>(1,infn));
+	uint64_t const n = libmaus2::huffman::RLDecoder::getLength(infn,1/* numthreads */);
+	libmaus2::huffman::RLDecoder dec(std::vector<std::string>(1,infn),0/*offset */,1/* numthreads */);
 	std::string const inputtype = arg.uniqueArgPresent("T") ? arg["T"] : "bytestream";
 	libmaus2::autoarray::AutoArray<uint8_t> BB(n);
 	std::string const isaname = libmaus2::util::OutputFileNameTools::clipOff(infn,".bwt") + ".isa";

@@ -141,7 +141,7 @@ struct SparseRank
 	uint64_t const n;
 
 	SparseRank(std::string const & bwt, std::string const & hist, int64_t const rminsym, int64_t const rmaxsym)
-	: idda(std::vector<std::string>(1,bwt)), sparserankfd(bwt + ".sparserank"), minsym(rminsym), maxsym(rmaxsym), D(loadHMap(hist)),
+	: idda(std::vector<std::string>(1,bwt),1 /* numthreads */), sparserankfd(bwt + ".sparserank"), minsym(rminsym), maxsym(rmaxsym), D(loadHMap(hist)),
 	  n(std::accumulate(D.begin(),D.end(),0ull))
 	{
 
@@ -333,7 +333,7 @@ int main(int argc, char * argv[])
 
 		std::vector<std::string> Vbwtin(1,bwt);
 
-		uint64_t const n = libmaus2::huffman::RLDecoder::getLength(Vbwtin);
+		uint64_t const n = libmaus2::huffman::RLDecoder::getLength(Vbwtin,numthreads);
 
 		if ( low+len > n )
 		{
