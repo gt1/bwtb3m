@@ -53,6 +53,7 @@ int main(int argc, char * argv[])
 			str << "sparsetmpprefix=[tmpprefix] (prefix for sparse gap tmp files)" << std::endl;
 			str << "copyinputtomemory=[" << libmaus2::suffixsort::bwtb3m::BwtMergeSortOptions::getDefaultCopyInputToMemory() << "] (copy input file to memory)" << std::endl;
 			str << "largelcpthres=[" << libmaus2::suffixsort::bwtb3m::BwtMergeSortOptions::getDefaultLargeLCPThres() << "] (large LCP value threshold)" << std::endl;
+			str << "verbose=[" << libmaus2::suffixsort::bwtb3m::BwtMergeSortOptions::getDefaultVerbose() << "] (verbosity level)" << std::endl;
 
 			se.finish();
 			throw se;
