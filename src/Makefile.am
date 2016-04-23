@@ -23,7 +23,8 @@ bin_PROGRAMS = \
 	sasubsample \
 	fagzToCompact4BigBand \
 	fagzToCompact4BigBandBiDir \
-	decodecompact
+	decodecompact \
+	checkbwt
 noinst_HEADERS = 
 
 bwtb3m_SOURCES = bwtb3m.cpp
@@ -49,3 +50,4 @@ sasubsample_SOURCES = sasubsample.cpp
 fagzToCompact4BigBand_SOURCES = fagzToCompact4BigBand.cpp
 decodecompact_SOURCES = decodecompact.cpp
 fagzToCompact4BigBandBiDir_SOURCES = fagzToCompact4BigBandBiDir.cpp
+checkbwt_SOURCES = checkbwt.cpp
