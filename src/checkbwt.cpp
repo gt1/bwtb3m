@@ -34,6 +34,7 @@ int checkBwt(libmaus2::util::ArgParser const & arg)
 	std::string const checkinfofn = prefix + ".preisa.checkinfo";
 	//std::string const textname = libmaus2::util::OutputFileNameTools::clipOff(prefix,".bwt");
 	std::string const tmpprefix = libmaus2::util::ArgInfo::getDefaultTmpFileName(arg.progname);
+	uint64_t const verb = arg.uniqueArgPresent("V") ? arg.getUnsignedNumericArg<uint64_t>("V") : 1024*1024ull;
 
 	libmaus2::suffixsort::bwtb3m::BwtMergeSortResult res;
 	res.textfn = textname;
@@ -41,9 +42,9 @@ int checkBwt(libmaus2::util::ArgParser const & arg)
 	res.preisafn = preisa;
 	res.histfn = prefix + ".hist";
 	res.metafn = prefix + ".meta";
-	
-	if ( 
-		libmaus2::util::GetFileSize::fileExists(prefix + ".hwt") 
+
+	if (
+		libmaus2::util::GetFileSize::fileExists(prefix + ".hwt")
 		&&
 		!libmaus2::util::GetFileSize::isOlder(prefix+".hwt",bwtname)
 	)
@@ -55,26 +56,26 @@ int checkBwt(libmaus2::util::ArgParser const & arg)
 	//uint64_t const numthreads = 3;
 	uint64_t const n = libmaus2::huffman::RLDecoder::getLength(bwtname,numthreads);
 	uint64_t const o = (n + numthreads - 1)/numthreads;
-	
+
 	struct Info
 	{
 		uint64_t pq;
 		uint64_t p;
 		uint64_t r;
-		
+
 		static uint64_t getUndef()
 		{
 			return std::numeric_limits<uint64_t>::max();
 		}
-		
+
 		Info(uint64_t const rpq = getUndef(), uint64_t const rp = getUndef(), uint64_t const rr = getUndef())
 		: pq(rpq), p(rp), r(rr) {}
-		
+
 		bool valid() const
 		{
 			return p != getUndef();
 		}
-		
+
 		std::ostream & serialise(std::ostream & out) const
 		{
 			libmaus2::util::NumberSerialisation::serialiseNumber(out,pq);
@@ -82,7 +83,7 @@ int checkBwt(libmaus2::util::ArgParser const & arg)
 			libmaus2::util::NumberSerialisation::serialiseNumber(out,r);
 			return out;
 		}
-		
+
 		std::istream & deserialise(std::istream & in)
 		{
 			pq = libmaus2::util::NumberSerialisation::deserialiseNumber(in);
@@ -90,19 +91,19 @@ int checkBwt(libmaus2::util::ArgParser const & arg)
 			r = libmaus2::util::NumberSerialisation::deserialiseNumber(in);
 			return in;
 		}
-		
+
 		Info(std::istream & in)
 		{
 			deserialise(in);
 		}
-		
+
 		static void serialiseVector(std::string const & fn, std::vector<Info> const & V)
 		{
 			libmaus2::aio::OutputStreamInstance OSI(fn);
 			for ( uint64_t i = 0; i < V.size(); ++i )
 				V[i].serialise(OSI);
 		}
-		
+
 		static std::vector<Info> deserialiseVector(std::string const & fn)
 		{
 			libmaus2::aio::InputStreamInstance ISI(fn);
@@ -112,8 +113,8 @@ int checkBwt(libmaus2::util::ArgParser const & arg)
 			return V;
 		}
 	};
-	
-		
+
+
 	struct InfoPQComp
 	{
 		bool operator()(Info const & A, Info const & B) const
@@ -121,7 +122,7 @@ int checkBwt(libmaus2::util::ArgParser const & arg)
 			return A.pq < B.pq;
 		}
 	};
-	
+
 	{
 		std::vector<Info> I(numthreads);
 		for ( uint64_t i = 0; i < I.size(); ++i )
@@ -139,7 +140,7 @@ int checkBwt(libmaus2::util::ArgParser const & arg)
 			}
 
 			assert ( P.second >= it->pq );
-			
+
 			if ( P.second < it->p )
 			{
 				it->p = P.second;
@@ -152,12 +153,12 @@ int checkBwt(libmaus2::util::ArgParser const & arg)
 			if ( I[i].valid() )
 				I[o++] = I[i];
 		I.resize(o);
-		
+
 		Info::serialiseVector(checkinfofn,I);
 	}
-	
+
 	std::vector<Info> I = Info::deserialiseVector(checkinfofn);
-	
+
 	for ( uint64_t i = 0; i < I.size(); ++i )
 		std::cerr << "(" << I[i].pq << "," << I[i].p << "," << I[i].r << ")" << std::endl;
 
@@ -168,35 +169,34 @@ int checkBwt(libmaus2::util::ArgParser const & arg)
 	uint64_t volatile gc = 0;
 	uint64_t volatile gok = 1;
 	libmaus2::parallel::PosixSpinLock gclock;
-	uint64_t const verb = 1024*1024ull;
 
 	#if defined(_OPENMP)
 	#pragma omp parallel for schedule(dynamic,1)
-	#endif	
+	#endif
 	for ( uint64_t t = 0; t < I.size(); ++t )
 	{
 		uint64_t t1 = (t + 1) % I.size();
-		
+
 		std::pair<uint64_t,uint64_t> const PL(I[t].p,I[t].r);
 		std::pair<uint64_t,uint64_t> const PH(I[t1].p,I[t1].r);
-				
+
 		crw_type C(textname,PH.first);
-		
+
 		uint64_t const bu = PH.first ? PH.first : n;
 		uint64_t const bl = PL.first;
 		uint64_t const b = bu-bl;
 		bool tok = true;
-		
+
 		{
 			libmaus2::parallel::ScopePosixSpinLock slock(libmaus2::aio::StreamLock::cerrlock);
-			std::cerr 
-				<< "[V] t=" << t << " PL=(" << PL.first << "," << PL.second 
+			std::cerr
+				<< "[V] t=" << t << " PL=(" << PL.first << "," << PL.second
 					<< ") PH=(" << PH.first << "," << PH.second << ")" << std::endl;
 		}
 
 		uint64_t r = PH.second;
 		uint64_t c = 0;
-		
+
 		for ( uint64_t i = 0; i < b; ++i )
 		{
 			std::pair<int64_t,uint64_t> L = LF.extendedLF(r);
@@ -208,13 +208,13 @@ int checkBwt(libmaus2::util::ArgParser const & arg)
 				tok = false;
 			}
 			r = L.second;
-			
+
 			if ( ++c == verb )
 			{
 				libmaus2::parallel::ScopePosixSpinLock slock(gclock);
 				gc += c;
 				c = 0;
-				
+
 				{
 				libmaus2::parallel::ScopePosixSpinLock slock(libmaus2::aio::StreamLock::cerrlock);
 				std::cerr << "[V] " << gc << "/" << n << " " << static_cast<double>(gc)/static_cast<double>(n) << std::endl;
@@ -233,13 +233,13 @@ int checkBwt(libmaus2::util::ArgParser const & arg)
 			std::cerr << "[V] " << gc << "/" << n << " " << static_cast<double>(gc)/static_cast<double>(n) << std::endl;
 			}
 		}
-		
+
 		gclock.lock();
 		if ( ! tok )
 			gok = 0;
 		gclock.unlock();
 	}
-	
+
 	std::cerr << "[V] gok=" << gok << std::endl;
 
 	return EXIT_SUCCESS;
@@ -251,7 +251,7 @@ int main(int argc, char * argv[])
 	{
 		libmaus2::util::ArgParser arg(argc,argv);
 		std::string const inputtype = arg.uniqueArgPresent("i") ? arg["i"] : "bytestream";
-		libmaus2::suffixsort::bwtb3m::BwtMergeSortOptions::bwt_merge_input_type itype = 
+		libmaus2::suffixsort::bwtb3m::BwtMergeSortOptions::bwt_merge_input_type itype =
 			libmaus2::suffixsort::bwtb3m::BwtMergeSortOptions::parseInputType(inputtype);
 
 		switch ( itype )
