@@ -1,3 +1,11 @@
+bwtb3m (0.0.42-1) unstable; urgency=medium
+
+   * lcpbit: fix check for zero terminator in readPlainFile
+   * lcpbit: add check for loopscomplete in computeSuccinctLCP
+   * lcpbit: print I/O and memory usage at end of computeSuccinctLCP
+
+ -- German Tischler <tischler@mpi-cbg.de>  Wed, 11 May 2016 16:14:34 +0200
+
 bwtb3m (0.0.41-1) unstable; urgency=medium
 
   * add SizeMonitor usage in lcpbit 
