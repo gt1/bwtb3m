@@ -369,6 +369,23 @@ static uint64_t computeSplit(uint64_t const tnumfiles, std::vector<AlphabetSymbo
 	return split;
 }
 
+#include <sys/time.h>
+#include <sys/resource.h>
+
+uint64_t getMaxFiles()
+{
+	struct rlimit rlim;
+	if ( getrlimit(RLIMIT_NOFILE, &rlim) < 0 )
+	{
+		int const error = errno;
+		libmaus2::exception::LibMausException lme;
+		lme.getStream() << "getrlimit failed: " << strerror(error) << std::endl;
+		lme.finish();
+		throw lme;
+	}
+	return rlim.rlim_cur;
+}
+
 /**
  * compute succinct LCP bit vector
  *
@@ -396,6 +413,13 @@ std::vector<std::string> computeSuccinctLCP(
 {
 	libmaus2::timing::RealTimeClock fullrtc; fullrtc.start();
 
+	uint64_t const ufiles = getMaxFiles();
+	uint64_t const maxfiles =
+		std::min(
+			static_cast<uint64_t>(128ull*numthreads),
+			std::min(static_cast<uint64_t>(ufiles - 3), static_cast<uint64_t>(ufiles * 9) / 10)
+		);
+
 	uint64_t const unsortthreads = numthreads;
 	std::vector<std::string> BWTin(1,rBWTfn);
 	uint64_t const n = libmaus2::huffman::RLDecoder::getLength(BWTin,numthreads);
@@ -407,8 +431,10 @@ std::vector<std::string> computeSuccinctLCP(
 	bool const verbose = n >= verbthres;
 
 	if ( verbose )
-		std::cerr << "[V] processing file is length " << n << std::endl;
+		std::cerr << "[V] processed file is length " << n << std::endl;
 
+	if ( verbose )
+		std::cerr << "[V] ufiles=" << ufiles << " using maxfiles=" << maxfiles << std::endl;
 
 	if ( verbose )
 		std::cerr << "[V] writing Q to file...";
@@ -433,6 +459,7 @@ std::vector<std::string> computeSuccinctLCP(
 	if ( verbose )
 		std::cerr << "[V] computing unsort key sequences...";
 
+
 	uint64_t maxsym = 0;
 	libmaus2::sorting::ParallelRunLengthRadixUnsort::unique_ptr_type unsortinfo(new libmaus2::sorting::ParallelRunLengthRadixUnsort);
 	std::vector<std::string> BWTsort = libmaus2::sorting::ParallelRunLengthRadixSort::parallelRadixSort<
@@ -445,7 +472,7 @@ std::vector<std::string> computeSuccinctLCP(
 	(
 		BWTin,
 		numthreads /* num threads */,
-		4096 /* max files */,
+		maxfiles /* max files */,
 		false /* delete input */,
 		tmpgen,
 		4096 /* bs */,
@@ -605,7 +632,7 @@ std::vector<std::string> computeSuccinctLCP(
 		(
 			BWTin,
 			numthreads /* num threads */,
-			4096 /* max files */,
+			maxfiles /* max files */,
 			false /* delete input */,
 			tmpgen,
 			4096 /* bs */,
@@ -765,7 +792,25 @@ std::vector<std::string> computeSuccinctLCP(
 		std::vector < std::string > qflagged(3*threadpacks);
 		std::vector < std::string > symbit(threadpacks);
 
-		unsigned int const sc_file_bits = 3;
+		unsigned int sc_file_bits = 3;
+
+		while (
+			sc_file_bits &&
+			(4*(1ull<<sc_file_bits)+3)*numthreads > maxfiles
+		)
+		{
+			--sc_file_bits;
+			if ( verbose )
+				std::cerr << "[W] reducing sc_file_bits because maxfiles is too low" << std::endl;
+		}
+		if ( ! sc_file_bits )
+		{
+			libmaus2::exception::LibMausException lme;
+			lme.getStream() << "sc_file_bits == 0, please set ulimit -n to a higher value" << std::endl;
+			lme.finish();
+			throw lme;
+		}
+
 		uint64_t const sc_output_files = 1ull<<sc_file_bits;
 		uint64_t const sc_file_mask = sc_output_files-1;
 
@@ -1966,7 +2011,7 @@ std::vector<std::string> computeSuccinctLCP(
 		>(
 			slftmp,
 			numthreads,
-			4096 /* max files */,
+			maxfiles/2 /* max files, divide by two because of .meta files */,
 			true /* delete input */,
 			tmpgen,
 			4096 /* output block size */,
@@ -2111,7 +2156,7 @@ std::vector<std::string> computeSuccinctLCP(
 		false,
 		numthreads,
 		maxmem,
-		4096 /* max temp files */,
+		maxfiles /* max temp files */,
 		verbose ? (&(std::cerr)) : nullstr
 	);
 
@@ -2196,7 +2241,7 @@ std::vector<std::string> computeSuccinctLCP(
 		>(
 			phipairfn,
 			numthreads,
-			4096 /* max files */,
+			maxfiles/2 /* max files / 2 because of .meta files */,
 			true /* delete input */,
 			tmpgen,
 			4096 /* output block size */,
@@ -2310,6 +2355,9 @@ std::vector<std::string> computeSuccinctLCP(
 			std::cerr << "\t[V] extracting Phi range" << std::endl;
 
 		std::vector<std::string> Vrange(off_packs);
+		#if defined(_OPENMP)
+		#pragma omp parallel for num_threads(numthreads)
+		#endif
 		for ( uint64_t p = 0; p < off_packs; ++p )
 		{
 			std::string const outfn = tmpgen.getFileName(true) + ".Vrange";
@@ -2349,7 +2397,7 @@ std::vector<std::string> computeSuccinctLCP(
 		>(
 			Vrange,
 			numthreads,
-			4096 /* max files */,
+			maxfiles / 2 /* max files / 2 because of .meta files */,
 			true /* delete input */,
 			tmpgen,
 			4096 /* output block size */,
@@ -2454,7 +2502,7 @@ std::vector<std::string> computeSuccinctLCP(
 		>(
 			std::vector<std::string>(1,philcpfn),
 			numthreads,
-			4096 /* max files */,
+			maxfiles / 2 /* max files / 2 because of .meta files */,
 			true /* delete input */,
 			tmpgen,
 			4096 /* output block size */,
@@ -2533,7 +2581,7 @@ std::vector<std::string> computeSuccinctLCP(
 		>(
 			Vranklcpfn,
 			numthreads,
-			4096 /* max files */,
+			maxfiles / 2 /* max files / 2 because of .meta files */,
 			true /* delete input */,
 			tmpgen,
 			4096 /* output block size */,
@@ -2705,7 +2753,11 @@ std::vector<std::string> computeSuccinctLCP(
 	}
 	//std::sort(Valphabet.begin(),Valphabet.end(),AlphabetSymbolFreqComparator());
 	// std::sort(Valphabet.begin(),Valphabet.end(),AlphabetSymbolSymComparator());
-	uint64_t const tbuckets = 32;
+	uint64_t const infiles = 2*numthreads;
+	uint64_t const avoutfiles = maxfiles - infiles;
+	uint64_t const outfilesperthread = avoutfiles / numthreads;
+	uint64_t const maxbuckets = outfilesperthread;
+	uint64_t const tbuckets = std::min(static_cast<uint64_t>(32ull),maxbuckets);
 
 	uint64_t const bucketsplit = computeSplit(tbuckets, Valphabet);
 	if ( verbose )
@@ -3102,7 +3154,7 @@ std::vector<std::string> computeSuccinctLCP(
 				(
 					std::vector < std::string >(Voutfn.begin() + i * threadpacks,Voutfn.begin() + (i+1) * threadpacks),
 					numthreads /* numthreads */,
-					4096 /* maxfiles */,
+					maxfiles /* maxfiles */,
 					true /* delete input */,
 					tmpgen,
 					16*1024 /* bs */,
@@ -3169,7 +3221,7 @@ std::vector<std::string> computeSuccinctLCP(
 		>(
 			Vlfrankpos,
 			numthreads,
-			4096 /* max files */,
+			maxfiles / 2 /* max files / 2 because of .meta files */,
 			true /* delete input */,
 			tmpgen,
 			4096 /* output block size */,
@@ -3256,7 +3308,8 @@ void testn(std::string const & s, uint64_t const numthreads, uint64_t const maxr
 	uint64_t const n = s.size();
 	bool const verbose = n >= verbthres;
 
-	std::string const tmpprefix = "mem://lcpbit_";
+	// std::string const tmpprefix = "mem://lcpbit_";
+	std::string const tmpprefix = "tmp_dir";
 	libmaus2::util::TempFileNameGenerator tmpgen(tmpprefix,3);
 
 	// compute suffix array
@@ -3544,7 +3597,6 @@ int main(int argc, char * argv[])
 
 		if ( testmode )
 		{
-			testnk(6,1);
 
 			uint64_t const numthreads = arg.uniqueArgPresent("t") ? arg.getUnsignedNumericArg<uint64_t>("t") : libmaus2::parallel::NumCpus::getNumLogicalProcessors();
 			uint64_t const maxrounds = arg.uniqueArgPresent("R") ? arg.getUnsignedNumericArg<uint64_t>("R") : 64;
@@ -3558,6 +3610,8 @@ int main(int argc, char * argv[])
 			testrandomn(1024*1024,8,numthreads,maxrounds);
 			testrandomn(1024*1024*16,8,numthreads,maxrounds);
 			testrandomn(1024*1024*128,8,numthreads,maxrounds);
+
+			testnk(6,1);
 
 			testnPlain("configure",numthreads,maxrounds);
 
