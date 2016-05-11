@@ -372,7 +372,7 @@ static uint64_t computeSplit(uint64_t const tnumfiles, std::vector<AlphabetSymbo
 /**
  * compute succinct LCP bit vector
  *
- * @param BWTfn file name of run length encoded BWT
+ * @param rBWTfn file name of run length encoded BWT
  * @param isafn file name of sampled inverse suffix array
  * @param textfn file name of the text
  * @param tmpgen temporary file name generator
@@ -383,7 +383,8 @@ static uint64_t computeSplit(uint64_t const tnumfiles, std::vector<AlphabetSymbo
  **/
 template<typename input_types_type>
 std::vector<std::string> computeSuccinctLCP(
-	std::string const & BWTfn,
+	std::string const & rBWTfn,
+	bool const bwtdeleteable,
 	std::string const & isafn,
 	std::string const & textfn,
 	libmaus2::util::TempFileNameGenerator & tmpgen,
@@ -396,10 +397,10 @@ std::vector<std::string> computeSuccinctLCP(
 	libmaus2::timing::RealTimeClock fullrtc; fullrtc.start();
 
 	uint64_t const unsortthreads = numthreads;
-	uint64_t const n = libmaus2::huffman::RLDecoder::getLength(BWTfn,numthreads);
+	std::vector<std::string> BWTin(1,rBWTfn);
+	uint64_t const n = libmaus2::huffman::RLDecoder::getLength(BWTin,numthreads);
 	uint64_t const threadpacksize = (n + numthreads - 1)/numthreads;
 	uint64_t const threadpacks = (n + threadpacksize - 1)/threadpacksize;
-	std::vector<std::string> BWTin(1,BWTfn);
 	bool deleteBWTin = false;
 
 	uint64_t const verbthres = 1024;
@@ -442,14 +443,14 @@ std::vector<std::string> computeSuccinctLCP(
 		libmaus2::huffman::RLDecoder,
 		true>
 	(
-		std::vector<std::string>(1,BWTfn),
+		BWTin,
 		numthreads /* num threads */,
 		4096 /* max files */,
 		false /* delete input */,
 		tmpgen,
 		4096 /* bs */,
 		0,
-		libmaus2::huffman::RLDecoder::getLength(BWTfn,numthreads),
+		libmaus2::huffman::RLDecoder::getLength(BWTin,numthreads),
 		0,
 		false /* max sym valid */,
 		4096 /* keybs */,
@@ -514,6 +515,9 @@ std::vector<std::string> computeSuccinctLCP(
 
 			std::cerr << "[V] alphabet is not dense, reducing to [0," << Vsyms.size()-1 << "]" << std::endl;
 		}
+
+		if ( bwtdeleteable )
+			libmaus2::aio::FileRemoval::removeFile(rBWTfn);
 
 		std::vector < std::string > Vbwtrewrite(threadpacks);
 		#if defined(_OPENMP)
@@ -606,7 +610,7 @@ std::vector<std::string> computeSuccinctLCP(
 			tmpgen,
 			4096 /* bs */,
 			0,
-			libmaus2::huffman::RLDecoder::getLength(BWTfn,numthreads),
+			libmaus2::huffman::RLDecoder::getLength(BWTin,numthreads),
 			maxsym,
 			true /* max sym valid */,
 			4096 /* keybs */,
@@ -1782,8 +1786,13 @@ std::vector<std::string> computeSuccinctLCP(
 		if ( verbose )
 			std::cerr << "\t[V] round completed in time " << roundrtc.getElapsedSeconds() << std::endl;
 	}
+
 	// remove unsorting key files
 	unsortinfo.reset();
+
+	// remove queue file(s)
+	for ( uint64_t i = 0; i < qfile.size(); ++i )
+		libmaus2::aio::FileRemoval::removeFile(qfile[i]);
 
 	for ( uint64_t i = 0; i < Sredfn.size(); ++i )
 		libmaus2::aio::FileRemoval::removeFile(Sredfn[i]);
@@ -1827,6 +1836,8 @@ std::vector<std::string> computeSuccinctLCP(
 		PDout->flush();
 		PDout.reset();
 	}
+	for ( uint64_t i = 0; i < activefn.size(); ++i )
+		libmaus2::aio::FileRemoval::removeFile(activefn[i]);
 	for ( uint64_t i = 0; i < pdfn.size(); ++i )
 		libmaus2::aio::FileRemoval::removeFile(pdfn[i]);
 	pdfn = pdfntmp;
@@ -1933,6 +1944,8 @@ std::vector<std::string> computeSuccinctLCP(
 		PBout->flush();
 		PBout.reset();
 	}
+	for ( uint64_t i = 0; i < Sfn.size(); ++i )
+		libmaus2::aio::FileRemoval::removeFile(Sfn[i]);
 
 	// perform lf on missing ranks to get ranks for previous positions
 	if ( verbose )
@@ -2039,6 +2052,8 @@ std::vector<std::string> computeSuccinctLCP(
 		PBout.reset();
 	}
 
+	for ( uint64_t i = 0; i < smisstmp.size(); ++i )
+		libmaus2::aio::FileRemoval::removeFile(smisstmp[i]);
 	// remove LF files
 	for ( uint64_t i = 0; i < slftmp.size(); ++i )
 		libmaus2::aio::FileRemoval::removeFile(slftmp[i]);
@@ -2099,6 +2114,9 @@ std::vector<std::string> computeSuccinctLCP(
 		4096 /* max temp files */,
 		verbose ? (&(std::cerr)) : nullstr
 	);
+
+	for ( uint64_t i = 0; i < smissmergetmp.size(); ++i )
+		libmaus2::aio::FileRemoval::removeFile(smissmergetmp[i]);
 
 	if ( verbose )
 		std::cerr << "[V] selected in time " << selectrtc.getElapsedSeconds() << std::endl;
@@ -2301,7 +2319,7 @@ std::vector<std::string> computeSuccinctLCP(
 			uint64_t const r_high = std::min(r_low + off_per_thread, off_high);
 
 			libmaus2::huffman::LFPhiPairEncoder::unique_ptr_type enc(new libmaus2::huffman::LFPhiPairEncoder(outfn,4096));
-			libmaus2::huffman::LFPhiPairDecoder lfdec(phipairfn,r_low);
+			libmaus2::huffman::LFPhiPairDecoder lfdec(phipairfn,r_low); // ZZZ
 
 			for ( uint64_t i = r_low; i < r_high; ++i )
 			{
@@ -2410,6 +2428,8 @@ std::vector<std::string> computeSuccinctLCP(
 		for ( uint64_t i = 0; i < Vrange.size(); ++i )
 			libmaus2::aio::FileRemoval::removeFile(Vrange[i]);
 	}
+	for ( uint64_t i = 0; i < phipairfn.size(); ++i )
+		libmaus2::aio::FileRemoval::removeFile(phipairfn[i]);
 
 	Pphilcpenc->flush();
 	Pphilcpenc.reset();
@@ -2654,20 +2674,12 @@ std::vector<std::string> computeSuccinctLCP(
 	for ( uint64_t i = 0; i < pdfn.size(); ++i )
 		libmaus2::aio::FileRemoval::removeFile(pdfn[i]);
 	pdfn = pdfntmp;
+
 	libmaus2::aio::FileRemoval::removeFile(philcpfn);
 	for ( uint64_t t = 0; t < Vphilcpfn.size(); ++t )
 		libmaus2::aio::FileRemoval::removeFile(Vphilcpfn[t]);
 	for ( uint64_t t = 0; t < Vranklcpfn.size(); ++t )
 		libmaus2::aio::FileRemoval::removeFile(Vranklcpfn[t]);
-	for ( uint64_t i = 0; i < phipairfn.size(); ++i )
-		libmaus2::aio::FileRemoval::removeFile(phipairfn[i]);
-	for ( uint64_t i = 0; i < smissmergetmp.size(); ++i )
-		libmaus2::aio::FileRemoval::removeFile(smissmergetmp[i]);
-	for ( uint64_t i = 0; i < smisstmp.size(); ++i )
-		libmaus2::aio::FileRemoval::removeFile(smisstmp[i]);
-	// remove queue file(s)
-	for ( uint64_t i = 0; i < qfile.size(); ++i )
-		libmaus2::aio::FileRemoval::removeFile(qfile[i]);
 
 	struct AlphabetSymbolFreqComparator
 	{
@@ -3219,13 +3231,9 @@ std::vector<std::string> computeSuccinctLCP(
 	for ( uint64_t i = 0; i < Vlfrankpos.size(); ++i )
 		libmaus2::aio::FileRemoval::removeFile(Vlfrankpos[i]);
 
-	for ( uint64_t i = 0; i < Sfn.size(); ++i )
-		libmaus2::aio::FileRemoval::removeFile(Sfn[i]);
-	for ( uint64_t i = 0; i < activefn.size(); ++i )
-		libmaus2::aio::FileRemoval::removeFile(activefn[i]);
 	for ( uint64_t i = 0; i < pdfn.size(); ++i )
 		libmaus2::aio::FileRemoval::removeFile(pdfn[i]);
-	libmaus2::aio::FileRemoval::removeFile(pairisa);
+	// libmaus2::aio::FileRemoval::removeFile(pairisa);
 	if ( deleteBWTin )
 		for ( uint64_t i = 0; i < BWTin.size(); ++i )
 			libmaus2::aio::FileRemoval::removeFile(BWTin[i]);
@@ -3323,7 +3331,8 @@ void testn(std::string const & s, uint64_t const numthreads, uint64_t const maxr
 		std::cerr << "done." << std::endl;
 
 	typedef libmaus2::suffixsort::ByteInputTypes input_types_type;
-	std::vector<std::string> const Vbvfn = computeSuccinctLCP<input_types_type>(BWTfn,isafn,textfn,tmpgen,numthreads,maxrounds,16*1024*1024,SA.get());
+	bool const bwtdeleteable = true;
+	std::vector<std::string> const Vbvfn = computeSuccinctLCP<input_types_type>(BWTfn,bwtdeleteable,isafn,textfn,tmpgen,numthreads,maxrounds,16*1024*1024,SA.get());
 
 	libmaus2::aio::FileRemoval::removeFile(BWTfn);
 	libmaus2::aio::FileRemoval::removeFile(isafn);
@@ -3431,6 +3440,8 @@ void testnPlain(std::string const & fn, uint64_t const numthreads, uint64_t maxr
 	}
 }
 
+#include <libmaus2/aio/SizeMonitorThread.hpp>
+
 void computeSuccinctLCP(libmaus2::util::ArgParser const & arg)
 {
 	std::string const inputtype = arg.uniqueArgPresent("i") ? arg["i"] : "bytestream";
@@ -3448,7 +3459,10 @@ void computeSuccinctLCP(libmaus2::util::ArgParser const & arg)
 	std::string const outputfn = arg.uniqueArgPresent("o") ? arg["o"] : (libmaus2::util::OutputFileNameTools::clipOff(bwtfn,".bwt")+".lcpbit");
 
 	libmaus2::util::TempFileNameGenerator tmpgen(tmpprefix,5);
-	
+
+	libmaus2::aio::SizeMonitorThread SMT(tmpprefix,5/*sec*/,&std::cerr);
+	SMT.start();
+
 	std::string const tmpbwtfn = tmpgen.getFileName(true);
 
 	{
@@ -3458,26 +3472,27 @@ void computeSuccinctLCP(libmaus2::util::ArgParser const & arg)
 	}
 
 	std::vector<std::string> resfn;
+	bool const bwtdeleteable = true;
 
 	switch ( itype )
 	{
 		case libmaus2::suffixsort::bwtb3m::BwtMergeSortOptions::bwt_merge_input_type_bytestream:
-			resfn = computeSuccinctLCP<libmaus2::suffixsort::ByteInputTypes>(tmpbwtfn,isafn,textfn,tmpgen,numthreads,maxrounds,maxmem);
+			resfn = computeSuccinctLCP<libmaus2::suffixsort::ByteInputTypes>(tmpbwtfn,bwtdeleteable,isafn,textfn,tmpgen,numthreads,maxrounds,maxmem);
 			break;
 		case libmaus2::suffixsort::bwtb3m::BwtMergeSortOptions::bwt_merge_input_type_compactstream:
-			resfn = computeSuccinctLCP<libmaus2::suffixsort::CompactInputTypes>(tmpbwtfn,isafn,textfn,tmpgen,numthreads,maxrounds,maxmem);
+			resfn = computeSuccinctLCP<libmaus2::suffixsort::CompactInputTypes>(tmpbwtfn,bwtdeleteable,isafn,textfn,tmpgen,numthreads,maxrounds,maxmem);
 			break;
 		case libmaus2::suffixsort::bwtb3m::BwtMergeSortOptions::bwt_merge_input_type_pac:
-			resfn = computeSuccinctLCP<libmaus2::suffixsort::PacInputTypes>(tmpbwtfn,isafn,textfn,tmpgen,numthreads,maxrounds,maxmem);
+			resfn = computeSuccinctLCP<libmaus2::suffixsort::PacInputTypes>(tmpbwtfn,bwtdeleteable,isafn,textfn,tmpgen,numthreads,maxrounds,maxmem);
 			break;
 		case libmaus2::suffixsort::bwtb3m::BwtMergeSortOptions::bwt_merge_input_type_pacterm:
-			resfn = computeSuccinctLCP<libmaus2::suffixsort::PacTermInputTypes>(tmpbwtfn,isafn,textfn,tmpgen,numthreads,maxrounds,maxmem);
+			resfn = computeSuccinctLCP<libmaus2::suffixsort::PacTermInputTypes>(tmpbwtfn,bwtdeleteable,isafn,textfn,tmpgen,numthreads,maxrounds,maxmem);
 			break;
 		case libmaus2::suffixsort::bwtb3m::BwtMergeSortOptions::bwt_merge_input_type_lz4:
-			resfn = computeSuccinctLCP<libmaus2::suffixsort::Lz4InputTypes>(tmpbwtfn,isafn,textfn,tmpgen,numthreads,maxrounds,maxmem);
+			resfn = computeSuccinctLCP<libmaus2::suffixsort::Lz4InputTypes>(tmpbwtfn,bwtdeleteable,isafn,textfn,tmpgen,numthreads,maxrounds,maxmem);
 			break;
 		case libmaus2::suffixsort::bwtb3m::BwtMergeSortOptions::bwt_merge_input_type_utf_8:
-			resfn = computeSuccinctLCP<libmaus2::suffixsort::Utf8InputTypes>(tmpbwtfn,isafn,textfn,tmpgen,numthreads,maxrounds,maxmem);
+			resfn = computeSuccinctLCP<libmaus2::suffixsort::Utf8InputTypes>(tmpbwtfn,bwtdeleteable,isafn,textfn,tmpgen,numthreads,maxrounds,maxmem);
 			break;
 		default:
 		{
@@ -3501,13 +3516,15 @@ void computeSuccinctLCP(libmaus2::util::ArgParser const & arg)
 
 		while ( subn-- )
 			BVO->writeBit(BVI->readBit());
-			
+
 		BVI.reset();
-		
+
 		libmaus2::aio::FileRemoval::removeFile(resfn[i]);
 	}
 	BVO->flush();
 	BVO.reset();
+
+	SMT.printSize(std::cerr);
 }
 
 int main(int argc, char * argv[])
