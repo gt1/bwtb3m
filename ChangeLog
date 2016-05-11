@@ -1,3 +1,9 @@
+bwtb3m (0.0.43-1) unstable; urgency=medium
+
+  * improve handling of open files in lcpbit 
+
+ -- German Tischler <tischler@mpi-cbg.de>  Wed, 11 May 2016 18:13:34 +0200
+
 bwtb3m (0.0.42-1) unstable; urgency=medium
 
    * lcpbit: fix check for zero terminator in readPlainFile
