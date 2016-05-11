@@ -140,12 +140,20 @@ void mergeQueueFiles(std::vector<std::string> & qfiletmp, uint64_t const numthre
 	#endif
 	for ( uint64_t i = 0; i < qfiletmp.size(); ++i )
 	{
-		bool const empty = libmaus2::gamma::GammaFlaggedIntervalDecoder::isEmpty(qfiletmp[i]);
-
-		if ( empty )
+		try
 		{
-			libmaus2::aio::FileRemoval::removeFile(qfiletmp[i]);
-			qfiletmp[i] = std::string();
+			bool const empty = libmaus2::gamma::GammaFlaggedIntervalDecoder::isEmpty(qfiletmp[i]);
+
+			if ( empty )
+			{
+				libmaus2::aio::FileRemoval::removeFile(qfiletmp[i]);
+				qfiletmp[i] = std::string();
+			}
+		}
+		catch(std::exception const & ex)
+		{
+			std::cerr << ex.what() << std::endl;
+			throw;
 		}
 	}
 
@@ -168,11 +176,19 @@ void mergeQueueFiles(std::vector<std::string> & qfiletmp, uint64_t const numthre
 		#endif
 		for ( uint64_t i = 0; i < qfiletmp.size(); ++i )
 		{
-			libmaus2::gamma::GammaFlaggedIntervalDecoder::unique_ptr_type dec(new libmaus2::gamma::GammaFlaggedIntervalDecoder(std::vector<std::string>(1,qfiletmp[i]),0 /* offset */));
-			libmaus2::gamma::FlaggedInterval QP;
-			bool const ok = dec->getNext(QP);
-			assert ( ok );
-			Atype[i] = QP.type;
+			try
+			{
+				libmaus2::gamma::GammaFlaggedIntervalDecoder::unique_ptr_type dec(new libmaus2::gamma::GammaFlaggedIntervalDecoder(std::vector<std::string>(1,qfiletmp[i]),0 /* offset */));
+				libmaus2::gamma::FlaggedInterval QP;
+				bool const ok = dec->getNext(QP);
+				assert ( ok );
+				Atype[i] = QP.type;
+			}
+			catch(std::exception const & ex)
+			{
+				std::cerr << ex.what() << std::endl;
+				throw;
+			}
 		}
 
 		uint64_t j = 0;
@@ -272,22 +288,30 @@ uint64_t computeBitsSet(
 	#endif
 	for ( uint64_t i = 0; i < threadpacks; ++i )
 	{
-		uint64_t const low = i*threadpacksize;
-		uint64_t const high = std::min(low+threadpacksize,n);
-
-		libmaus2::bitio::BitVectorInput Sredin(Sredfn,low);
-		libmaus2::bitio::BitVectorInput Sin(Sfn,low);
-
-		uint64_t lc = 0;
-		for ( uint64_t i = low; i < high; ++i )
+		try
 		{
-			bool const s0 = Sredin.readBit();
-			bool const s1 = Sin.readBit();
-			lc += (s0 || s1) ? 1 : 0;
-		}
+			uint64_t const low = i*threadpacksize;
+			uint64_t const high = std::min(low+threadpacksize,n);
 
-		libmaus2::parallel::ScopePosixSpinLock slock(s_set_lock);
-		s_set += lc;
+			libmaus2::bitio::BitVectorInput Sredin(Sredfn,low);
+			libmaus2::bitio::BitVectorInput Sin(Sfn,low);
+
+			uint64_t lc = 0;
+			for ( uint64_t i = low; i < high; ++i )
+			{
+				bool const s0 = Sredin.readBit();
+				bool const s1 = Sin.readBit();
+				lc += (s0 || s1) ? 1 : 0;
+			}
+
+			libmaus2::parallel::ScopePosixSpinLock slock(s_set_lock);
+			s_set += lc;
+		}
+		catch(std::exception const & ex)
+		{
+			std::cerr << ex.what() << std::endl;
+			throw;
+		}
 	}
 
 	return s_set;
@@ -496,35 +520,43 @@ std::vector<std::string> computeSuccinctLCP(
 	#endif
 	for ( uint64_t i = 0; i < threadpacks; ++i )
 	{
-		uint64_t const low = i*threadpacksize;
-		uint64_t const high = std::min(low+threadpacksize,n);
-
-		libmaus2::huffman::RLDecoder dec(BWTsort,low,1 /* numthreads */);
-
-		uint64_t todo = high-low;
-
-		libmaus2::huffman::RLDecoder::run_type R;
-
-		std::vector<uint64_t> Lsyms;
-		Lsyms.push_back(std::numeric_limits<uint64_t>::max());
-
-		while ( todo )
+		try
 		{
-			dec.decodeRun(R);
-			uint64_t const av = std::min(todo,R.rlen);
+			uint64_t const low = i*threadpacksize;
+			uint64_t const high = std::min(low+threadpacksize,n);
 
-			if ( static_cast<uint64_t>(R.sym) != Lsyms.back() )
-				Lsyms.push_back(R.sym);
+			libmaus2::huffman::RLDecoder dec(BWTsort,low,1 /* numthreads */);
 
-			todo -= av;
+			uint64_t todo = high-low;
+
+			libmaus2::huffman::RLDecoder::run_type R;
+
+			std::vector<uint64_t> Lsyms;
+			Lsyms.push_back(std::numeric_limits<uint64_t>::max());
+
+			while ( todo )
+			{
+				dec.decodeRun(R);
+				uint64_t const av = std::min(todo,R.rlen);
+
+				if ( static_cast<uint64_t>(R.sym) != Lsyms.back() )
+					Lsyms.push_back(R.sym);
+
+				todo -= av;
+			}
+
+			std::sort(Lsyms.begin(),Lsyms.end());
+			Lsyms.pop_back();
+
+			libmaus2::parallel::ScopePosixSpinLock slock(Vsymslock);
+			for ( uint64_t i = 0; i < Lsyms.size(); ++i )
+				Vsyms.push_back(Lsyms[i]);
 		}
-
-		std::sort(Lsyms.begin(),Lsyms.end());
-		Lsyms.pop_back();
-
-		libmaus2::parallel::ScopePosixSpinLock slock(Vsymslock);
-		for ( uint64_t i = 0; i < Lsyms.size(); ++i )
-			Vsyms.push_back(Lsyms[i]);
+		catch(std::exception const & ex)
+		{
+			std::cerr << ex.what() << std::endl;
+			throw;
+		}
 	}
 
 	std::sort(Vsyms.begin(),Vsyms.end());
@@ -552,51 +584,59 @@ std::vector<std::string> computeSuccinctLCP(
 		#endif
 		for ( uint64_t i = 0; i < threadpacks; ++i )
 		{
-			uint64_t const low = i*threadpacksize;
-			uint64_t const high = std::min(low+threadpacksize,n);
-
-			std::string const outfn = tmpgen.getFileName(true) + ".bwt.rewr";
-			Vbwtrewrite[i] = outfn;
-
-			uint64_t symrank = 0;
-			int64_t firstsym = -1;
-
+			try
 			{
-				libmaus2::huffman::RLDecoder dec(BWTsort,low,1 /* numthreads */);
-				firstsym = dec.decode();
-				assert ( firstsym >= 0 );
+				uint64_t const low = i*threadpacksize;
+				uint64_t const high = std::min(low+threadpacksize,n);
 
-				std::vector < uint64_t >::const_iterator ita = ::std::lower_bound(Vsyms.begin(),Vsyms.end(),firstsym);
-				assert ( ita != Vsyms.end() );
-				assert ( *ita == firstsym );
+				std::string const outfn = tmpgen.getFileName(true) + ".bwt.rewr";
+				Vbwtrewrite[i] = outfn;
 
-				symrank = ita - Vsyms.begin();
-			}
+				uint64_t symrank = 0;
+				int64_t firstsym = -1;
 
-			uint64_t todo = high-low;
-
-			libmaus2::huffman::RLDecoder::run_type R;
-
-			int64_t prevsym = firstsym;
-			libmaus2::huffman::RLDecoder dec(BWTsort,low,1 /* numthreads */);
-			libmaus2::huffman::RLEncoderStd enc(outfn,16*1024);
-			while ( todo )
-			{
-				dec.decodeRun(R);
-				uint64_t const av = std::min(todo,R.rlen);
-
-				if ( R.sym != prevsym )
 				{
-					symrank++;
-					prevsym = R.sym;
+					libmaus2::huffman::RLDecoder dec(BWTsort,low,1 /* numthreads */);
+					firstsym = dec.decode();
+					assert ( firstsym >= 0 );
+
+					std::vector < uint64_t >::const_iterator ita = ::std::lower_bound(Vsyms.begin(),Vsyms.end(),firstsym);
+					assert ( ita != Vsyms.end() );
+					assert ( *ita == firstsym );
+
+					symrank = ita - Vsyms.begin();
 				}
 
-				enc.encodeRun(libmaus2::huffman::RLEncoderStd::run_type(symrank,av));
+				uint64_t todo = high-low;
 
-				todo -= av;
+				libmaus2::huffman::RLDecoder::run_type R;
+
+				int64_t prevsym = firstsym;
+				libmaus2::huffman::RLDecoder dec(BWTsort,low,1 /* numthreads */);
+				libmaus2::huffman::RLEncoderStd enc(outfn,16*1024);
+				while ( todo )
+				{
+					dec.decodeRun(R);
+					uint64_t const av = std::min(todo,R.rlen);
+
+					if ( R.sym != prevsym )
+					{
+						symrank++;
+						prevsym = R.sym;
+					}
+
+					enc.encodeRun(libmaus2::huffman::RLEncoderStd::run_type(symrank,av));
+
+					todo -= av;
+				}
+
+				enc.flush();
 			}
-
-			enc.flush();
+			catch(std::exception const & ex)
+			{
+				std::cerr << ex.what() << std::endl;
+				throw;
+			}
 		}
 
 		assert ( libmaus2::huffman::RLDecoder::getLength(Vbwtrewrite,numthreads) == n );
@@ -668,15 +708,23 @@ std::vector<std::string> computeSuccinctLCP(
 	#endif
 	for ( uint64_t i = 0; i < threadpacks; ++i )
 	{
-		uint64_t const low = i*threadpacksize;
-		uint64_t const high = std::min(low+threadpacksize,n);
-		Sfn[i] = tmpgen.getFileName(true) + ".Sfn";
+		try
+		{
+			uint64_t const low = i*threadpacksize;
+			uint64_t const high = std::min(low+threadpacksize,n);
+			Sfn[i] = tmpgen.getFileName(true) + ".Sfn";
 
-		libmaus2::bitio::BitVectorOutput::unique_ptr_type PBout(new libmaus2::bitio::BitVectorOutput(Sfn[i]));
-		for ( uint64_t i = low; i < high; ++i )
-			PBout->writeBit(false);
-		PBout->flush();
-		PBout.reset();
+			libmaus2::bitio::BitVectorOutput::unique_ptr_type PBout(new libmaus2::bitio::BitVectorOutput(Sfn[i]));
+			for ( uint64_t i = low; i < high; ++i )
+				PBout->writeBit(false);
+			PBout->flush();
+			PBout.reset();
+		}
+		catch(std::exception const & ex)
+		{
+			std::cerr << ex.what() << std::endl;
+			throw;
+		}
 	}
 
 	if ( verbose )
@@ -691,26 +739,35 @@ std::vector<std::string> computeSuccinctLCP(
 	#endif
 	for ( uint64_t i = 0; i < threadpacks; ++i )
 	{
-		uint64_t const low = i*threadpacksize;
-		uint64_t const high = std::min(low+threadpacksize,n);
-		Sredfn[i] = tmpgen.getFileName(true) + ".Sfn";
-
-		int64_t prevsym = -1;
+		try
 		{
-			libmaus2::huffman::RLDecoder::unique_ptr_type rldec(new libmaus2::huffman::RLDecoder(BWTin,(low+n-1)%n/* offset */,1));
-			prevsym = rldec->decode();
-		}
+			uint64_t const low = i*threadpacksize;
+			uint64_t const high = std::min(low+threadpacksize,n);
+			Sredfn[i] = tmpgen.getFileName(true) + ".Sfn";
 
-		libmaus2::bitio::BitVectorOutput::unique_ptr_type PBout(new libmaus2::bitio::BitVectorOutput(Sredfn[i]));
-		libmaus2::huffman::RLDecoder::unique_ptr_type rldec(new libmaus2::huffman::RLDecoder(BWTin,low/* offset */,1));
-		for ( uint64_t i = low; i < high; ++i )
-		{
-			int64_t cursym = rldec->decode();
-			PBout->writeBit(cursym == prevsym);
-			prevsym = cursym;
+			int64_t prevsym = -1;
+			{
+				libmaus2::huffman::RLDecoder::unique_ptr_type rldec(new libmaus2::huffman::RLDecoder(BWTin,(low+n-1)%n/* offset */,1));
+				prevsym = rldec->decode();
+			}
+
+			libmaus2::bitio::BitVectorOutput::unique_ptr_type PBout(new libmaus2::bitio::BitVectorOutput(Sredfn[i]));
+			libmaus2::huffman::RLDecoder::unique_ptr_type rldec(new libmaus2::huffman::RLDecoder(BWTin,low/* offset */,1));
+			for ( uint64_t i = low; i < high; ++i )
+			{
+				int64_t cursym = rldec->decode();
+				PBout->writeBit(cursym == prevsym);
+				prevsym = cursym;
+			}
+			PBout->flush();
+			PBout.reset();
 		}
-		PBout->flush();
-		PBout.reset();
+		catch(std::exception const & ex)
+		{
+			std::cerr << ex.what() << std::endl;
+			throw;
+		}
+		
 	}
 
 	if ( verbose )
@@ -725,15 +782,23 @@ std::vector<std::string> computeSuccinctLCP(
 	#endif
 	for ( uint64_t i = 0; i < threadpacks; ++i )
 	{
-		uint64_t const low = i*threadpacksize;
-		uint64_t const high = std::min(low+threadpacksize,n);
-		activefn[i] = tmpgen.getFileName(true) + ".active";
+		try
+		{
+			uint64_t const low = i*threadpacksize;
+			uint64_t const high = std::min(low+threadpacksize,n);
+			activefn[i] = tmpgen.getFileName(true) + ".active";
 
-		libmaus2::bitio::BitVectorOutput::unique_ptr_type PBout(new libmaus2::bitio::BitVectorOutput(activefn[i]));
-		for ( uint64_t i = low; i < high; ++i )
-			PBout->writeBit(false);
-		PBout->flush();
-		PBout.reset();
+			libmaus2::bitio::BitVectorOutput::unique_ptr_type PBout(new libmaus2::bitio::BitVectorOutput(activefn[i]));
+			for ( uint64_t i = low; i < high; ++i )
+				PBout->writeBit(false);
+			PBout->flush();
+			PBout.reset();
+		}
+		catch(std::exception const & ex)
+		{
+			std::cerr << ex.what() << std::endl;
+			throw;
+		}		
 	}
 
 	if ( verbose )
@@ -748,15 +813,23 @@ std::vector<std::string> computeSuccinctLCP(
 	#endif
 	for ( uint64_t i = 0; i < threadpacks; ++i )
 	{
-		uint64_t const low = i*threadpacksize;
-		uint64_t const high = std::min(low+threadpacksize,n);
-		pdfn[i] = tmpgen.getFileName(true) + ".pd";
+		try
+		{
+			uint64_t const low = i*threadpacksize;
+			uint64_t const high = std::min(low+threadpacksize,n);
+			pdfn[i] = tmpgen.getFileName(true) + ".pd";
 
-		libmaus2::gamma::GammaPDEncoder::unique_ptr_type PDout(new libmaus2::gamma::GammaPDEncoder(pdfn[i]));
-		for ( uint64_t i = low; i < high; ++i )
-			PDout->encode(0);
-		PDout->flush();
-		PDout.reset();
+			libmaus2::gamma::GammaPDEncoder::unique_ptr_type PDout(new libmaus2::gamma::GammaPDEncoder(pdfn[i]));
+			for ( uint64_t i = low; i < high; ++i )
+				PDout->encode(0);
+			PDout->flush();
+			PDout.reset();
+		}
+		catch(std::exception const & ex)
+		{
+			std::cerr << ex.what() << std::endl;
+			throw;
+		}
 	}
 
 	if ( verbose )
@@ -828,30 +901,38 @@ std::vector<std::string> computeSuccinctLCP(
 			#endif
 			for ( uint64_t t = 0; t < threadpacks; ++t )
 			{
-				uint64_t * const histp_out = sc_sym_hist.begin() + t * sc_output_files;
-				std::fill(histp_out,histp_out+sc_output_files,0ull);
-
-				uint64_t const low = t * threadpacksize;
-				uint64_t const high = std::min(low+threadpacksize,n);
-
-				libmaus2::huffman::RLDecoder rldec(BWTin,low/* offset */,1);
-
-				assert ( high > low );
-				uint64_t todo = high-low;
-
-				libmaus2::huffman::RLDecoder::run_type SBR;
-
-				while ( todo )
+				try
 				{
-					bool const ok = rldec.decodeRun(SBR);
-					assert ( ok );
+					uint64_t * const histp_out = sc_sym_hist.begin() + t * sc_output_files;
+					std::fill(histp_out,histp_out+sc_output_files,0ull);
 
-					uint64_t const av = std::min(todo,SBR.rlen);
+					uint64_t const low = t * threadpacksize;
+					uint64_t const high = std::min(low+threadpacksize,n);
 
-					uint64_t const key = SBR.sym;
-					uint64_t const nextkey = key & sc_file_mask;
-					histp_out[nextkey] += av;
-					todo -= av;
+					libmaus2::huffman::RLDecoder rldec(BWTin,low/* offset */,1);
+
+					assert ( high > low );
+					uint64_t todo = high-low;
+
+					libmaus2::huffman::RLDecoder::run_type SBR;
+
+					while ( todo )
+					{
+						bool const ok = rldec.decodeRun(SBR);
+						assert ( ok );
+
+						uint64_t const av = std::min(todo,SBR.rlen);
+
+						uint64_t const key = SBR.sym;
+						uint64_t const nextkey = key & sc_file_mask;
+						histp_out[nextkey] += av;
+						todo -= av;
+					}
+				}
+				catch(std::exception const & ex)
+				{
+					std::cerr << ex.what() << std::endl;
+					throw;
 				}
 			}
 
@@ -878,205 +959,213 @@ std::vector<std::string> computeSuccinctLCP(
 			#endif
 			for ( uint64_t t = 0; t < threadpacks; ++t )
 			{
-				uint64_t * const histp_in = sc_sym_hist.begin() + t * sc_output_files;
-
-				uint64_t const low = t * threadpacksize;
-				uint64_t const high = std::min(low+threadpacksize,n);
-
-				std::vector<std::string> lsymbittmp(sc_output_files);
-				libmaus2::autoarray::AutoArray < libmaus2::huffman::SymBitEncoderStd::unique_ptr_type > ASBE(sc_output_files);
-
-				std::vector<std::string> lqflaggedtmp(3*sc_output_files);
-				libmaus2::autoarray::AutoArray < libmaus2::gamma::GammaFlaggedIntervalEncoder::unique_ptr_type > AGPE(3*sc_output_files);
-
-				for ( uint64_t i = 0; i < sc_output_files; ++i )
+				try
 				{
-					// sym 0 thread 0, sym 0 thread 1, ..., sym 0 thread threadpacks-1, sym 1 thread 0 ...
-					lsymbittmp[i] = symbittmp[ i * threadpacks + t ] = tmpgen.getFileName(true) + ".symbit";
+					uint64_t * const histp_in = sc_sym_hist.begin() + t * sc_output_files;
 
-					libmaus2::huffman::SymBitEncoderStd::unique_ptr_type SBE(new libmaus2::huffman::SymBitEncoderStd(lsymbittmp[i],symbitencoderblocksize));
-					ASBE[i] = UNIQUE_PTR_MOVE(SBE);
+					uint64_t const low = t * threadpacksize;
+					uint64_t const high = std::min(low+threadpacksize,n);
 
-					for ( uint64_t j = 0; j < 3; ++j )
+					std::vector<std::string> lsymbittmp(sc_output_files);
+					libmaus2::autoarray::AutoArray < libmaus2::huffman::SymBitEncoderStd::unique_ptr_type > ASBE(sc_output_files);
+
+					std::vector<std::string> lqflaggedtmp(3*sc_output_files);
+					libmaus2::autoarray::AutoArray < libmaus2::gamma::GammaFlaggedIntervalEncoder::unique_ptr_type > AGPE(3*sc_output_files);
+
+					for ( uint64_t i = 0; i < sc_output_files; ++i )
 					{
-						lqflaggedtmp[3*i + j] = qflaggedtmp [ 3 * (i * threadpacks + t) + j ] = tmpgen.getFileName(true) + ".q";
-						libmaus2::gamma::GammaFlaggedIntervalEncoder::unique_ptr_type GPE(new libmaus2::gamma::GammaFlaggedIntervalEncoder(lqflaggedtmp[3*i + j]));
-						AGPE[3*i + j] = UNIQUE_PTR_MOVE(GPE);
-					}
-				}
+						// sym 0 thread 0, sym 0 thread 1, ..., sym 0 thread threadpacks-1, sym 1 thread 0 ...
+						lsymbittmp[i] = symbittmp[ i * threadpacks + t ] = tmpgen.getFileName(true) + ".symbit";
 
-				libmaus2::gamma::GammaFlaggedPartitionDecoder GPD(qfile,low/* offset */,numthreads);
-				libmaus2::huffman::RLDecoder rldec(BWTin,low/* offset */,1);
-				libmaus2::bitio::BitVectorInput::unique_ptr_type PBin(new libmaus2::bitio::BitVectorInput(Sfn,low));
+						libmaus2::huffman::SymBitEncoderStd::unique_ptr_type SBE(new libmaus2::huffman::SymBitEncoderStd(lsymbittmp[i],symbitencoderblocksize));
+						ASBE[i] = UNIQUE_PTR_MOVE(SBE);
 
-				libmaus2::autoarray::AutoArray<uint64_t> lsymcnt(sc_output_files);
-
-				libmaus2::gamma::FlaggedInterval QP;
-				{
-					bool const firstok = GPD.getNext(QP);
-
-					assert ( firstok );
-					libmaus2::gamma::FlaggedInterval::interval_type const firsttype =
-						libmaus2::gamma::FlaggedInterval::getType(low,high,QP.from,QP.to);
-
-					uint64_t const firstlow = std::max(low,QP.from);
-					uint64_t const firsthigh = std::min(high,QP.to);
-					bool const firstactive = QP.active;
-					assert ( firsthigh > firstlow );
-
-					uint64_t firsttodo = firsthigh-firstlow;
-
-					while ( firsttodo )
-					{
-						libmaus2::huffman::RLDecoder::run_type R;
-						rldec.decodeRun(R);
-
-						uint64_t const use = std::min(R.rlen,firsttodo);
-
-						uint64_t const key = R.sym;
-						uint64_t const thiskey = key & sc_file_mask;
-
-						lsymcnt[thiskey] += use;
-
-						for ( uint64_t i = 0; i < use; ++i )
-							ASBE[thiskey]->encode(libmaus2::huffman::SymBitRun(R.sym,PBin->readBit()));
-
-						if ( use != R.rlen )
+						for ( uint64_t j = 0; j < 3; ++j )
 						{
-							R.rlen -= use;
-							rldec.putBack(R);
+							lqflaggedtmp[3*i + j] = qflaggedtmp [ 3 * (i * threadpacks + t) + j ] = tmpgen.getFileName(true) + ".q";
+							libmaus2::gamma::GammaFlaggedIntervalEncoder::unique_ptr_type GPE(new libmaus2::gamma::GammaFlaggedIntervalEncoder(lqflaggedtmp[3*i + j]));
+							AGPE[3*i + j] = UNIQUE_PTR_MOVE(GPE);
+						}
+					}
+
+					libmaus2::gamma::GammaFlaggedPartitionDecoder GPD(qfile,low/* offset */,numthreads);
+					libmaus2::huffman::RLDecoder rldec(BWTin,low/* offset */,1);
+					libmaus2::bitio::BitVectorInput::unique_ptr_type PBin(new libmaus2::bitio::BitVectorInput(Sfn,low));
+
+					libmaus2::autoarray::AutoArray<uint64_t> lsymcnt(sc_output_files);
+
+					libmaus2::gamma::FlaggedInterval QP;
+					{
+						bool const firstok = GPD.getNext(QP);
+
+						assert ( firstok );
+						libmaus2::gamma::FlaggedInterval::interval_type const firsttype =
+							libmaus2::gamma::FlaggedInterval::getType(low,high,QP.from,QP.to);
+
+						uint64_t const firstlow = std::max(low,QP.from);
+						uint64_t const firsthigh = std::min(high,QP.to);
+						bool const firstactive = QP.active;
+						assert ( firsthigh > firstlow );
+
+						uint64_t firsttodo = firsthigh-firstlow;
+
+						while ( firsttodo )
+						{
+							libmaus2::huffman::RLDecoder::run_type R;
+							rldec.decodeRun(R);
+
+							uint64_t const use = std::min(R.rlen,firsttodo);
+
+							uint64_t const key = R.sym;
+							uint64_t const thiskey = key & sc_file_mask;
+
+							lsymcnt[thiskey] += use;
+
+							for ( uint64_t i = 0; i < use; ++i )
+								ASBE[thiskey]->encode(libmaus2::huffman::SymBitRun(R.sym,PBin->readBit()));
+
+							if ( use != R.rlen )
+							{
+								R.rlen -= use;
+								rldec.putBack(R);
+							}
+
+							firsttodo -= use;
 						}
 
-						firsttodo -= use;
+						if ( firsttype == libmaus2::gamma::FlaggedInterval::interval_type_complete )
+						{
+							for ( uint64_t sym = 0; sym < sc_output_files; ++sym )
+								if ( lsymcnt[sym] )
+								{
+									libmaus2::gamma::FlaggedInterval intv(histp_in[sym],histp_in[sym]+lsymcnt[sym],firsttype,firstactive);
+									AGPE[3*sym+1]->put(intv);
+									histp_in[sym] += lsymcnt[sym];
+									lsymcnt[sym] = 0;
+								}
+						}
+						else
+						{
+							for ( uint64_t sym = 0; sym < sc_output_files; ++sym )
+							{
+								libmaus2::gamma::FlaggedInterval intv(histp_in[sym],histp_in[sym]+lsymcnt[sym],firsttype,firstactive);
+								AGPE[3*sym+0]->put(intv);
+								histp_in[sym] += lsymcnt[sym];
+								lsymcnt[sym] = 0;
+							}
+						}
 					}
 
-					if ( firsttype == libmaus2::gamma::FlaggedInterval::interval_type_complete )
+					bool qpok = false;
+
+					while ( (qpok = GPD.getNext(QP)) && QP.to <= high )
 					{
+						libmaus2::gamma::FlaggedInterval::interval_type type =
+							libmaus2::gamma::FlaggedInterval::getType(low,high,QP.from,QP.to);
+
+						assert ( type == libmaus2::gamma::FlaggedInterval::interval_type_complete );
+
+						uint64_t todo = QP.to-QP.from;
+						bool const active = QP.active;
+
+						while ( todo )
+						{
+							libmaus2::huffman::RLDecoder::run_type R;
+							rldec.decodeRun(R);
+
+							uint64_t const use = std::min(R.rlen,todo);
+
+							uint64_t const key = R.sym;
+							uint64_t const thiskey = key & sc_file_mask;
+
+							for ( uint64_t i = 0; i < use; ++i )
+								ASBE[thiskey]->encode(libmaus2::huffman::SymBitRun(R.sym,PBin->readBit()));
+
+							lsymcnt[thiskey] += use;
+
+							if ( use != R.rlen )
+							{
+								R.rlen -= use;
+								rldec.putBack(R);
+							}
+
+							todo -= use;
+						}
+
 						for ( uint64_t sym = 0; sym < sc_output_files; ++sym )
 							if ( lsymcnt[sym] )
 							{
-								libmaus2::gamma::FlaggedInterval intv(histp_in[sym],histp_in[sym]+lsymcnt[sym],firsttype,firstactive);
+								libmaus2::gamma::FlaggedInterval intv(histp_in[sym],histp_in[sym]+lsymcnt[sym],type,active);
 								AGPE[3*sym+1]->put(intv);
 								histp_in[sym] += lsymcnt[sym];
 								lsymcnt[sym] = 0;
 							}
 					}
-					else
+
+					if ( qpok && QP.from < high )
 					{
+						assert ( QP.to > high );
+
+						libmaus2::gamma::FlaggedInterval::interval_type lasttype =
+							libmaus2::gamma::FlaggedInterval::getType(low,high,QP.from,QP.to);
+
+						assert ( lasttype != libmaus2::gamma::FlaggedInterval::interval_type_complete );
+
+						uint64_t const lastlow = std::max(low,QP.from);
+						uint64_t const lasthigh = std::min(high,QP.to);
+						assert ( lasthigh > lastlow );
+						bool const lastactive = QP.active;
+
+						uint64_t lasttodo = lasthigh-lastlow;
+
+						while ( lasttodo )
+						{
+							libmaus2::huffman::RLDecoder::run_type R;
+							rldec.decodeRun(R);
+
+							uint64_t const use = std::min(R.rlen,lasttodo);
+
+							uint64_t const key = R.sym;
+							uint64_t const thiskey = key & sc_file_mask;
+
+							for ( uint64_t i = 0; i < use; ++i )
+								ASBE[thiskey]->encode(libmaus2::huffman::SymBitRun(R.sym,PBin->readBit()));
+
+							lsymcnt[thiskey] += use;
+
+							if ( use != R.rlen )
+							{
+								R.rlen -= use;
+								rldec.putBack(R);
+							}
+
+							lasttodo -= use;
+						}
+
 						for ( uint64_t sym = 0; sym < sc_output_files; ++sym )
 						{
-							libmaus2::gamma::FlaggedInterval intv(histp_in[sym],histp_in[sym]+lsymcnt[sym],firsttype,firstactive);
-							AGPE[3*sym+0]->put(intv);
+							libmaus2::gamma::FlaggedInterval intv(histp_in[sym],histp_in[sym]+lsymcnt[sym],lasttype,lastactive);
+							AGPE[3*sym+2]->put(intv);
 							histp_in[sym] += lsymcnt[sym];
 							lsymcnt[sym] = 0;
 						}
 					}
-				}
 
-				bool qpok = false;
-
-				while ( (qpok = GPD.getNext(QP)) && QP.to <= high )
-				{
-					libmaus2::gamma::FlaggedInterval::interval_type type =
-						libmaus2::gamma::FlaggedInterval::getType(low,high,QP.from,QP.to);
-
-					assert ( type == libmaus2::gamma::FlaggedInterval::interval_type_complete );
-
-					uint64_t todo = QP.to-QP.from;
-					bool const active = QP.active;
-
-					while ( todo )
+					for ( uint64_t i = 0; i < ASBE.size(); ++i )
 					{
-						libmaus2::huffman::RLDecoder::run_type R;
-						rldec.decodeRun(R);
-
-						uint64_t const use = std::min(R.rlen,todo);
-
-						uint64_t const key = R.sym;
-						uint64_t const thiskey = key & sc_file_mask;
-
-						for ( uint64_t i = 0; i < use; ++i )
-							ASBE[thiskey]->encode(libmaus2::huffman::SymBitRun(R.sym,PBin->readBit()));
-
-						lsymcnt[thiskey] += use;
-
-						if ( use != R.rlen )
-						{
-							R.rlen -= use;
-							rldec.putBack(R);
-						}
-
-						todo -= use;
+						ASBE[i]->flush();
+						ASBE[i].reset();
 					}
-
-					for ( uint64_t sym = 0; sym < sc_output_files; ++sym )
-						if ( lsymcnt[sym] )
-						{
-							libmaus2::gamma::FlaggedInterval intv(histp_in[sym],histp_in[sym]+lsymcnt[sym],type,active);
-							AGPE[3*sym+1]->put(intv);
-							histp_in[sym] += lsymcnt[sym];
-							lsymcnt[sym] = 0;
-						}
-				}
-
-				if ( qpok && QP.from < high )
-				{
-					assert ( QP.to > high );
-
-					libmaus2::gamma::FlaggedInterval::interval_type lasttype =
-						libmaus2::gamma::FlaggedInterval::getType(low,high,QP.from,QP.to);
-
-					assert ( lasttype != libmaus2::gamma::FlaggedInterval::interval_type_complete );
-
-					uint64_t const lastlow = std::max(low,QP.from);
-					uint64_t const lasthigh = std::min(high,QP.to);
-					assert ( lasthigh > lastlow );
-					bool const lastactive = QP.active;
-
-					uint64_t lasttodo = lasthigh-lastlow;
-
-					while ( lasttodo )
+					for ( uint64_t i = 0; i < AGPE.size(); ++i )
 					{
-						libmaus2::huffman::RLDecoder::run_type R;
-						rldec.decodeRun(R);
-
-						uint64_t const use = std::min(R.rlen,lasttodo);
-
-						uint64_t const key = R.sym;
-						uint64_t const thiskey = key & sc_file_mask;
-
-						for ( uint64_t i = 0; i < use; ++i )
-							ASBE[thiskey]->encode(libmaus2::huffman::SymBitRun(R.sym,PBin->readBit()));
-
-						lsymcnt[thiskey] += use;
-
-						if ( use != R.rlen )
-						{
-							R.rlen -= use;
-							rldec.putBack(R);
-						}
-
-						lasttodo -= use;
-					}
-
-					for ( uint64_t sym = 0; sym < sc_output_files; ++sym )
-					{
-						libmaus2::gamma::FlaggedInterval intv(histp_in[sym],histp_in[sym]+lsymcnt[sym],lasttype,lastactive);
-						AGPE[3*sym+2]->put(intv);
-						histp_in[sym] += lsymcnt[sym];
-						lsymcnt[sym] = 0;
+						AGPE[i]->flush();
+						AGPE[i].reset();
 					}
 				}
-
-				for ( uint64_t i = 0; i < ASBE.size(); ++i )
+				catch(std::exception const & ex)
 				{
-					ASBE[i]->flush();
-					ASBE[i].reset();
-				}
-				for ( uint64_t i = 0; i < AGPE.size(); ++i )
-				{
-					AGPE[i]->flush();
-					AGPE[i].reset();
+					std::cerr << ex.what() << std::endl;
+					throw;
 				}
 			}
 
@@ -1111,31 +1200,39 @@ std::vector<std::string> computeSuccinctLCP(
 			#endif
 			for ( uint64_t t = 0; t < threadpacks; ++t )
 			{
-				uint64_t * const histp_out = sc_sym_hist.begin() + t * sc_output_files;
-				std::fill(histp_out,histp_out+sc_output_files,0ull);
-
-				uint64_t const low = t * threadpacksize;
-				uint64_t const high = std::min(low+threadpacksize,n);
-
-				libmaus2::huffman::SymBitDecoder::unique_ptr_type rldec(new libmaus2::huffman::SymBitDecoder(symbit,low/* offset */,1));
-
-				assert ( high > low );
-				uint64_t todo = high-low;
-
-				libmaus2::huffman::SymBitRun SBR;
-
-				while ( todo )
+				try
 				{
-					bool const ok = rldec->decodeRun(SBR);
-					assert ( ok );
+					uint64_t * const histp_out = sc_sym_hist.begin() + t * sc_output_files;
+					std::fill(histp_out,histp_out+sc_output_files,0ull);
 
-					uint64_t const av = std::min(todo,SBR.rlen);
+					uint64_t const low = t * threadpacksize;
+					uint64_t const high = std::min(low+threadpacksize,n);
 
-					uint64_t const key = SBR.sym;
-					uint64_t const nextkey = (key >> ((sc_round)*sc_file_bits)) & sc_file_mask;
-					histp_out[nextkey] += av;
-					todo -= av;
+					libmaus2::huffman::SymBitDecoder::unique_ptr_type rldec(new libmaus2::huffman::SymBitDecoder(symbit,low/* offset */,1));
+
+					assert ( high > low );
+					uint64_t todo = high-low;
+
+					libmaus2::huffman::SymBitRun SBR;
+
+					while ( todo )
+					{
+						bool const ok = rldec->decodeRun(SBR);
+						assert ( ok );
+
+						uint64_t const av = std::min(todo,SBR.rlen);
+
+						uint64_t const key = SBR.sym;
+						uint64_t const nextkey = (key >> ((sc_round)*sc_file_bits)) & sc_file_mask;
+						histp_out[nextkey] += av;
+						todo -= av;
+					}
 				}
+				catch(std::exception const & ex)
+				{
+					std::cerr << ex.what() << std::endl;
+					throw;
+				}		
 			}
 
 			assert ( std::accumulate(sc_sym_hist.begin(),sc_sym_hist.begin() + sc_output_files * threadpacks,0ull) == n );
@@ -1161,201 +1258,209 @@ std::vector<std::string> computeSuccinctLCP(
 			#endif
 			for ( uint64_t t = 0; t < threadpacks; ++t )
 			{
-				uint64_t * const histp_in = sc_sym_hist.begin() + t * sc_output_files;
-
-				uint64_t const low = t * threadpacksize;
-				uint64_t const high = std::min(low+threadpacksize,n);
-
-				std::vector<std::string> lsymbittmp(sc_output_files);
-				libmaus2::autoarray::AutoArray < libmaus2::huffman::SymBitEncoderStd::unique_ptr_type > ASBE(sc_output_files);
-
-				std::vector<std::string> lqflaggedtmp(3*sc_output_files);
-				libmaus2::autoarray::AutoArray < libmaus2::gamma::GammaFlaggedIntervalEncoder::unique_ptr_type > AGPE(3*sc_output_files);
-
-				for ( uint64_t i = 0; i < sc_output_files; ++i )
+				try
 				{
-					// sym 0 thread 0, sym 0 thread 1, ..., sym 0 thread threadpacks-1, sym 1 thread 0 ...
-					lsymbittmp[i] = symbittmp[ i * threadpacks + t ] = tmpgen.getFileName(true) + ".symbit";
+					uint64_t * const histp_in = sc_sym_hist.begin() + t * sc_output_files;
 
-					libmaus2::huffman::SymBitEncoderStd::unique_ptr_type SBE(new libmaus2::huffman::SymBitEncoderStd(lsymbittmp[i],symbitencoderblocksize));
-					ASBE[i] = UNIQUE_PTR_MOVE(SBE);
+					uint64_t const low = t * threadpacksize;
+					uint64_t const high = std::min(low+threadpacksize,n);
 
-					for ( uint64_t j = 0; j < 3; ++j )
+					std::vector<std::string> lsymbittmp(sc_output_files);
+					libmaus2::autoarray::AutoArray < libmaus2::huffman::SymBitEncoderStd::unique_ptr_type > ASBE(sc_output_files);
+
+					std::vector<std::string> lqflaggedtmp(3*sc_output_files);
+					libmaus2::autoarray::AutoArray < libmaus2::gamma::GammaFlaggedIntervalEncoder::unique_ptr_type > AGPE(3*sc_output_files);
+
+					for ( uint64_t i = 0; i < sc_output_files; ++i )
 					{
-						lqflaggedtmp[3*i + j] = qflaggedtmp [ 3 * (i * threadpacks + t) + j ] = tmpgen.getFileName(true) + ".q";
-						libmaus2::gamma::GammaFlaggedIntervalEncoder::unique_ptr_type GPE(new libmaus2::gamma::GammaFlaggedIntervalEncoder(lqflaggedtmp[3*i + j]));
-						AGPE[3*i + j] = UNIQUE_PTR_MOVE(GPE);
-					}
-				}
+						// sym 0 thread 0, sym 0 thread 1, ..., sym 0 thread threadpacks-1, sym 1 thread 0 ...
+						lsymbittmp[i] = symbittmp[ i * threadpacks + t ] = tmpgen.getFileName(true) + ".symbit";
 
-				libmaus2::gamma::GammaFlaggedIntervalDecoder::unique_ptr_type GPD(new libmaus2::gamma::GammaFlaggedIntervalDecoder(qflagged,low/* offset */));
-				libmaus2::huffman::SymBitDecoder::unique_ptr_type rldec(new libmaus2::huffman::SymBitDecoder(symbit,low/* offset */,1));
+						libmaus2::huffman::SymBitEncoderStd::unique_ptr_type SBE(new libmaus2::huffman::SymBitEncoderStd(lsymbittmp[i],symbitencoderblocksize));
+						ASBE[i] = UNIQUE_PTR_MOVE(SBE);
 
-				libmaus2::autoarray::AutoArray<uint64_t> lsymcnt(sc_output_files);
-
-				libmaus2::gamma::FlaggedInterval QP;
-				{
-					bool const firstok = GPD->getNext(QP);
-
-					assert ( firstok );
-					libmaus2::gamma::FlaggedInterval::interval_type const firsttype =
-						libmaus2::gamma::FlaggedInterval::getType(low,high,QP.from,QP.to);
-
-					uint64_t const firstlow = std::max(low,QP.from);
-					uint64_t const firsthigh = std::min(high,QP.to);
-					bool const firstactive = QP.active;
-					assert ( firsthigh > firstlow );
-
-					uint64_t firsttodo = firsthigh-firstlow;
-
-					while ( firsttodo )
-					{
-						libmaus2::huffman::SymBitRun R;
-						rldec->decodeRun(R);
-
-						uint64_t const use = std::min(R.rlen,firsttodo);
-
-						uint64_t const key = R.sym;
-						uint64_t const thiskey = (key >> ((sc_round+0)*sc_file_bits)) & sc_file_mask;
-
-						lsymcnt[thiskey] += use;
-
-						ASBE[thiskey]->encodeRun(libmaus2::huffman::SymBitRun(R.sym,R.sbit,use));
-
-						if ( use != R.rlen )
+						for ( uint64_t j = 0; j < 3; ++j )
 						{
-							R.rlen -= use;
-							rldec->putBack(R);
+							lqflaggedtmp[3*i + j] = qflaggedtmp [ 3 * (i * threadpacks + t) + j ] = tmpgen.getFileName(true) + ".q";
+							libmaus2::gamma::GammaFlaggedIntervalEncoder::unique_ptr_type GPE(new libmaus2::gamma::GammaFlaggedIntervalEncoder(lqflaggedtmp[3*i + j]));
+							AGPE[3*i + j] = UNIQUE_PTR_MOVE(GPE);
+						}
+					}
+
+					libmaus2::gamma::GammaFlaggedIntervalDecoder::unique_ptr_type GPD(new libmaus2::gamma::GammaFlaggedIntervalDecoder(qflagged,low/* offset */));
+					libmaus2::huffman::SymBitDecoder::unique_ptr_type rldec(new libmaus2::huffman::SymBitDecoder(symbit,low/* offset */,1));
+
+					libmaus2::autoarray::AutoArray<uint64_t> lsymcnt(sc_output_files);
+
+					libmaus2::gamma::FlaggedInterval QP;
+					{
+						bool const firstok = GPD->getNext(QP);
+
+						assert ( firstok );
+						libmaus2::gamma::FlaggedInterval::interval_type const firsttype =
+							libmaus2::gamma::FlaggedInterval::getType(low,high,QP.from,QP.to);
+
+						uint64_t const firstlow = std::max(low,QP.from);
+						uint64_t const firsthigh = std::min(high,QP.to);
+						bool const firstactive = QP.active;
+						assert ( firsthigh > firstlow );
+
+						uint64_t firsttodo = firsthigh-firstlow;
+
+						while ( firsttodo )
+						{
+							libmaus2::huffman::SymBitRun R;
+							rldec->decodeRun(R);
+
+							uint64_t const use = std::min(R.rlen,firsttodo);
+
+							uint64_t const key = R.sym;
+							uint64_t const thiskey = (key >> ((sc_round+0)*sc_file_bits)) & sc_file_mask;
+
+							lsymcnt[thiskey] += use;
+
+							ASBE[thiskey]->encodeRun(libmaus2::huffman::SymBitRun(R.sym,R.sbit,use));
+
+							if ( use != R.rlen )
+							{
+								R.rlen -= use;
+								rldec->putBack(R);
+							}
+
+							firsttodo -= use;
 						}
 
-						firsttodo -= use;
+						if ( firsttype == libmaus2::gamma::FlaggedInterval::interval_type_complete )
+						{
+							for ( uint64_t sym = 0; sym < sc_output_files; ++sym )
+								if ( lsymcnt[sym] )
+								{
+									libmaus2::gamma::FlaggedInterval intv(histp_in[sym],histp_in[sym]+lsymcnt[sym],firsttype,firstactive);
+									AGPE[3*sym+1]->put(intv);
+									histp_in[sym] += lsymcnt[sym];
+									lsymcnt[sym] = 0;
+								}
+						}
+						else
+						{
+							for ( uint64_t sym = 0; sym < sc_output_files; ++sym )
+							{
+								libmaus2::gamma::FlaggedInterval intv(histp_in[sym],histp_in[sym]+lsymcnt[sym],firsttype,firstactive);
+								AGPE[3*sym+0]->put(intv);
+								histp_in[sym] += lsymcnt[sym];
+								lsymcnt[sym] = 0;
+							}
+						}
 					}
 
-					if ( firsttype == libmaus2::gamma::FlaggedInterval::interval_type_complete )
+					bool qpok = false;
+
+					while ( (qpok = GPD->getNext(QP)) && QP.to <= high )
 					{
+						libmaus2::gamma::FlaggedInterval::interval_type type =
+							libmaus2::gamma::FlaggedInterval::getType(low,high,QP.from,QP.to);
+
+						assert ( type == libmaus2::gamma::FlaggedInterval::interval_type_complete );
+
+						uint64_t todo = QP.to-QP.from;
+						bool const active = QP.active;
+
+						while ( todo )
+						{
+							libmaus2::huffman::SymBitRun R;
+							rldec->decodeRun(R);
+
+							uint64_t const use = std::min(R.rlen,todo);
+
+							uint64_t const key = R.sym;
+							uint64_t const thiskey = (key >> ((sc_round+0)*sc_file_bits)) & sc_file_mask;
+
+							ASBE[thiskey]->encodeRun(libmaus2::huffman::SymBitRun(R.sym,R.sbit,use));
+
+							lsymcnt[thiskey] += use;
+
+							if ( use != R.rlen )
+							{
+								R.rlen -= use;
+								rldec->putBack(R);
+							}
+
+							todo -= use;
+						}
+
 						for ( uint64_t sym = 0; sym < sc_output_files; ++sym )
 							if ( lsymcnt[sym] )
 							{
-								libmaus2::gamma::FlaggedInterval intv(histp_in[sym],histp_in[sym]+lsymcnt[sym],firsttype,firstactive);
+								libmaus2::gamma::FlaggedInterval intv(histp_in[sym],histp_in[sym]+lsymcnt[sym],type,active);
 								AGPE[3*sym+1]->put(intv);
 								histp_in[sym] += lsymcnt[sym];
 								lsymcnt[sym] = 0;
 							}
 					}
-					else
+
+					if ( qpok && QP.from < high )
 					{
+						assert ( QP.to > high );
+
+						libmaus2::gamma::FlaggedInterval::interval_type lasttype =
+							libmaus2::gamma::FlaggedInterval::getType(low,high,QP.from,QP.to);
+
+						assert ( lasttype != libmaus2::gamma::FlaggedInterval::interval_type_complete );
+
+						uint64_t const lastlow = std::max(low,QP.from);
+						uint64_t const lasthigh = std::min(high,QP.to);
+						assert ( lasthigh > lastlow );
+						bool const lastactive = QP.active;
+
+						uint64_t lasttodo = lasthigh-lastlow;
+
+						while ( lasttodo )
+						{
+							libmaus2::huffman::SymBitRun R;
+							rldec->decodeRun(R);
+
+							uint64_t const use = std::min(R.rlen,lasttodo);
+
+							uint64_t const key = R.sym;
+							uint64_t const thiskey = (key >> ((sc_round+0)*sc_file_bits)) & sc_file_mask;
+
+							ASBE[thiskey]->encodeRun(libmaus2::huffman::SymBitRun(R.sym,R.sbit,use));
+
+							lsymcnt[thiskey] += use;
+
+							if ( use != R.rlen )
+							{
+								R.rlen -= use;
+								rldec->putBack(R);
+							}
+
+							lasttodo -= use;
+						}
+
 						for ( uint64_t sym = 0; sym < sc_output_files; ++sym )
 						{
-							libmaus2::gamma::FlaggedInterval intv(histp_in[sym],histp_in[sym]+lsymcnt[sym],firsttype,firstactive);
-							AGPE[3*sym+0]->put(intv);
+							libmaus2::gamma::FlaggedInterval intv(histp_in[sym],histp_in[sym]+lsymcnt[sym],lasttype,lastactive);
+							AGPE[3*sym+2]->put(intv);
 							histp_in[sym] += lsymcnt[sym];
 							lsymcnt[sym] = 0;
 						}
 					}
-				}
 
-				bool qpok = false;
-
-				while ( (qpok = GPD->getNext(QP)) && QP.to <= high )
-				{
-					libmaus2::gamma::FlaggedInterval::interval_type type =
-						libmaus2::gamma::FlaggedInterval::getType(low,high,QP.from,QP.to);
-
-					assert ( type == libmaus2::gamma::FlaggedInterval::interval_type_complete );
-
-					uint64_t todo = QP.to-QP.from;
-					bool const active = QP.active;
-
-					while ( todo )
+					for ( uint64_t i = 0; i < ASBE.size(); ++i )
 					{
-						libmaus2::huffman::SymBitRun R;
-						rldec->decodeRun(R);
-
-						uint64_t const use = std::min(R.rlen,todo);
-
-						uint64_t const key = R.sym;
-						uint64_t const thiskey = (key >> ((sc_round+0)*sc_file_bits)) & sc_file_mask;
-
-						ASBE[thiskey]->encodeRun(libmaus2::huffman::SymBitRun(R.sym,R.sbit,use));
-
-						lsymcnt[thiskey] += use;
-
-						if ( use != R.rlen )
-						{
-							R.rlen -= use;
-							rldec->putBack(R);
-						}
-
-						todo -= use;
+						ASBE[i]->flush();
+						ASBE[i].reset();
 					}
-
-					for ( uint64_t sym = 0; sym < sc_output_files; ++sym )
-						if ( lsymcnt[sym] )
-						{
-							libmaus2::gamma::FlaggedInterval intv(histp_in[sym],histp_in[sym]+lsymcnt[sym],type,active);
-							AGPE[3*sym+1]->put(intv);
-							histp_in[sym] += lsymcnt[sym];
-							lsymcnt[sym] = 0;
-						}
-				}
-
-				if ( qpok && QP.from < high )
-				{
-					assert ( QP.to > high );
-
-					libmaus2::gamma::FlaggedInterval::interval_type lasttype =
-						libmaus2::gamma::FlaggedInterval::getType(low,high,QP.from,QP.to);
-
-					assert ( lasttype != libmaus2::gamma::FlaggedInterval::interval_type_complete );
-
-					uint64_t const lastlow = std::max(low,QP.from);
-					uint64_t const lasthigh = std::min(high,QP.to);
-					assert ( lasthigh > lastlow );
-					bool const lastactive = QP.active;
-
-					uint64_t lasttodo = lasthigh-lastlow;
-
-					while ( lasttodo )
+					for ( uint64_t i = 0; i < AGPE.size(); ++i )
 					{
-						libmaus2::huffman::SymBitRun R;
-						rldec->decodeRun(R);
-
-						uint64_t const use = std::min(R.rlen,lasttodo);
-
-						uint64_t const key = R.sym;
-						uint64_t const thiskey = (key >> ((sc_round+0)*sc_file_bits)) & sc_file_mask;
-
-						ASBE[thiskey]->encodeRun(libmaus2::huffman::SymBitRun(R.sym,R.sbit,use));
-
-						lsymcnt[thiskey] += use;
-
-						if ( use != R.rlen )
-						{
-							R.rlen -= use;
-							rldec->putBack(R);
-						}
-
-						lasttodo -= use;
-					}
-
-					for ( uint64_t sym = 0; sym < sc_output_files; ++sym )
-					{
-						libmaus2::gamma::FlaggedInterval intv(histp_in[sym],histp_in[sym]+lsymcnt[sym],lasttype,lastactive);
-						AGPE[3*sym+2]->put(intv);
-						histp_in[sym] += lsymcnt[sym];
-						lsymcnt[sym] = 0;
+						AGPE[i]->flush();
+						AGPE[i].reset();
 					}
 				}
-
-				for ( uint64_t i = 0; i < ASBE.size(); ++i )
+				catch(std::exception const & ex)
 				{
-					ASBE[i]->flush();
-					ASBE[i].reset();
-				}
-				for ( uint64_t i = 0; i < AGPE.size(); ++i )
-				{
-					AGPE[i]->flush();
-					AGPE[i].reset();
+					std::cerr << ex.what() << std::endl;
+					throw;
 				}
 			}
 
@@ -1382,150 +1487,158 @@ std::vector<std::string> computeSuccinctLCP(
 		#endif
 		for ( uint64_t t = 0; t < threadpacks; ++t )
 		{
-			uint64_t const low = t * threadpacksize;
-			uint64_t const high = std::min(low+threadpacksize,n);
-
-			libmaus2::gamma::GammaFlaggedIntervalDecoder::unique_ptr_type GPD(new libmaus2::gamma::GammaFlaggedIntervalDecoder(qflagged,low/* offset */));
-			libmaus2::bitio::BitVectorInput::unique_ptr_type PBin(new libmaus2::bitio::BitVectorInput(Sfn,low));
-			libmaus2::huffman::SymBitDecoder::unique_ptr_type rldec(new libmaus2::huffman::SymBitDecoder(symbit,low/* offset */,1));
-			libmaus2::gamma::FlaggedInterval QP;
-
-			std::string const outfn = tmpgen.getFileName(true) + ".T";
-			Tfn[t] = outfn;
-			libmaus2::huffman::RLEncoderStd::unique_ptr_type BVO(new libmaus2::huffman::RLEncoderStd(outfn,4096 /* bufsize */));
-
+			try
 			{
-				bool const firstok = GPD->getNext(QP);
-				assert ( firstok );
+				uint64_t const low = t * threadpacksize;
+				uint64_t const high = std::min(low+threadpacksize,n);
 
-				uint64_t const qlow = std::max(low,QP.from);
-				uint64_t const qhigh = std::min(high,QP.to);
-				assert ( qhigh > qlow );
-				uint64_t qtodo = qhigh-qlow;
+				libmaus2::gamma::GammaFlaggedIntervalDecoder::unique_ptr_type GPD(new libmaus2::gamma::GammaFlaggedIntervalDecoder(qflagged,low/* offset */));
+				libmaus2::bitio::BitVectorInput::unique_ptr_type PBin(new libmaus2::bitio::BitVectorInput(Sfn,low));
+				libmaus2::huffman::SymBitDecoder::unique_ptr_type rldec(new libmaus2::huffman::SymBitDecoder(symbit,low/* offset */,1));
+				libmaus2::gamma::FlaggedInterval QP;
 
-				if ( QP.from == low )
+				std::string const outfn = tmpgen.getFileName(true) + ".T";
+				Tfn[t] = outfn;
+				libmaus2::huffman::RLEncoderStd::unique_ptr_type BVO(new libmaus2::huffman::RLEncoderStd(outfn,4096 /* bufsize */));
+
 				{
-					// read S bit
-					bool const Stgtbit = PBin->readBit();
-					libmaus2::huffman::SymBit SB;
-					bool const ok = rldec->decode(SB);
-					assert ( ok );
+					bool const firstok = GPD->getNext(QP);
+					assert ( firstok );
 
-					bool const Tbit = (!(SB.sbit)) && (!Stgtbit);
+					uint64_t const qlow = std::max(low,QP.from);
+					uint64_t const qhigh = std::min(high,QP.to);
+					assert ( qhigh > qlow );
+					uint64_t qtodo = qhigh-qlow;
 
-					// write T bit
-					BVO->encode(Tbit);
+					if ( QP.from == low )
+					{
+						// read S bit
+						bool const Stgtbit = PBin->readBit();
+						libmaus2::huffman::SymBit SB;
+						bool const ok = rldec->decode(SB);
+						assert ( ok );
 
-					qtodo -= 1;
+						bool const Tbit = (!(SB.sbit)) && (!Stgtbit);
+
+						// write T bit
+						BVO->encode(Tbit);
+
+						qtodo -= 1;
+					}
+
+					while ( qtodo )
+					{
+						libmaus2::huffman::SymBitRun SBR;
+						bool const ok = rldec->decodeRun(SBR);
+						assert ( ok );
+
+						uint64_t const av = std::min(SBR.rlen,qtodo);
+						SBR.rlen -= av;
+
+						for ( uint64_t i = 0; i < av; ++i )
+							PBin->readBit();
+
+						BVO->encodeRun(libmaus2::huffman::RLEncoderStd::run_type(false,av));
+
+						if ( SBR.rlen )
+							rldec->putBack(SBR);
+
+						qtodo -= av;
+					}
 				}
 
-				while ( qtodo )
+				bool qpok;
+				while ( (qpok=GPD->getNext(QP)) && QP.to <= high )
 				{
-					libmaus2::huffman::SymBitRun SBR;
-					bool const ok = rldec->decodeRun(SBR);
-					assert ( ok );
+					assert ( QP.from >= low );
+					assert ( QP.to <= high );
 
-					uint64_t const av = std::min(SBR.rlen,qtodo);
-					SBR.rlen -= av;
+					uint64_t qtodo = QP.to-QP.from;
 
-					for ( uint64_t i = 0; i < av; ++i )
-						PBin->readBit();
+					{
+						// read S bit
+						bool const Stgtbit = PBin->readBit();
+						libmaus2::huffman::SymBit SB;
+						bool const ok = rldec->decode(SB);
+						assert ( ok );
 
-					BVO->encodeRun(libmaus2::huffman::RLEncoderStd::run_type(false,av));
+						bool const Tbit = (!(SB.sbit)) && (!Stgtbit);
 
-					if ( SBR.rlen )
-						rldec->putBack(SBR);
+						// write T bit
+						BVO->encode(Tbit);
 
-					qtodo -= av;
+						qtodo -= 1;
+					}
+
+					while ( qtodo )
+					{
+						libmaus2::huffman::SymBitRun SBR;
+						bool const ok = rldec->decodeRun(SBR);
+						assert ( ok );
+
+						uint64_t const av = std::min(SBR.rlen,qtodo);
+						SBR.rlen -= av;
+
+						for ( uint64_t i = 0; i < av; ++i )
+							PBin->readBit();
+						BVO->encodeRun(libmaus2::huffman::RLEncoderStd::run_type(false,av));
+
+						if ( SBR.rlen )
+							rldec->putBack(SBR);
+
+						qtodo -= av;
+					}
 				}
+
+				if ( qpok && QP.from < high )
+				{
+					assert ( QP.to > high );
+
+					uint64_t qtodo = high-QP.from;
+
+					{
+						// read S bit
+						bool const Stgtbit = PBin->readBit();
+						libmaus2::huffman::SymBit SB;
+						bool const ok = rldec->decode(SB);
+						assert ( ok );
+
+						bool const Tbit = (!(SB.sbit)) && (!Stgtbit);
+
+						// write T bit
+						BVO->encode(Tbit);
+
+						qtodo -= 1;
+					}
+
+					while ( qtodo )
+					{
+						libmaus2::huffman::SymBitRun SBR;
+						bool const ok = rldec->decodeRun(SBR);
+						assert ( ok );
+
+						uint64_t const av = std::min(SBR.rlen,qtodo);
+						SBR.rlen -= av;
+
+						for ( uint64_t i = 0; i < av; ++i )
+							PBin->readBit();
+						BVO->encodeRun(libmaus2::huffman::RLEncoderStd::run_type(false,av));
+
+						if ( SBR.rlen )
+							rldec->putBack(SBR);
+
+						qtodo -= av;
+					}
+				}
+
+				BVO->flush();
+				BVO.reset();
 			}
-
-			bool qpok;
-			while ( (qpok=GPD->getNext(QP)) && QP.to <= high )
+			catch(std::exception const & ex)
 			{
-				assert ( QP.from >= low );
-				assert ( QP.to <= high );
-
-				uint64_t qtodo = QP.to-QP.from;
-
-				{
-					// read S bit
-					bool const Stgtbit = PBin->readBit();
-					libmaus2::huffman::SymBit SB;
-					bool const ok = rldec->decode(SB);
-					assert ( ok );
-
-					bool const Tbit = (!(SB.sbit)) && (!Stgtbit);
-
-					// write T bit
-					BVO->encode(Tbit);
-
-					qtodo -= 1;
-				}
-
-				while ( qtodo )
-				{
-					libmaus2::huffman::SymBitRun SBR;
-					bool const ok = rldec->decodeRun(SBR);
-					assert ( ok );
-
-					uint64_t const av = std::min(SBR.rlen,qtodo);
-					SBR.rlen -= av;
-
-					for ( uint64_t i = 0; i < av; ++i )
-						PBin->readBit();
-					BVO->encodeRun(libmaus2::huffman::RLEncoderStd::run_type(false,av));
-
-					if ( SBR.rlen )
-						rldec->putBack(SBR);
-
-					qtodo -= av;
-				}
-			}
-
-			if ( qpok && QP.from < high )
-			{
-				assert ( QP.to > high );
-
-				uint64_t qtodo = high-QP.from;
-
-				{
-					// read S bit
-					bool const Stgtbit = PBin->readBit();
-					libmaus2::huffman::SymBit SB;
-					bool const ok = rldec->decode(SB);
-					assert ( ok );
-
-					bool const Tbit = (!(SB.sbit)) && (!Stgtbit);
-
-					// write T bit
-					BVO->encode(Tbit);
-
-					qtodo -= 1;
-				}
-
-				while ( qtodo )
-				{
-					libmaus2::huffman::SymBitRun SBR;
-					bool const ok = rldec->decodeRun(SBR);
-					assert ( ok );
-
-					uint64_t const av = std::min(SBR.rlen,qtodo);
-					SBR.rlen -= av;
-
-					for ( uint64_t i = 0; i < av; ++i )
-						PBin->readBit();
-					BVO->encodeRun(libmaus2::huffman::RLEncoderStd::run_type(false,av));
-
-					if ( SBR.rlen )
-						rldec->putBack(SBR);
-
-					qtodo -= av;
-				}
-			}
-
-			BVO->flush();
-			BVO.reset();
+				std::cerr << ex.what() << std::endl;
+				throw;
+			}		
 		}
 
 		assert ( libmaus2::huffman::RLDecoder::getLength(Tfn,1) == n );
@@ -1560,51 +1673,102 @@ std::vector<std::string> computeSuccinctLCP(
 		#endif
 		for ( uint64_t t = 0; t < threadpacks; ++t )
 		{
-			uint64_t const low = t * threadpacksize;
-			uint64_t const high = std::min(low+threadpacksize,n);
-
-			std::string const activeoutfn = tmpgen.getFileName(true) + ".active";
-			activefntmp[t] = activeoutfn;
-
-			std::string const soutfn = tmpgen.getFileName(true) + ".S";
-			soutfntmp[t] = soutfn;
-			std::string const qoutfn = tmpgen.getFileName(true) + ".q";
-			qoutfntmp[t] = qoutfn;
-
-			libmaus2::gamma::GammaPDDecoder::unique_ptr_type PDin(new libmaus2::gamma::GammaPDDecoder(pdfn,low));
-			std::string const pdoutfn = tmpgen.getFileName(true) + ".pdfn";
-			libmaus2::gamma::GammaPDEncoder::unique_ptr_type PDout(new libmaus2::gamma::GammaPDEncoder(pdoutfn));
-			pdfntmp[t] = pdoutfn;
-
-			libmaus2::bitio::BitVectorOutput::unique_ptr_type PBout(new libmaus2::bitio::BitVectorOutput(soutfn));
-			libmaus2::bitio::BitVectorOutput::unique_ptr_type PactiveOut(new libmaus2::bitio::BitVectorOutput(activeoutfn));
-			libmaus2::gamma::GammaFlaggedPartitionEncoder::unique_ptr_type GPE(new libmaus2::gamma::GammaFlaggedPartitionEncoder(qoutfn));
-
-			libmaus2::huffman::RLDecoder::unique_ptr_type TBVI(new libmaus2::huffman::RLDecoder(Toutfn,low,1 /* numthreads */));
-
-			// active vector input
-			libmaus2::bitio::BitVectorInput::unique_ptr_type PactiveIn(new libmaus2::bitio::BitVectorInput(activefn,low));
-			// S vector
-			libmaus2::bitio::BitVectorInput::unique_ptr_type PBin(new libmaus2::bitio::BitVectorInput(Sfn,low));
-			// pre Q
-			libmaus2::gamma::GammaFlaggedIntervalDecoder::unique_ptr_type GPD(new libmaus2::gamma::GammaFlaggedIntervalDecoder(qflagged,low/* offset */));
-
-			libmaus2::gamma::FlaggedInterval prevP;
-			bool prevPvalid = false;
-			uint64_t outintv = 0;
-
-			libmaus2::gamma::FlaggedInterval QP;
+			try
 			{
+				uint64_t const low = t * threadpacksize;
+				uint64_t const high = std::min(low+threadpacksize,n);
 
-				bool const firstok = GPD->getNext(QP);
-				assert ( firstok );
-				uint64_t const firstlow = std::max(low,QP.from);
-				uint64_t const firsthigh = std::min(high,QP.to);
-				assert ( firsthigh > firstlow );
-				uint64_t qtodo = firsthigh - firstlow;
+				std::string const activeoutfn = tmpgen.getFileName(true) + ".active";
+				activefntmp[t] = activeoutfn;
 
-				if ( QP.from == low )
+				std::string const soutfn = tmpgen.getFileName(true) + ".S";
+				soutfntmp[t] = soutfn;
+				std::string const qoutfn = tmpgen.getFileName(true) + ".q";
+				qoutfntmp[t] = qoutfn;
+
+				libmaus2::gamma::GammaPDDecoder::unique_ptr_type PDin(new libmaus2::gamma::GammaPDDecoder(pdfn,low));
+				std::string const pdoutfn = tmpgen.getFileName(true) + ".pdfn";
+				libmaus2::gamma::GammaPDEncoder::unique_ptr_type PDout(new libmaus2::gamma::GammaPDEncoder(pdoutfn));
+				pdfntmp[t] = pdoutfn;
+
+				libmaus2::bitio::BitVectorOutput::unique_ptr_type PBout(new libmaus2::bitio::BitVectorOutput(soutfn));
+				libmaus2::bitio::BitVectorOutput::unique_ptr_type PactiveOut(new libmaus2::bitio::BitVectorOutput(activeoutfn));
+				libmaus2::gamma::GammaFlaggedPartitionEncoder::unique_ptr_type GPE(new libmaus2::gamma::GammaFlaggedPartitionEncoder(qoutfn));
+
+				libmaus2::huffman::RLDecoder::unique_ptr_type TBVI(new libmaus2::huffman::RLDecoder(Toutfn,low,1 /* numthreads */));
+
+				// active vector input
+				libmaus2::bitio::BitVectorInput::unique_ptr_type PactiveIn(new libmaus2::bitio::BitVectorInput(activefn,low));
+				// S vector
+				libmaus2::bitio::BitVectorInput::unique_ptr_type PBin(new libmaus2::bitio::BitVectorInput(Sfn,low));
+				// pre Q
+				libmaus2::gamma::GammaFlaggedIntervalDecoder::unique_ptr_type GPD(new libmaus2::gamma::GammaFlaggedIntervalDecoder(qflagged,low/* offset */));
+
+				libmaus2::gamma::FlaggedInterval prevP;
+				bool prevPvalid = false;
+				uint64_t outintv = 0;
+
+				libmaus2::gamma::FlaggedInterval QP;
 				{
+
+					bool const firstok = GPD->getNext(QP);
+					assert ( firstok );
+					uint64_t const firstlow = std::max(low,QP.from);
+					uint64_t const firsthigh = std::min(high,QP.to);
+					assert ( firsthigh > firstlow );
+					uint64_t qtodo = firsthigh - firstlow;
+
+					if ( QP.from == low )
+					{
+						// S
+						bool const Sinbit = PBin->readBit();
+						// active
+						bool const Tinbit = TBVI->decode();
+						bool const activeInBit = PactiveIn->readBit() || Tinbit;
+
+						uint64_t const p = PDin->decode();
+						PDout->encode(p + (activeInBit?1:0));
+
+						// next interval
+						libmaus2::gamma::FlaggedInterval nextP(QP.from,QP.to,libmaus2::gamma::FlaggedInterval::interval_type_complete,(!Sinbit) /* active XXX check */);
+
+						prevP = nextP;
+						prevPvalid = true;
+
+						if ( (!Sinbit) )
+						{
+							PactiveOut->writeBit(false); // deactivate
+							PBout->writeBit(true); // S[i] = true
+						}
+						else
+						{
+							PactiveOut->writeBit(activeInBit);
+							PBout->writeBit(Sinbit);
+						}
+
+						qtodo -= 1;
+					}
+
+					while ( qtodo-- )
+					{
+						bool const Tinbit = TBVI->decode();
+						bool const activeInBit = PactiveIn->readBit() || Tinbit;
+
+						uint64_t const p = PDin->decode();
+						PDout->encode(p + (activeInBit?1:0));
+
+						PactiveOut->writeBit(activeInBit);
+						PBout->writeBit(PBin->readBit());
+					}
+				}
+
+				bool qok;
+				while ( (qok=GPD->getNext(QP)) && QP.to <= high )
+				{
+					assert ( QP.from >= low );
+
+					uint64_t qtodo = QP.to-QP.from;
+
 					// S
 					bool const Sinbit = PBin->readBit();
 					// active
@@ -1614,11 +1778,29 @@ std::vector<std::string> computeSuccinctLCP(
 					uint64_t const p = PDin->decode();
 					PDout->encode(p + (activeInBit?1:0));
 
-					// next interval
 					libmaus2::gamma::FlaggedInterval nextP(QP.from,QP.to,libmaus2::gamma::FlaggedInterval::interval_type_complete,(!Sinbit) /* active XXX check */);
 
-					prevP = nextP;
-					prevPvalid = true;
+					if ( prevPvalid )
+					{
+						if ( prevP.active || (nextP.active != prevP.active) )
+						{
+							GPE->put(prevP);
+							outintv += 1;
+							prevP = nextP;
+						}
+						else
+						{
+							assert ( ! prevP.active );
+							assert ( ! nextP.active );
+
+							prevP.to = nextP.to;
+						}
+					}
+					else
+					{
+						prevP = nextP;
+						prevPvalid = true;
+					}
 
 					if ( (!Sinbit) )
 					{
@@ -1632,169 +1814,108 @@ std::vector<std::string> computeSuccinctLCP(
 					}
 
 					qtodo -= 1;
+
+					while ( qtodo-- )
+					{
+						bool const Tinbit = TBVI->decode();
+						bool const activeInBit = PactiveIn->readBit() || Tinbit;
+
+						uint64_t const p = PDin->decode();
+						PDout->encode(p + (activeInBit?1:0));
+
+						PactiveOut->writeBit(activeInBit);
+						PBout->writeBit(PBin->readBit());
+					}
 				}
 
-				while ( qtodo-- )
+				if ( qok && QP.from < high )
 				{
+					assert ( QP.from >= low );
+
+					uint64_t qtodo = high - QP.from;
+
+					// S
+					bool const Sinbit = PBin->readBit();
+					// active
 					bool const Tinbit = TBVI->decode();
 					bool const activeInBit = PactiveIn->readBit() || Tinbit;
 
 					uint64_t const p = PDin->decode();
 					PDout->encode(p + (activeInBit?1:0));
 
-					PactiveOut->writeBit(activeInBit);
-					PBout->writeBit(PBin->readBit());
-				}
-			}
+					libmaus2::gamma::FlaggedInterval nextP(QP.from,QP.to,libmaus2::gamma::FlaggedInterval::interval_type_complete,(!Sinbit) /* active XXX check */);
 
-			bool qok;
-			while ( (qok=GPD->getNext(QP)) && QP.to <= high )
-			{
-				assert ( QP.from >= low );
-
-				uint64_t qtodo = QP.to-QP.from;
-
-				// S
-				bool const Sinbit = PBin->readBit();
-				// active
-				bool const Tinbit = TBVI->decode();
-				bool const activeInBit = PactiveIn->readBit() || Tinbit;
-
-				uint64_t const p = PDin->decode();
-				PDout->encode(p + (activeInBit?1:0));
-
-				libmaus2::gamma::FlaggedInterval nextP(QP.from,QP.to,libmaus2::gamma::FlaggedInterval::interval_type_complete,(!Sinbit) /* active XXX check */);
-
-				if ( prevPvalid )
-				{
-					if ( prevP.active || (nextP.active != prevP.active) )
+					if ( prevPvalid )
 					{
-						GPE->put(prevP);
-						outintv += 1;
-						prevP = nextP;
+						if ( prevP.active || (nextP.active != prevP.active) )
+						{
+							GPE->put(prevP);
+							outintv += 1;
+							prevP = nextP;
+						}
+						else
+						{
+							assert ( ! prevP.active );
+							assert ( ! nextP.active );
+
+							prevP.to = nextP.to;
+						}
 					}
 					else
 					{
-						assert ( ! prevP.active );
-						assert ( ! nextP.active );
-
-						prevP.to = nextP.to;
-					}
-				}
-				else
-				{
-					prevP = nextP;
-					prevPvalid = true;
-				}
-
-				if ( (!Sinbit) )
-				{
-					PactiveOut->writeBit(false); // deactivate
-					PBout->writeBit(true); // S[i] = true
-				}
-				else
-				{
-					PactiveOut->writeBit(activeInBit);
-					PBout->writeBit(Sinbit);
-				}
-
-				qtodo -= 1;
-
-				while ( qtodo-- )
-				{
-					bool const Tinbit = TBVI->decode();
-					bool const activeInBit = PactiveIn->readBit() || Tinbit;
-
-					uint64_t const p = PDin->decode();
-					PDout->encode(p + (activeInBit?1:0));
-
-					PactiveOut->writeBit(activeInBit);
-					PBout->writeBit(PBin->readBit());
-				}
-			}
-
-			if ( qok && QP.from < high )
-			{
-				assert ( QP.from >= low );
-
-				uint64_t qtodo = high - QP.from;
-
-				// S
-				bool const Sinbit = PBin->readBit();
-				// active
-				bool const Tinbit = TBVI->decode();
-				bool const activeInBit = PactiveIn->readBit() || Tinbit;
-
-				uint64_t const p = PDin->decode();
-				PDout->encode(p + (activeInBit?1:0));
-
-				libmaus2::gamma::FlaggedInterval nextP(QP.from,QP.to,libmaus2::gamma::FlaggedInterval::interval_type_complete,(!Sinbit) /* active XXX check */);
-
-				if ( prevPvalid )
-				{
-					if ( prevP.active || (nextP.active != prevP.active) )
-					{
-						GPE->put(prevP);
-						outintv += 1;
 						prevP = nextP;
+						prevPvalid = true;
+					}
+
+					if ( (!Sinbit) )
+					{
+						PactiveOut->writeBit(false); // deactivate
+						PBout->writeBit(true); // S[i] = true
 					}
 					else
 					{
-						assert ( ! prevP.active );
-						assert ( ! nextP.active );
+						PactiveOut->writeBit(activeInBit);
+						PBout->writeBit(Sinbit);
+					}
 
-						prevP.to = nextP.to;
+					qtodo -= 1;
+
+					while ( qtodo-- )
+					{
+						bool const Tinbit = TBVI->decode();
+						bool const activeInBit = PactiveIn->readBit() || Tinbit;
+
+						uint64_t const p = PDin->decode();
+						PDout->encode(p + (activeInBit?1:0));
+
+						PactiveOut->writeBit(activeInBit);
+						PBout->writeBit(PBin->readBit());
 					}
 				}
-				else
+
+				if ( prevPvalid && prevP.from >= low && prevP.from < high )
 				{
-					prevP = nextP;
-					prevPvalid = true;
+					//std::cerr << "put last " << prevP << std::endl;
+					GPE->put(prevP);
+					outintv += 1;
 				}
 
-				if ( (!Sinbit) )
-				{
-					PactiveOut->writeBit(false); // deactivate
-					PBout->writeBit(true); // S[i] = true
-				}
-				else
-				{
-					PactiveOut->writeBit(activeInBit);
-					PBout->writeBit(Sinbit);
-				}
+				g_outintv_lock.lock();
+				g_outintv += outintv;
+				g_outintv_lock.unlock();
 
-				qtodo -= 1;
+				PBout->flush();
+				PactiveOut->flush();
+				GPE->flush();
 
-				while ( qtodo-- )
-				{
-					bool const Tinbit = TBVI->decode();
-					bool const activeInBit = PactiveIn->readBit() || Tinbit;
-
-					uint64_t const p = PDin->decode();
-					PDout->encode(p + (activeInBit?1:0));
-
-					PactiveOut->writeBit(activeInBit);
-					PBout->writeBit(PBin->readBit());
-				}
+				PDout->flush();
+				PDout.reset();
 			}
-
-			if ( prevPvalid && prevP.from >= low && prevP.from < high )
+			catch(std::exception const & ex)
 			{
-				//std::cerr << "put last " << prevP << std::endl;
-				GPE->put(prevP);
-				outintv += 1;
-			}
-
-			g_outintv_lock.lock();
-			g_outintv += outintv;
-			g_outintv_lock.unlock();
-
-			PBout->flush();
-			PactiveOut->flush();
-			GPE->flush();
-
-			PDout->flush();
-			PDout.reset();
+				std::cerr << ex.what() << std::endl;
+				throw;
+			}	
 		}
 
 		// remove old files
@@ -1851,35 +1972,43 @@ std::vector<std::string> computeSuccinctLCP(
 	#endif
 	for ( uint64_t t = 0; t < threadpacks; ++t )
 	{
-		uint64_t const low = t * threadpacksize;
-		uint64_t const high = std::min(low+threadpacksize,n);
-
-		std::string const outfn = tmpgen.getFileName(true) + ".pd";
-		pdfntmp[t] = outfn;
-
-		libmaus2::gamma::GammaPDDecoder::unique_ptr_type PDin(new libmaus2::gamma::GammaPDDecoder(pdfn,low));
-		libmaus2::bitio::BitVectorInput::unique_ptr_type PactiveIn(new libmaus2::bitio::BitVectorInput(activefn,low));
-		libmaus2::gamma::GammaPDEncoder::unique_ptr_type PDout(new libmaus2::gamma::GammaPDEncoder(outfn));
-
-		for ( uint64_t i = low; i < high; ++i )
+		try
 		{
-			uint64_t v;
-			bool const pdok = PDin->decode(v);
-			assert ( pdok );
-			bool const active = PactiveIn->readBit();
+			uint64_t const low = t * threadpacksize;
+			uint64_t const high = std::min(low+threadpacksize,n);
 
-			if ( active )
+			std::string const outfn = tmpgen.getFileName(true) + ".pd";
+			pdfntmp[t] = outfn;
+
+			libmaus2::gamma::GammaPDDecoder::unique_ptr_type PDin(new libmaus2::gamma::GammaPDDecoder(pdfn,low));
+			libmaus2::bitio::BitVectorInput::unique_ptr_type PactiveIn(new libmaus2::bitio::BitVectorInput(activefn,low));
+			libmaus2::gamma::GammaPDEncoder::unique_ptr_type PDout(new libmaus2::gamma::GammaPDEncoder(outfn));
+
+			for ( uint64_t i = low; i < high; ++i )
 			{
-				PDout->encode(0);
+				uint64_t v;
+				bool const pdok = PDin->decode(v);
+				assert ( pdok );
+				bool const active = PactiveIn->readBit();
+
+				if ( active )
+				{
+					PDout->encode(0);
+				}
+				else
+				{
+					PDout->encode(v);
+				}
 			}
-			else
-			{
-				PDout->encode(v);
-			}
+
+			PDout->flush();
+			PDout.reset();
 		}
-
-		PDout->flush();
-		PDout.reset();
+		catch(std::exception const & ex)
+		{
+			std::cerr << ex.what() << std::endl;
+			throw;
+		}		
 	}
 	for ( uint64_t i = 0; i < activefn.size(); ++i )
 		libmaus2::aio::FileRemoval::removeFile(activefn[i]);
@@ -1896,51 +2025,59 @@ std::vector<std::string> computeSuccinctLCP(
 	#endif
 	for ( uint64_t t = 0; t < threadpacks; ++t )
 	{
-		uint64_t const low = t * threadpacksize;
-		uint64_t const high = std::min(low+threadpacksize,n);
-
-		std::string const outfn = tmpgen.getFileName(true) + ".sirred";
-		sirredtmp[t] = outfn;
-
-		int64_t prevsym;
-
+		try
 		{
-			libmaus2::huffman::RLDecoder::unique_ptr_type rldec(new libmaus2::huffman::RLDecoder(BWTin,(low+n-1)%n/* offset */,1/*numthreads*/));
-			prevsym = rldec->decode();
-			assert ( prevsym >= 0 );
+			uint64_t const low = t * threadpacksize;
+			uint64_t const high = std::min(low+threadpacksize,n);
+
+			std::string const outfn = tmpgen.getFileName(true) + ".sirred";
+			sirredtmp[t] = outfn;
+
+			int64_t prevsym;
+
+			{
+				libmaus2::huffman::RLDecoder::unique_ptr_type rldec(new libmaus2::huffman::RLDecoder(BWTin,(low+n-1)%n/* offset */,1/*numthreads*/));
+				prevsym = rldec->decode();
+				assert ( prevsym >= 0 );
+			}
+
+			// S bit input
+			libmaus2::huffman::RLDecoder::unique_ptr_type rldec(new libmaus2::huffman::RLDecoder(BWTin,low/* offset */,1/*numthreads*/));
+			libmaus2::bitio::BitVectorInput::unique_ptr_type PBin(new libmaus2::bitio::BitVectorInput(Sfn,low));
+			libmaus2::bitio::BitVectorOutput::unique_ptr_type PBout(new libmaus2::bitio::BitVectorOutput(outfn));
+
+			for ( uint64_t i = low; i < high; ++i )
+			{
+				int64_t const sym = rldec->decode();
+				bool const inbit = PBin->readBit();
+				bool const sbit = inbit || (sym == prevsym);
+				PBout->writeBit(sbit);
+
+				#if 0
+				if ( sbit )
+				{
+					uint64_t const pos = SA[i];
+					uint64_t const prevpos = (pos+n-1)%n;
+					uint64_t const prevrank = ISA[prevpos];
+					//std::cerr << "rank " << i << " marked as set" << " sym=" << sym << " prevsym=" << prevsym << " inbit=" << inbit << " LCP[]=" << LCP[i] << " LCP[prev]=" << LCP[prevrank] << std::endl;
+				}
+				else
+				{
+					//std::cerr << "rank " << i << " missing" << std::endl;
+				}
+				#endif
+
+				prevsym = sym;
+			}
+
+			PBout->flush();
+			PBout.reset();
 		}
-
-		// S bit input
-		libmaus2::huffman::RLDecoder::unique_ptr_type rldec(new libmaus2::huffman::RLDecoder(BWTin,low/* offset */,1/*numthreads*/));
-		libmaus2::bitio::BitVectorInput::unique_ptr_type PBin(new libmaus2::bitio::BitVectorInput(Sfn,low));
-		libmaus2::bitio::BitVectorOutput::unique_ptr_type PBout(new libmaus2::bitio::BitVectorOutput(outfn));
-
-		for ( uint64_t i = low; i < high; ++i )
+		catch(std::exception const & ex)
 		{
-			int64_t const sym = rldec->decode();
-			bool const inbit = PBin->readBit();
-			bool const sbit = inbit || (sym == prevsym);
-			PBout->writeBit(sbit);
-
-			#if 0
-			if ( sbit )
-			{
-				uint64_t const pos = SA[i];
-				uint64_t const prevpos = (pos+n-1)%n;
-				uint64_t const prevrank = ISA[prevpos];
-				//std::cerr << "rank " << i << " marked as set" << " sym=" << sym << " prevsym=" << prevsym << " inbit=" << inbit << " LCP[]=" << LCP[i] << " LCP[prev]=" << LCP[prevrank] << std::endl;
-			}
-			else
-			{
-				//std::cerr << "rank " << i << " missing" << std::endl;
-			}
-			#endif
-
-			prevsym = sym;
-		}
-
-		PBout->flush();
-		PBout.reset();
+			std::cerr << ex.what() << std::endl;
+			throw;
+		}		
 	}
 	for ( uint64_t i = 0; i < Sfn.size(); ++i )
 		libmaus2::aio::FileRemoval::removeFile(Sfn[i]);
@@ -1956,38 +2093,46 @@ std::vector<std::string> computeSuccinctLCP(
 	#endif
 	for ( uint64_t t = 0; t < threadpacks; ++t )
 	{
-		uint64_t const low = t * threadpacksize;
-		uint64_t const high = std::min(low+threadpacksize,n);
-
-		std::string const outfn = tmpgen.getFileName(true) + ".slftmp";
-		slftmp[t] = outfn;
-
-		std::string const misoutfn = tmpgen.getFileName(true) + ".smisstmp";
-		smisstmp[t] = misoutfn;
-
-		// S bit input
-		libmaus2::huffman::RLDecoder::unique_ptr_type rldec(new libmaus2::huffman::RLDecoder(BWTin,low/* offset */,1/*numthreads*/));
-		libmaus2::bitio::BitVectorInput::unique_ptr_type PBin(new libmaus2::bitio::BitVectorInput(Sfn,low));
-		libmaus2::huffman::LFSetBitEncoder::unique_ptr_type lfenc(new libmaus2::huffman::LFSetBitEncoder(outfn,4096));
-		libmaus2::bitio::BitVectorOutput::unique_ptr_type PBout(new libmaus2::bitio::BitVectorOutput(misoutfn));
-
-		for ( uint64_t i = low; i < high; ++i )
+		try
 		{
-			bool const sbit = PBin->readBit();
-			int64_t const sym = rldec->decode();
-			bool const missing = !sbit;
-			lfenc->encode(libmaus2::huffman::LFSetBit(sym,missing));
-			PBout->writeBit(missing);
-			#if 0
-			if ( missing )
-				std::cerr << "RANK MIS " << i << std::endl;
-			#endif
-		}
+			uint64_t const low = t * threadpacksize;
+			uint64_t const high = std::min(low+threadpacksize,n);
 
-		lfenc->flush();
-		lfenc.reset();
-		PBout->flush();
-		PBout.reset();
+			std::string const outfn = tmpgen.getFileName(true) + ".slftmp";
+			slftmp[t] = outfn;
+
+			std::string const misoutfn = tmpgen.getFileName(true) + ".smisstmp";
+			smisstmp[t] = misoutfn;
+
+			// S bit input
+			libmaus2::huffman::RLDecoder::unique_ptr_type rldec(new libmaus2::huffman::RLDecoder(BWTin,low/* offset */,1/*numthreads*/));
+			libmaus2::bitio::BitVectorInput::unique_ptr_type PBin(new libmaus2::bitio::BitVectorInput(Sfn,low));
+			libmaus2::huffman::LFSetBitEncoder::unique_ptr_type lfenc(new libmaus2::huffman::LFSetBitEncoder(outfn,4096));
+			libmaus2::bitio::BitVectorOutput::unique_ptr_type PBout(new libmaus2::bitio::BitVectorOutput(misoutfn));
+
+			for ( uint64_t i = low; i < high; ++i )
+			{
+				bool const sbit = PBin->readBit();
+				int64_t const sym = rldec->decode();
+				bool const missing = !sbit;
+				lfenc->encode(libmaus2::huffman::LFSetBit(sym,missing));
+				PBout->writeBit(missing);
+				#if 0
+				if ( missing )
+					std::cerr << "RANK MIS " << i << std::endl;
+				#endif
+			}
+
+			lfenc->flush();
+			lfenc.reset();
+			PBout->flush();
+			PBout.reset();
+		}
+		catch(std::exception const & ex)
+		{
+			std::cerr << ex.what() << std::endl;
+			throw;
+		}		
 	}
 	for ( uint64_t i = 0; i < Sfn.size(); ++i )
 		libmaus2::aio::FileRemoval::removeFile(Sfn[i]);
@@ -2032,69 +2177,77 @@ std::vector<std::string> computeSuccinctLCP(
 	#endif
 	for ( uint64_t t = 0; t < threadpacks; ++t )
 	{
-		uint64_t const low = t * threadpacksize;
-		uint64_t const high = std::min(low+threadpacksize,n);
-
-		std::string const misoutfn = tmpgen.getFileName(true) + ".smissmergetmp";
-		smissmergetmp[t] = misoutfn;
-
-		libmaus2::bitio::BitVectorInput::unique_ptr_type PBin(new libmaus2::bitio::BitVectorInput(smisstmp,low));
-		libmaus2::huffman::LFSetBitDecoder lfdec(slftmp,low);
-		libmaus2::bitio::BitVectorOutput::unique_ptr_type PBout(new libmaus2::bitio::BitVectorOutput(misoutfn));
-
-		bool curbit = false;
-		if ( low < high )
+		try
 		{
-			bool const sbit = PBin->readBit();
-			libmaus2::huffman::LFSetBit lfbit;
-			bool const lfok = lfdec.decode(lfbit);
-			assert ( lfok );
+			uint64_t const low = t * threadpacksize;
+			uint64_t const high = std::min(low+threadpacksize,n);
 
-			curbit = sbit || lfbit.sbit;
+			std::string const misoutfn = tmpgen.getFileName(true) + ".smissmergetmp";
+			smissmergetmp[t] = misoutfn;
+
+			libmaus2::bitio::BitVectorInput::unique_ptr_type PBin(new libmaus2::bitio::BitVectorInput(smisstmp,low));
+			libmaus2::huffman::LFSetBitDecoder lfdec(slftmp,low);
+			libmaus2::bitio::BitVectorOutput::unique_ptr_type PBout(new libmaus2::bitio::BitVectorOutput(misoutfn));
+
+			bool curbit = false;
+			if ( low < high )
+			{
+				bool const sbit = PBin->readBit();
+				libmaus2::huffman::LFSetBit lfbit;
+				bool const lfok = lfdec.decode(lfbit);
+				assert ( lfok );
+
+				curbit = sbit || lfbit.sbit;
+			}
+
+			for ( uint64_t i = low+1; i < high; ++i )
+			{
+				bool const sbit = PBin->readBit();
+				libmaus2::huffman::LFSetBit lfbit;
+				bool const lfok = lfdec.decode(lfbit);
+				assert ( lfok );
+
+				bool const nextbit = sbit || lfbit.sbit;
+
+				PBout->writeBit(curbit || nextbit);
+
+				curbit = nextbit;
+			}
+
+			if ( high != n )
+			{
+				bool const sbit = PBin->readBit();
+				libmaus2::huffman::LFSetBit lfbit;
+				bool const lfok = lfdec.decode(lfbit);
+				assert ( lfok );
+
+				bool const nextbit = sbit || lfbit.sbit;
+
+				PBout->writeBit(curbit || nextbit);
+			}
+			else
+			{
+				libmaus2::bitio::BitVectorInput::unique_ptr_type PBin(new libmaus2::bitio::BitVectorInput(smisstmp,0));
+				libmaus2::huffman::LFSetBitDecoder lfdec(slftmp,0);
+
+				bool const sbit = PBin->readBit();
+				libmaus2::huffman::LFSetBit lfbit;
+				bool const lfok = lfdec.decode(lfbit);
+				assert ( lfok );
+
+				bool const nextbit = sbit || lfbit.sbit;
+
+				PBout->writeBit(curbit || nextbit);
+			}
+
+			PBout->flush();
+			PBout.reset();
 		}
-
-		for ( uint64_t i = low+1; i < high; ++i )
+		catch(std::exception const & ex)
 		{
-			bool const sbit = PBin->readBit();
-			libmaus2::huffman::LFSetBit lfbit;
-			bool const lfok = lfdec.decode(lfbit);
-			assert ( lfok );
-
-			bool const nextbit = sbit || lfbit.sbit;
-
-			PBout->writeBit(curbit || nextbit);
-
-			curbit = nextbit;
+			std::cerr << ex.what() << std::endl;
+			throw;
 		}
-
-		if ( high != n )
-		{
-			bool const sbit = PBin->readBit();
-			libmaus2::huffman::LFSetBit lfbit;
-			bool const lfok = lfdec.decode(lfbit);
-			assert ( lfok );
-
-			bool const nextbit = sbit || lfbit.sbit;
-
-			PBout->writeBit(curbit || nextbit);
-		}
-		else
-		{
-			libmaus2::bitio::BitVectorInput::unique_ptr_type PBin(new libmaus2::bitio::BitVectorInput(smisstmp,0));
-			libmaus2::huffman::LFSetBitDecoder lfdec(slftmp,0);
-
-			bool const sbit = PBin->readBit();
-			libmaus2::huffman::LFSetBit lfbit;
-			bool const lfok = lfdec.decode(lfbit);
-			assert ( lfok );
-
-			bool const nextbit = sbit || lfbit.sbit;
-
-			PBout->writeBit(curbit || nextbit);
-		}
-
-		PBout->flush();
-		PBout.reset();
 	}
 
 	for ( uint64_t i = 0; i < smisstmp.size(); ++i )
@@ -2113,26 +2266,34 @@ std::vector<std::string> computeSuccinctLCP(
 	#endif
 	for ( uint64_t t = 0; t < threadpacks; ++t )
 	{
-		uint64_t const low = t * threadpacksize;
-		uint64_t const high = std::min(low+threadpacksize,n);
-
-		libmaus2::huffman::RLDecoder::unique_ptr_type rldec(new libmaus2::huffman::RLDecoder(BWTin,low/* offset */,1/*numthreads*/));
-		libmaus2::util::Histogram lhist;
-
-		uint64_t todo = high-low;
-		libmaus2::huffman::RLDecoder::run_type R;
-		while ( todo )
+		try
 		{
-			rldec->decodeRun(R);
-			uint64_t const av = std::min(R.rlen,todo);
-			lhist.add(R.sym,av);
-			todo -= av;
-		}
+			uint64_t const low = t * threadpacksize;
+			uint64_t const high = std::min(low+threadpacksize,n);
 
-		libmaus2::parallel::ScopePosixMutex slock(histmaplock);
-		std::map<int64_t,uint64_t> lmap = lhist.getByType<int64_t>();
-		for ( std::map<int64_t,uint64_t>::const_iterator ita = lmap.begin(); ita != lmap.end(); ++ita )
-			histmap[ita->first] += ita->second;
+			libmaus2::huffman::RLDecoder::unique_ptr_type rldec(new libmaus2::huffman::RLDecoder(BWTin,low/* offset */,1/*numthreads*/));
+			libmaus2::util::Histogram lhist;
+
+			uint64_t todo = high-low;
+			libmaus2::huffman::RLDecoder::run_type R;
+			while ( todo )
+			{
+				rldec->decodeRun(R);
+				uint64_t const av = std::min(R.rlen,todo);
+				lhist.add(R.sym,av);
+				todo -= av;
+			}
+
+			libmaus2::parallel::ScopePosixMutex slock(histmaplock);
+			std::map<int64_t,uint64_t> lmap = lhist.getByType<int64_t>();
+			for ( std::map<int64_t,uint64_t>::const_iterator ita = lmap.begin(); ita != lmap.end(); ++ita )
+				histmap[ita->first] += ita->second;
+		}
+		catch(std::exception const & ex)
+		{
+			std::cerr << ex.what() << std::endl;
+			throw;
+		}		
 	}
 	std::string const histfn = tmpgen.getFileName(true) + ".hist";
 	{
@@ -2181,41 +2342,49 @@ std::vector<std::string> computeSuccinctLCP(
 	#endif
 	for ( uint64_t t = 0; t < numprephipackages; ++t )
 	{
-		uint64_t const low = t * numprephiperthread;
-		uint64_t const high = std::min(low+numprephiperthread,numprephi);
-
-		std::string const outfn = tmpgen.getFileName() + ".phipairfn";
-		phipairfn[t] = outfn;
-
-		libmaus2::huffman::LFPhiPairEncoder::unique_ptr_type lfenc(new libmaus2::huffman::LFPhiPairEncoder(outfn,4096));
-
-		std::pair<uint64_t,uint64_t> Pprev;
+		try
 		{
-			libmaus2::aio::PairFileDecoder PFD(std::vector<std::string>(1,sasub));
-			PFD.seekg((low + numprephi - 1)%numprephi);
-			bool const ok = PFD.getNext(Pprev);
-			assert ( ok );
-		}
+			uint64_t const low = t * numprephiperthread;
+			uint64_t const high = std::min(low+numprephiperthread,numprephi);
 
-		libmaus2::aio::PairFileDecoder PFD(std::vector<std::string>(1,sasub));
-		PFD.seekg(low);
-		for ( uint64_t i = low; i < high; ++i )
-		{
-			std::pair<uint64_t,uint64_t> P;
-			bool const ok = PFD.getNext(P);
-			assert ( ok );
+			std::string const outfn = tmpgen.getFileName() + ".phipairfn";
+			phipairfn[t] = outfn;
 
-			if ( P.first == (Pprev.first + 1)%n )
+			libmaus2::huffman::LFPhiPairEncoder::unique_ptr_type lfenc(new libmaus2::huffman::LFPhiPairEncoder(outfn,4096));
+
+			std::pair<uint64_t,uint64_t> Pprev;
 			{
-				// std::cerr << Pprev.first << "," << Pprev.second << "\t" << P.first << "," << P.second << std::endl;
-				lfenc->encode(libmaus2::huffman::LFPhiPair(/*Pprev.first,*/Pprev.second,P.first,P.second));
+				libmaus2::aio::PairFileDecoder PFD(std::vector<std::string>(1,sasub));
+				PFD.seekg((low + numprephi - 1)%numprephi);
+				bool const ok = PFD.getNext(Pprev);
+				assert ( ok );
 			}
 
-			Pprev = P;
-		}
+			libmaus2::aio::PairFileDecoder PFD(std::vector<std::string>(1,sasub));
+			PFD.seekg(low);
+			for ( uint64_t i = low; i < high; ++i )
+			{
+				std::pair<uint64_t,uint64_t> P;
+				bool const ok = PFD.getNext(P);
+				assert ( ok );
 
-		lfenc->flush();
-		lfenc.reset();
+				if ( P.first == (Pprev.first + 1)%n )
+				{
+					// std::cerr << Pprev.first << "," << Pprev.second << "\t" << P.first << "," << P.second << std::endl;
+					lfenc->encode(libmaus2::huffman::LFPhiPair(/*Pprev.first,*/Pprev.second,P.first,P.second));
+				}
+
+				Pprev = P;
+			}
+
+			lfenc->flush();
+			lfenc.reset();
+		}
+		catch(std::exception const & ex)
+		{
+			std::cerr << ex.what() << std::endl;
+			throw;
+		}		
 	}
 
 	libmaus2::aio::FileRemoval::removeFile(histfn);
@@ -2360,25 +2529,33 @@ std::vector<std::string> computeSuccinctLCP(
 		#endif
 		for ( uint64_t p = 0; p < off_packs; ++p )
 		{
-			std::string const outfn = tmpgen.getFileName(true) + ".Vrange";
-			Vrange[p] = outfn;
-
-			uint64_t const r_low = off_low + p * off_per_thread;
-			uint64_t const r_high = std::min(r_low + off_per_thread, off_high);
-
-			libmaus2::huffman::LFPhiPairEncoder::unique_ptr_type enc(new libmaus2::huffman::LFPhiPairEncoder(outfn,4096));
-			libmaus2::huffman::LFPhiPairDecoder lfdec(phipairfn,r_low); // ZZZ
-
-			for ( uint64_t i = r_low; i < r_high; ++i )
+			try
 			{
-				libmaus2::huffman::LFPhiPair P;
-				bool const ok = lfdec.decode(P);
-				assert ( ok );
-				enc->encode(P);
-			}
+				std::string const outfn = tmpgen.getFileName(true) + ".Vrange";
+				Vrange[p] = outfn;
 
-			enc->flush();
-			enc.reset();
+				uint64_t const r_low = off_low + p * off_per_thread;
+				uint64_t const r_high = std::min(r_low + off_per_thread, off_high);
+
+				libmaus2::huffman::LFPhiPairEncoder::unique_ptr_type enc(new libmaus2::huffman::LFPhiPairEncoder(outfn,4096));
+				libmaus2::huffman::LFPhiPairDecoder lfdec(phipairfn,r_low); // ZZZ
+
+				for ( uint64_t i = r_low; i < r_high; ++i )
+				{
+					libmaus2::huffman::LFPhiPair P;
+					bool const ok = lfdec.decode(P);
+					assert ( ok );
+					enc->encode(P);
+				}
+
+				enc->flush();
+				enc.reset();
+			}
+			catch(std::exception const & ex)
+			{
+				std::cerr << ex.what() << std::endl;
+				throw;
+			}
 		}
 		uint64_t ov_in = 0;
 		if ( overflow_fn.size() )
@@ -2527,39 +2704,47 @@ std::vector<std::string> computeSuccinctLCP(
 	#endif
 	for ( uint64_t t = 0; t < numphilcppackages; ++t )
 	{
-		uint64_t const p_low = t * numphilcpperthread;
-		uint64_t const p_high = std::min(p_low + numphilcpperthread,numphilcp);
-
-		std::string const outfn = tmpgen.getFileName(true) + ".ranklcp";
-		Vranklcpfn[t] = outfn;
-
-		libmaus2::huffman::LFRankLCPEncoder::unique_ptr_type Pranklcpenc(new libmaus2::huffman::LFRankLCPEncoder(outfn,4096));
-
-		libmaus2::huffman::LFPhiPairLCP Pprev;
+		try
 		{
-			libmaus2::huffman::LFPhiPairLCPDecoder dec(Vphilcpfn, (p_low + numphilcp - 1) % numphilcp );
-			bool const ok = dec.decode(Pprev);
-			assert ( ok );
-		}
+			uint64_t const p_low = t * numphilcpperthread;
+			uint64_t const p_high = std::min(p_low + numphilcpperthread,numphilcp);
 
-		libmaus2::huffman::LFPhiPairLCPDecoder dec(Vphilcpfn, p_low);
-		for ( uint64_t i = p_low; i < p_high; ++i )
-		{
-			libmaus2::huffman::LFPhiPairLCP P;
-			bool const ok = dec.decode(P);
-			assert ( ok );
+			std::string const outfn = tmpgen.getFileName(true) + ".ranklcp";
+			Vranklcpfn[t] = outfn;
 
-			if ( (Pprev.p1 + 1)%n == P.p1 )
+			libmaus2::huffman::LFRankLCPEncoder::unique_ptr_type Pranklcpenc(new libmaus2::huffman::LFRankLCPEncoder(outfn,4096));
+
+			libmaus2::huffman::LFPhiPairLCP Pprev;
 			{
-				assert ( P.lcp+1 >= Pprev.lcp );
-				Pranklcpenc->encode(libmaus2::huffman::LFRankLCP(P.r1,P.lcp+1-Pprev.lcp));
+				libmaus2::huffman::LFPhiPairLCPDecoder dec(Vphilcpfn, (p_low + numphilcp - 1) % numphilcp );
+				bool const ok = dec.decode(Pprev);
+				assert ( ok );
 			}
 
-			Pprev = P;
-		}
+			libmaus2::huffman::LFPhiPairLCPDecoder dec(Vphilcpfn, p_low);
+			for ( uint64_t i = p_low; i < p_high; ++i )
+			{
+				libmaus2::huffman::LFPhiPairLCP P;
+				bool const ok = dec.decode(P);
+				assert ( ok );
 
-		Pranklcpenc->flush();
-		Pranklcpenc.reset();
+				if ( (Pprev.p1 + 1)%n == P.p1 )
+				{
+					assert ( P.lcp+1 >= Pprev.lcp );
+					Pranklcpenc->encode(libmaus2::huffman::LFRankLCP(P.r1,P.lcp+1-Pprev.lcp));
+				}
+
+				Pprev = P;
+			}
+
+			Pranklcpenc->flush();
+			Pranklcpenc.reset();
+		}
+		catch(std::exception const & ex)
+		{
+			std::cerr << ex.what() << std::endl;
+			throw;
+		}
 	}
 
 	if ( verbose )
@@ -2655,30 +2840,55 @@ std::vector<std::string> computeSuccinctLCP(
 	#endif
 	for ( uint64_t i = 0; i < threadpacks; ++i )
 	{
-		uint64_t const low = i*threadpacksize;
-		uint64_t const high = std::min(low+threadpacksize,n);
-
-		typename LFRankLCPDecoderAdapter::unique_ptr_type adp(new LFRankLCPDecoderAdapter(Vranklcpfn,1));
-		uint64_t const r_low = adp->getOffset(low);
-		//uint64_t const r_high = adp->getOffset(high);
-
-		assert ( r_low == adp->n || adp->get(r_low).r >= low );
-
-		adp.reset();
-
-		std::string const outfn = tmpgen.getFileName(true) + ".pdfntmp.1";
-		pdfntmp[i] = outfn;
-
-		libmaus2::gamma::GammaPDDecoder::unique_ptr_type PDin(new libmaus2::gamma::GammaPDDecoder(pdfn,low));
-		libmaus2::gamma::GammaPDEncoder::unique_ptr_type PDout(new libmaus2::gamma::GammaPDEncoder(outfn,4096));
-
-		uint64_t rnext = low;
-		libmaus2::huffman::LFRankLCPDecoder lfdec(Vranklcpfn,r_low);
-
-		libmaus2::huffman::LFRankLCP P;
-		while ( lfdec.decode(P) && P.r < high )
+		try
 		{
-			while ( rnext < P.r )
+			uint64_t const low = i*threadpacksize;
+			uint64_t const high = std::min(low+threadpacksize,n);
+
+			typename LFRankLCPDecoderAdapter::unique_ptr_type adp(new LFRankLCPDecoderAdapter(Vranklcpfn,1));
+			uint64_t const r_low = adp->getOffset(low);
+			//uint64_t const r_high = adp->getOffset(high);
+
+			assert ( r_low == adp->n || adp->get(r_low).r >= low );
+
+			adp.reset();
+
+			std::string const outfn = tmpgen.getFileName(true) + ".pdfntmp.1";
+			pdfntmp[i] = outfn;
+
+			libmaus2::gamma::GammaPDDecoder::unique_ptr_type PDin(new libmaus2::gamma::GammaPDDecoder(pdfn,low));
+			libmaus2::gamma::GammaPDEncoder::unique_ptr_type PDout(new libmaus2::gamma::GammaPDEncoder(outfn,4096));
+
+			uint64_t rnext = low;
+			libmaus2::huffman::LFRankLCPDecoder lfdec(Vranklcpfn,r_low);
+
+			libmaus2::huffman::LFRankLCP P;
+			while ( lfdec.decode(P) && P.r < high )
+			{
+				while ( rnext < P.r )
+				{
+					uint64_t v;
+					bool const ok = PDin->decode(v);
+					assert ( ok );
+
+					// use v
+					PDout->encode(v);
+
+					rnext += 1;
+				}
+
+				// decode unused value from PDin
+				uint64_t v;
+				bool const ok = PDin->decode(v);
+				assert ( ok );
+
+				// use P
+				PDout->encode(P.lcp);
+
+				rnext += 1;
+			}
+
+			while ( rnext < high )
 			{
 				uint64_t v;
 				bool const ok = PDin->decode(v);
@@ -2690,33 +2900,16 @@ std::vector<std::string> computeSuccinctLCP(
 				rnext += 1;
 			}
 
-			// decode unused value from PDin
-			uint64_t v;
-			bool const ok = PDin->decode(v);
-			assert ( ok );
+			PDout->flush();
+			PDout.reset();
 
-			// use P
-			PDout->encode(P.lcp);
-
-			rnext += 1;
+			assert ( libmaus2::gamma::GammaPDDecoder::getNumValues(outfn) == (high-low) );
 		}
-
-		while ( rnext < high )
+		catch(std::exception const & ex)
 		{
-			uint64_t v;
-			bool const ok = PDin->decode(v);
-			assert ( ok );
-
-			// use v
-			PDout->encode(v);
-
-			rnext += 1;
+			std::cerr << ex.what() << std::endl;
+			throw;
 		}
-
-		PDout->flush();
-		PDout.reset();
-
-		assert ( libmaus2::gamma::GammaPDDecoder::getNumValues(outfn) == (high-low) );
 	}
 
 	for ( uint64_t i = 0; i < pdfn.size(); ++i )
@@ -2860,35 +3053,43 @@ std::vector<std::string> computeSuccinctLCP(
 	#endif
 	for ( uint64_t t = 0; t < lfpacks; ++t )
 	{
-		std::string const lfrankpos = tmpgen.getFileName(true) + ".lfrankpos";
-		Vlfrankpos[t] = lfrankpos;
-		libmaus2::huffman::LFRankPosEncoder::unique_ptr_type Plfrankposenc(new libmaus2::huffman::LFRankPosEncoder(lfrankpos,16*1024));
-		uint64_t const low = t * lfpacksize;
-		uint64_t const high = std::min(low+lfpacksize,numisasamples);
-		libmaus2::aio::InputStreamInstance ISI(resortedisa);
-		ISI.clear();
-		ISI.seekg(low * 2 * sizeof(uint64_t));
-		libmaus2::aio::SynchronousGenericInput<uint64_t> SGI(ISI,4096);
-
-		for ( uint64_t i = low; i < high; ++i )
+		try
 		{
-			uint64_t r, p;
-			bool const rok = SGI.getNext(r);
-			assert ( rok );
-			bool const pok = SGI.getNext(p);
-			assert ( pok );
-			uint64_t * v = 0;
+			std::string const lfrankpos = tmpgen.getFileName(true) + ".lfrankpos";
+			Vlfrankpos[t] = lfrankpos;
+			libmaus2::huffman::LFRankPosEncoder::unique_ptr_type Plfrankposenc(new libmaus2::huffman::LFRankPosEncoder(lfrankpos,16*1024));
+			uint64_t const low = t * lfpacksize;
+			uint64_t const high = std::min(low+lfpacksize,numisasamples);
+			libmaus2::aio::InputStreamInstance ISI(resortedisa);
+			ISI.clear();
+			ISI.seekg(low * 2 * sizeof(uint64_t));
+			libmaus2::aio::SynchronousGenericInput<uint64_t> SGI(ISI,4096);
 
-			if ( SA )
+			for ( uint64_t i = low; i < high; ++i )
 			{
-				assert ( SA[r] == p );
+				uint64_t r, p;
+				bool const rok = SGI.getNext(r);
+				assert ( rok );
+				bool const pok = SGI.getNext(p);
+				assert ( pok );
+				uint64_t * v = 0;
+
+				if ( SA )
+				{
+					assert ( SA[r] == p );
+				}
+
+				Plfrankposenc->encode(libmaus2::huffman::LFRankPos(r,p,0,v,true /* active */));
 			}
 
-			Plfrankposenc->encode(libmaus2::huffman::LFRankPos(r,p,0,v,true /* active */));
+			Plfrankposenc->flush();
+			Plfrankposenc.reset();
 		}
-
-		Plfrankposenc->flush();
-		Plfrankposenc.reset();
+		catch(std::exception const & ex)
+		{
+			std::cerr << ex.what() << std::endl;
+			throw;
+		}
 	}
 
 	libmaus2::aio::FileRemoval::removeFile(resortedisa);
@@ -2901,24 +3102,32 @@ std::vector<std::string> computeSuccinctLCP(
 	#endif
 	for ( uint64_t i = 0; i < threadpacks; ++i )
 	{
-		uint64_t * hist = Gsymhist.begin() + i * (maxsym+1);
-		std::fill(hist,hist + (maxsym+1), 0ull);
-
-		uint64_t const low = i*threadpacksize;
-		uint64_t const high = std::min(low+threadpacksize,n);
-
-		uint64_t todo = high-low;
-
-		libmaus2::huffman::RLDecoder rldec(BWTin,low/* offset */,1);
-		libmaus2::huffman::RLDecoder::run_type R;
-
-		while ( todo )
+		try
 		{
-			bool const ok = rldec.decodeRun(R);
-			assert ( ok );
-			uint64_t const av = std::min(R.rlen,todo);
-			hist [ R.sym ] += av;
-			todo -= av;
+			uint64_t * hist = Gsymhist.begin() + i * (maxsym+1);
+			std::fill(hist,hist + (maxsym+1), 0ull);
+
+			uint64_t const low = i*threadpacksize;
+			uint64_t const high = std::min(low+threadpacksize,n);
+
+			uint64_t todo = high-low;
+
+			libmaus2::huffman::RLDecoder rldec(BWTin,low/* offset */,1);
+			libmaus2::huffman::RLDecoder::run_type R;
+
+			while ( todo )
+			{
+				bool const ok = rldec.decodeRun(R);
+				assert ( ok );
+				uint64_t const av = std::min(R.rlen,todo);
+				hist [ R.sym ] += av;
+				todo -= av;
+			}
+		}
+		catch(std::exception const & ex)
+		{
+			std::cerr << ex.what() << std::endl;
+			throw;
 		}
 	}
 
@@ -2932,11 +3141,19 @@ std::vector<std::string> computeSuccinctLCP(
 	#endif
 	for ( uint64_t i = 0; i < maxsym+1; ++i )
 	{
-		libmaus2::util::PrefixSums::prefixSums(
-			Gsymhist.begin() + i,
-			Gsymhist.begin() + (threadpacks+1) * (maxsym+1) + i,
-			(maxsym+1)
-		);
+		try
+		{
+			libmaus2::util::PrefixSums::prefixSums(
+				Gsymhist.begin() + i,
+				Gsymhist.begin() + (threadpacks+1) * (maxsym+1) + i,
+				(maxsym+1)
+			);
+		}
+		catch(std::exception const & ex)
+		{
+			std::cerr << ex.what() << std::endl;
+			throw;
+		}
 	}
 
 	libmaus2::util::PrefixSums::prefixSums(Gsymhist.begin() + (threadpacks+0) * (maxsym+1) + 0,Gsymhist.begin() + (threadpacks+1) * (maxsym+1) + 1);
@@ -2947,9 +3164,17 @@ std::vector<std::string> computeSuccinctLCP(
 	#endif
 	for ( uint64_t i = 0; i < maxsym+1; ++i )
 	{
-		uint64_t const add = Gsymhist[threadpacks * (maxsym+1) + i];
-		for ( uint64_t j = 0; j < threadpacks; ++j )
-			Gsymhist[ j * (maxsym+1) + i ] += add;
+		try
+		{
+			uint64_t const add = Gsymhist[threadpacks * (maxsym+1) + i];
+			for ( uint64_t j = 0; j < threadpacks; ++j )
+				Gsymhist[ j * (maxsym+1) + i ] += add;
+		}
+		catch(std::exception const & ex)
+		{
+			std::cerr << ex.what() << std::endl;
+			throw;
+		}
 	}
 
 	if ( verbose )
@@ -2977,162 +3202,170 @@ std::vector<std::string> computeSuccinctLCP(
 		#endif
 		for ( uint64_t t = 0; t < threadpacks; ++t )
 		{
-			uint64_t * H = symhist.begin() + t * (maxsym+1);
-
-			libmaus2::autoarray::AutoArray < libmaus2::huffman::LFRankPosEncoder::unique_ptr_type > Aenc(bucketid);
-			libmaus2::autoarray::AutoArray < libmaus2::huffman::LFSymRankPosEncoder::unique_ptr_type > Aresenc(bucketid);
-			for ( uint64_t i = 0; i < bucketid; ++i )
+			try
 			{
-				std::string const fn = tmpgen.getFileName(true) + "lfrankpos";
-				// Lfn [ i ] = fn;
-				// bucket 0 thread 0, bucket 0 thread 1 ...
-				Voutfn [ i * threadpacks + t ] = fn;
+				uint64_t * H = symhist.begin() + t * (maxsym+1);
 
-				if ( bucketfrequent[i] )
+				libmaus2::autoarray::AutoArray < libmaus2::huffman::LFRankPosEncoder::unique_ptr_type > Aenc(bucketid);
+				libmaus2::autoarray::AutoArray < libmaus2::huffman::LFSymRankPosEncoder::unique_ptr_type > Aresenc(bucketid);
+				for ( uint64_t i = 0; i < bucketid; ++i )
 				{
-					libmaus2::huffman::LFRankPosEncoder::unique_ptr_type Tenc(new libmaus2::huffman::LFRankPosEncoder(fn,16*1024));
-					Aenc[i] = UNIQUE_PTR_MOVE(Tenc);
-				}
-				else
-				{
-					libmaus2::huffman::LFSymRankPosEncoder::unique_ptr_type Tresenc(new libmaus2::huffman::LFSymRankPosEncoder(fn,16*1024));
-					Aresenc[i] = UNIQUE_PTR_MOVE(Tresenc);
-				}
-			}
+					std::string const fn = tmpgen.getFileName(true) + "lfrankpos";
+					// Lfn [ i ] = fn;
+					// bucket 0 thread 0, bucket 0 thread 1 ...
+					Voutfn [ i * threadpacks + t ] = fn;
 
-			uint64_t const low = t*threadpacksize;
-			uint64_t const high = std::min(low+threadpacksize,n);
-
-			libmaus2::huffman::RLDecoder rldec(BWTin,low/* offset */,1);
-			libmaus2::huffman::RLDecoder::run_type R;
-
-			libmaus2::huffman::LFRankPosDecoder rpdec(Vlfrankpos,low,libmaus2::huffman::LFRankPosDecoder::init_type_rank);
-
-			libmaus2::huffman::LFRankPos P;
-			uint64_t rr = low;
-
-			std::vector < uint64_t > bucketcnt(bucketid);
-
-			if ( round == 0 )
-			{
-				while ( rpdec.decode(P) && P.r < high )
-				{
-					while ( rr < P.r )
+					if ( bucketfrequent[i] )
 					{
-						bool const ok = rldec.decodeRun(R);
-						assert ( ok );
-						uint64_t const av = std::min(P.r-rr,R.rlen);
-
-						H [ R.sym ] += av;
-						rr += av;
-						R.rlen -= av;
-
-						if ( R.rlen )
-							rldec.putBack(R);
-					}
-
-					assert ( rr == P.r );
-
-					int64_t const sym = rldec.decode();
-					if ( P.active )
-						P.p = (P.p + n - 1) % n;
-					P.r = H [ sym ]++;
-
-					AlphabetSymbol const & A = Valphabet[sym];
-					if ( A.frequent )
-						Aenc[A.id]->encode(P);
-					else
-					{
-						Aresenc[A.id]->encode(libmaus2::huffman::LFSymRankPos(A.subid,P.r,P.p,P.n,P.v,P.active));
-						bucketcnt[A.id]++;
-					}
-
-					if ( SA )
-					{
-						assert ( SA[P.r] == P.p );
-					}
-
-					rr += 1;
-				}
-			}
-			else
-			{
-				libmaus2::gamma::GammaPDDecoder PDin(pdfn,low);
-
-				while ( rpdec.decode(P) && P.r < high )
-				{
-					while ( rr < P.r )
-					{
-						bool const ok = rldec.decodeRun(R);
-						assert ( ok );
-						uint64_t const av = std::min(P.r-rr,R.rlen);
-
-						H [ R.sym ] += av;
-						rr += av;
-						R.rlen -= av;
-
-						for ( uint64_t z = 0; z < av; ++z )
-							PDin.decode();
-
-						if ( R.rlen )
-							rldec.putBack(R);
-					}
-
-					assert ( rr == P.r );
-
-					bool const activein = P.active;
-					bool const activeout = activein && ((P.p % isasamplingrate) != 0);
-
-					uint64_t const pdv = PDin.decode();
-					int64_t const sym = rldec.decode();
-					if ( activeout )
-						P.p = (P.p + n - 1) % n;
-					P.r = H [ sym ]++;
-
-					AlphabetSymbol const & A = Valphabet[sym];
-					if ( A.frequent )
-					{
-						if ( activein )
-							Aenc[A.id]->encode(libmaus2::huffman::LFRankPos(P.r,P.p,P.n,P.v,activeout),pdv);
-						else
-							Aenc[A.id]->encode(libmaus2::huffman::LFRankPos(P.r,P.p,P.n,P.v,activeout));
+						libmaus2::huffman::LFRankPosEncoder::unique_ptr_type Tenc(new libmaus2::huffman::LFRankPosEncoder(fn,16*1024));
+						Aenc[i] = UNIQUE_PTR_MOVE(Tenc);
 					}
 					else
 					{
-						if ( activein )
-							Aresenc[A.id]->encode(libmaus2::huffman::LFSymRankPos(A.subid,P.r,P.p,P.n,P.v,activeout),pdv);
-						else
-							Aresenc[A.id]->encode(libmaus2::huffman::LFSymRankPos(A.subid,P.r,P.p,P.n,P.v,activeout));
-						bucketcnt[A.id]++;
+						libmaus2::huffman::LFSymRankPosEncoder::unique_ptr_type Tresenc(new libmaus2::huffman::LFSymRankPosEncoder(fn,16*1024));
+						Aresenc[i] = UNIQUE_PTR_MOVE(Tresenc);
 					}
-
-					if ( SA )
-					{
-						bool const ok = (!activeout) || (SA[P.r] == P.p);
-
-						if ( ! ok )
-							std::cerr << "P.r=" << P.r << " P.p=" << P.p << " activeout=" << activeout << std::endl;
-						assert ( ok );
-					}
-
-					rr += 1;
 				}
-			}
 
-			for ( uint64_t i = 0; i < bucketid; ++i )
-				if ( bucketfrequent[i] )
+				uint64_t const low = t*threadpacksize;
+				uint64_t const high = std::min(low+threadpacksize,n);
+
+				libmaus2::huffman::RLDecoder rldec(BWTin,low/* offset */,1);
+				libmaus2::huffman::RLDecoder::run_type R;
+
+				libmaus2::huffman::LFRankPosDecoder rpdec(Vlfrankpos,low,libmaus2::huffman::LFRankPosDecoder::init_type_rank);
+
+				libmaus2::huffman::LFRankPos P;
+				uint64_t rr = low;
+
+				std::vector < uint64_t > bucketcnt(bucketid);
+
+				if ( round == 0 )
 				{
-					Aenc[i]->flush();
-					Aenc[i].reset();
+					while ( rpdec.decode(P) && P.r < high )
+					{
+						while ( rr < P.r )
+						{
+							bool const ok = rldec.decodeRun(R);
+							assert ( ok );
+							uint64_t const av = std::min(P.r-rr,R.rlen);
+
+							H [ R.sym ] += av;
+							rr += av;
+							R.rlen -= av;
+
+							if ( R.rlen )
+								rldec.putBack(R);
+						}
+
+						assert ( rr == P.r );
+
+						int64_t const sym = rldec.decode();
+						if ( P.active )
+							P.p = (P.p + n - 1) % n;
+						P.r = H [ sym ]++;
+
+						AlphabetSymbol const & A = Valphabet[sym];
+						if ( A.frequent )
+							Aenc[A.id]->encode(P);
+						else
+						{
+							Aresenc[A.id]->encode(libmaus2::huffman::LFSymRankPos(A.subid,P.r,P.p,P.n,P.v,P.active));
+							bucketcnt[A.id]++;
+						}
+
+						if ( SA )
+						{
+							assert ( SA[P.r] == P.p );
+						}
+
+						rr += 1;
+					}
 				}
 				else
 				{
-					Aresenc[i]->flush();
-					Aresenc[i].reset();
+					libmaus2::gamma::GammaPDDecoder PDin(pdfn,low);
 
-					libmaus2::parallel::ScopePosixSpinLock slock(Vbucketnctlock);
-					Vbucketcnt[i] += bucketcnt[i];
+					while ( rpdec.decode(P) && P.r < high )
+					{
+						while ( rr < P.r )
+						{
+							bool const ok = rldec.decodeRun(R);
+							assert ( ok );
+							uint64_t const av = std::min(P.r-rr,R.rlen);
+
+							H [ R.sym ] += av;
+							rr += av;
+							R.rlen -= av;
+
+							for ( uint64_t z = 0; z < av; ++z )
+								PDin.decode();
+
+							if ( R.rlen )
+								rldec.putBack(R);
+						}
+
+						assert ( rr == P.r );
+
+						bool const activein = P.active;
+						bool const activeout = activein && ((P.p % isasamplingrate) != 0);
+
+						uint64_t const pdv = PDin.decode();
+						int64_t const sym = rldec.decode();
+						if ( activeout )
+							P.p = (P.p + n - 1) % n;
+						P.r = H [ sym ]++;
+
+						AlphabetSymbol const & A = Valphabet[sym];
+						if ( A.frequent )
+						{
+							if ( activein )
+								Aenc[A.id]->encode(libmaus2::huffman::LFRankPos(P.r,P.p,P.n,P.v,activeout),pdv);
+							else
+								Aenc[A.id]->encode(libmaus2::huffman::LFRankPos(P.r,P.p,P.n,P.v,activeout));
+						}
+						else
+						{
+							if ( activein )
+								Aresenc[A.id]->encode(libmaus2::huffman::LFSymRankPos(A.subid,P.r,P.p,P.n,P.v,activeout),pdv);
+							else
+								Aresenc[A.id]->encode(libmaus2::huffman::LFSymRankPos(A.subid,P.r,P.p,P.n,P.v,activeout));
+							bucketcnt[A.id]++;
+						}
+
+						if ( SA )
+						{
+							bool const ok = (!activeout) || (SA[P.r] == P.p);
+
+							if ( ! ok )
+								std::cerr << "P.r=" << P.r << " P.p=" << P.p << " activeout=" << activeout << std::endl;
+							assert ( ok );
+						}
+
+						rr += 1;
+					}
 				}
+
+				for ( uint64_t i = 0; i < bucketid; ++i )
+					if ( bucketfrequent[i] )
+					{
+						Aenc[i]->flush();
+						Aenc[i].reset();
+					}
+					else
+					{
+						Aresenc[i]->flush();
+						Aresenc[i].reset();
+
+						libmaus2::parallel::ScopePosixSpinLock slock(Vbucketnctlock);
+						Vbucketcnt[i] += bucketcnt[i];
+					}
+			}
+			catch(std::exception const & ex)
+			{
+				std::cerr << ex.what() << std::endl;
+				throw;
+			}	
 		}
 
 		for ( uint64_t i = 0; i < bucketid; ++i )
@@ -3251,33 +3484,41 @@ std::vector<std::string> computeSuccinctLCP(
 	#endif
 	for ( uint64_t t = 0; t < entrypacks; ++t )
 	{
-		uint64_t const low = t * entriesperthread;
-		uint64_t const high = std::min(low+entriesperthread,numentries);
-
-		std::string const outfn = tmpgen.getFileName(true) + ".lcpbit";
-		Vbvfn[t] = outfn;
-
-		libmaus2::bitio::BitVectorOutput::unique_ptr_type BVout(new libmaus2::bitio::BitVectorOutput(outfn));
-
-		libmaus2::huffman::LFRankPosDecoder dec(Vlfrankpos,low);
-		libmaus2::huffman::LFRankPos P;
-
-		for ( uint64_t i = low; i < high; ++i )
+		try
 		{
-			bool const ok = dec.decode(P);
-			assert ( ok );
+			uint64_t const low = t * entriesperthread;
+			uint64_t const high = std::min(low+entriesperthread,numentries);
 
-			for ( uint64_t j = 0; j < P.n; ++j )
+			std::string const outfn = tmpgen.getFileName(true) + ".lcpbit";
+			Vbvfn[t] = outfn;
+
+			libmaus2::bitio::BitVectorOutput::unique_ptr_type BVout(new libmaus2::bitio::BitVectorOutput(outfn));
+
+			libmaus2::huffman::LFRankPosDecoder dec(Vlfrankpos,low);
+			libmaus2::huffman::LFRankPos P;
+
+			for ( uint64_t i = low; i < high; ++i )
 			{
-				uint64_t const v = P.v[j];
-				for ( uint64_t k = 0; k < v; ++k )
-					BVout->writeBit(false);
-				BVout->writeBit(true);
-			}
-		}
+				bool const ok = dec.decode(P);
+				assert ( ok );
 
-		BVout->flush();
-		BVout.reset();
+				for ( uint64_t j = 0; j < P.n; ++j )
+				{
+					uint64_t const v = P.v[j];
+					for ( uint64_t k = 0; k < v; ++k )
+						BVout->writeBit(false);
+					BVout->writeBit(true);
+				}
+			}
+
+			BVout->flush();
+			BVout.reset();
+		}
+		catch(std::exception const & ex)
+		{
+			std::cerr << ex.what() << std::endl;
+			throw;
+		}		
 	}
 
 	for ( uint64_t i = 0; i < Vlfrankpos.size(); ++i )
