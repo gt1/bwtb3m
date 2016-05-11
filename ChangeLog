@@ -1,3 +1,9 @@
+bwtb3m (0.0.40-1) unstable; urgency=medium
+
+  * add lcpbit program 
+
+ -- German Tischler <tischler@mpi-cbg.de>  Wed, 11 May 2016 12:32:00 +0200
+
 bwtb3m (0.0.39-1) unstable; urgency=medium
 
   * improve gap array splitting for small internal blocks 
