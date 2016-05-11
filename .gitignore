@@ -57,3 +57,5 @@ testit.sh
 testit.sh.log
 src/bwttohwt
 src/fagzToCompact4BigBandBiDir
+src/checkbwt
+src/lcpbit
