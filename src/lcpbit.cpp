@@ -869,7 +869,7 @@ std::vector<std::string> computeSuccinctLCP(
 
 		while (
 			sc_file_bits &&
-			(4*(1ull<<sc_file_bits)+3)*numthreads > maxfiles
+			((3*2+1)*(1ull<<sc_file_bits)+3)*numthreads > maxfiles
 		)
 		{
 			--sc_file_bits;
