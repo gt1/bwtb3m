@@ -127,7 +127,7 @@ std::string readPlainFile(std::string const & fn)
 	ISI.read(A.begin(),s);
 	assert ( static_cast<int64_t>(ISI.gcount()) == static_cast<int64_t>(s) );
 	for ( uint64_t i = 0; i < s; ++i )
-		assert ( A[s] != 0 );
+		assert ( A[i] != 0 );
 	A[s] = 0;
 	return std::string(A.begin(),A.end());
 }
@@ -750,7 +750,7 @@ std::vector<std::string> computeSuccinctLCP(
 		std::cerr << "[V] running succinct algorithm until no more than " << n_div_dlogn << " (" << static_cast<double>(n_div_dlogn)/static_cast<double>(n) << ") ranks are unset" << std::endl;
 
 	uint64_t round = 0;
-	for ( ; unset && unset > n_div_dlogn && round < maxrounds; round++ )
+	for ( ; unset && unset > n_div_dlogn && round < maxrounds && (!libmaus2::util::GetFileSize::fileExists("loopscomplete")); round++ )
 	{
 		if ( verbose )
 			std::cerr << "[V] entering round " << round << " fraction of unset ranks " << static_cast<double>(unset)/static_cast<double>(n) << " full " << fullrtc.getElapsedSeconds() << std::endl;
@@ -2785,7 +2785,7 @@ std::vector<std::string> computeSuccinctLCP(
 			true /* keep second */,
 			resortedisa,
 			maxmem,
-			true /* parallel */,
+			numthreads /* parallel */,
 			true /* delete input */
 		);
 
@@ -3444,6 +3444,9 @@ void testnPlain(std::string const & fn, uint64_t const numthreads, uint64_t maxr
 
 void computeSuccinctLCP(libmaus2::util::ArgParser const & arg)
 {
+	libmaus2::timing::RealTimeClock rtc;
+	rtc.start();
+
 	std::string const inputtype = arg.uniqueArgPresent("i") ? arg["i"] : "bytestream";
 	libmaus2::suffixsort::bwtb3m::BwtMergeSortOptions::bwt_merge_input_type itype =
 		libmaus2::suffixsort::bwtb3m::BwtMergeSortOptions::parseInputType(inputtype);
@@ -3525,6 +3528,10 @@ void computeSuccinctLCP(libmaus2::util::ArgParser const & arg)
 	BVO.reset();
 
 	SMT.printSize(std::cerr);
+	std::cerr << "[V]\ttotalin\t" << libmaus2::aio::PosixFdInput::getTotalIn() << std::endl;
+	std::cerr << "[V]\ttotalout\t" << libmaus2::aio::PosixFdOutputStreamBuffer::getTotalOut() << std::endl;
+	std::cerr << "[V]\ttotaltime\t" << rtc.getElapsedSeconds() << "\t" << rtc.formatTime(rtc.getElapsedSeconds()) << std::endl;
+	std::cerr << "[V]\tmemory\t" << libmaus2::util::MemUsage() << "\t" << libmaus2::autoarray::AutoArrayMemUsage() << std::endl;
 }
 
 int main(int argc, char * argv[])
