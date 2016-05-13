@@ -2949,7 +2949,7 @@ std::vector<std::string> computeSuccinctLCP(
 	uint64_t const infiles = 2*numthreads;
 	uint64_t const avoutfiles = maxfiles - infiles;
 	uint64_t const outfilesperthread = avoutfiles / numthreads;
-	uint64_t const maxbuckets = outfilesperthread;
+	uint64_t const maxbuckets = outfilesperthread / 2; // divide by 2 because of meta files
 	uint64_t const tbuckets = std::min(static_cast<uint64_t>(32ull),maxbuckets);
 
 	uint64_t const bucketsplit = computeSplit(tbuckets, Valphabet);
@@ -3387,7 +3387,7 @@ std::vector<std::string> computeSuccinctLCP(
 				(
 					std::vector < std::string >(Voutfn.begin() + i * threadpacks,Voutfn.begin() + (i+1) * threadpacks),
 					numthreads /* numthreads */,
-					maxfiles /* maxfiles */,
+					maxfiles / 2 /* maxfiles / 2 because of meta files */,
 					true /* delete input */,
 					tmpgen,
 					16*1024 /* bs */,
