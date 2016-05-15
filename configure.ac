@@ -1,4 +1,4 @@
-AC_INIT(bwtb3m,0.0.45,[gt1@sanger.ac.uk],[bwtb3m],[http://www.sanger.ac.uk])
+AC_INIT(bwtb3m,0.0.46,[gt1@sanger.ac.uk],[bwtb3m],[http://www.sanger.ac.uk])
 AC_CANONICAL_SYSTEM
 AC_PROG_LIBTOOL
 

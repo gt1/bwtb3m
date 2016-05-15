@@ -1,3 +1,9 @@
+bwtb3m (0.0.46-1) unstable; urgency=medium
+
+  * update libmaus2 
+
+ -- German Tischler <tischler@mpi-cbg.de>  Sun, 15 May 2016 16:34:29 +0200
+
 bwtb3m (0.0.45-1) unstable; urgency=medium
 
   * lcpbit: update file count computation 
