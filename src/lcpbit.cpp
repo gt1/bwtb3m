@@ -3748,6 +3748,14 @@ void computeSuccinctLCP(libmaus2::util::ArgParser const & arg)
 	uint64_t const numthreads = arg.uniqueArgPresent("t") ? arg.getUnsignedNumericArg<uint64_t>("t") : libmaus2::parallel::NumCpus::getNumLogicalProcessors();
 	uint64_t const maxrounds = arg.uniqueArgPresent("R") ? arg.getUnsignedNumericArg<uint64_t>("R") : 64;
 	uint64_t maxmem = arg.uniqueArgPresent("M") ? arg.getUnsignedNumericArg<uint64_t>("M") : (1024ull*1024ull);
+	
+	if ( arg.size() < 3 )
+	{
+		libmaus2::exception::LibMausException lme;
+		lme.getStream() << "usage: " << arg.progname << " <in.bwt> <in.isa> <in.text>" << std::endl;
+		lme.finish();
+		throw lme;
+	}
 
 	std::string const bwtfn = arg[0];
 	std::string const isafn = arg[1];

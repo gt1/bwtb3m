@@ -25,7 +25,8 @@ bin_PROGRAMS = \
 	fagzToCompact4BigBandBiDir \
 	decodecompact \
 	checkbwt \
-	lcpbit
+	lcpbit \
+	hwtPreIsaToIsa
 noinst_HEADERS = 
 
 bwtb3m_SOURCES = bwtb3m.cpp
@@ -53,3 +54,4 @@ decodecompact_SOURCES = decodecompact.cpp
 fagzToCompact4BigBandBiDir_SOURCES = fagzToCompact4BigBandBiDir.cpp
 checkbwt_SOURCES = checkbwt.cpp
 lcpbit_SOURCES = lcpbit.cpp
+hwtPreIsaToIsa_SOURCES = hwtPreIsaToIsa.cpp
