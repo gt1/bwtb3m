@@ -1,3 +1,9 @@
+bwtb3m (0.0.47-1) unstable; urgency=medium
+
+  * update libmaus2 (fixes in lcpbit unsorting and speedup in rank lookups of LFRankPosDecoder) 
+
+ -- German Tischler <tischler@mpi-cbg.de>  Tue, 17 May 2016 15:04:59 +0200
+
 bwtb3m (0.0.46-1) unstable; urgency=medium
 
   * update libmaus2 
