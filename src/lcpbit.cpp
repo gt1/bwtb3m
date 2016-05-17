@@ -410,6 +410,116 @@ uint64_t getMaxFiles()
 	return rlim.rlim_cur;
 }
 
+struct LFPhiPairDecoderAdapter
+{
+	typedef LFPhiPairDecoderAdapter this_type;
+	typedef typename libmaus2::util::unique_ptr<this_type>::type unique_ptr_type;
+
+	mutable libmaus2::huffman::LFPhiPairDecoder decoder;
+	uint64_t const n;
+
+	typedef libmaus2::util::ConstIterator<this_type,libmaus2::huffman::LFPhiPair> const_iterator;
+
+	LFPhiPairDecoderAdapter(std::vector<std::string> const & Vfn, uint64_t const numthreads)
+	: decoder(Vfn,0), n(libmaus2::huffman::LFPhiPairDecoder::getLength(Vfn,numthreads))
+	{
+
+	}
+
+	libmaus2::huffman::LFPhiPair get(uint64_t const i) const
+	{
+		decoder.init(i);
+		libmaus2::huffman::LFPhiPair P;
+		bool const ok = decoder.decode(P);
+		assert ( ok );
+		return P;
+	}
+
+	libmaus2::huffman::LFPhiPair operator[](uint64_t const i) const
+	{
+		return get(i);
+	}
+
+	const_iterator begin() const
+	{
+		return const_iterator(this,0);
+	}
+
+	const_iterator end() const
+	{
+		return const_iterator(this,n);
+	}
+
+	struct P1Comp
+	{
+		bool operator()(libmaus2::huffman::LFPhiPair const & PA, libmaus2::huffman::LFPhiPair const & PB) const
+		{
+			return PA.p1 < PB.p1;
+		}
+	};
+
+	uint64_t getOffset(uint64_t const p1) const
+	{
+		const_iterator it = ::std::lower_bound(begin(),end(),libmaus2::huffman::LFPhiPair(0,0,p1),P1Comp());
+		return it - begin();
+	}
+};
+
+struct LFRankLCPDecoderAdapter
+{
+	typedef LFRankLCPDecoderAdapter this_type;
+	typedef typename libmaus2::util::unique_ptr<this_type>::type unique_ptr_type;
+
+	mutable libmaus2::huffman::LFRankLCPDecoder decoder;
+	uint64_t const n;
+
+	typedef libmaus2::util::ConstIterator<this_type,libmaus2::huffman::LFRankLCP> const_iterator;
+
+	LFRankLCPDecoderAdapter(std::vector<std::string> const & Vfn, uint64_t const numthreads)
+	: decoder(Vfn,0), n(libmaus2::huffman::LFRankLCPDecoder::getLength(Vfn,numthreads))
+	{
+
+	}
+
+	libmaus2::huffman::LFRankLCP get(uint64_t const i) const
+	{
+		decoder.init(i);
+		libmaus2::huffman::LFRankLCP P;
+		bool const ok = decoder.decode(P);
+		assert ( ok );
+		return P;
+	}
+
+	libmaus2::huffman::LFRankLCP operator[](uint64_t const i) const
+	{
+		return get(i);
+	}
+
+	const_iterator begin() const
+	{
+		return const_iterator(this,0);
+	}
+
+	const_iterator end() const
+	{
+		return const_iterator(this,n);
+	}
+
+	struct RComp
+	{
+		bool operator()(libmaus2::huffman::LFRankLCP const & PA, libmaus2::huffman::LFRankLCP const & PB) const
+		{
+			return PA.r < PB.r;
+		}
+	};
+
+	uint64_t getOffset(uint64_t const r) const
+	{
+		const_iterator it = ::std::lower_bound(begin(),end(),libmaus2::huffman::LFRankLCP(r,0),RComp());
+		return it - begin();
+	}
+};
+
 /**
  * compute succinct LCP bit vector
  *
@@ -2421,60 +2531,6 @@ std::vector<std::string> computeSuccinctLCP(
 		);
 	}
 
-	struct LFPhiPairDecoderAdapter
-	{
-		typedef LFPhiPairDecoderAdapter this_type;
-		typedef typename libmaus2::util::unique_ptr<this_type>::type unique_ptr_type;
-
-		mutable libmaus2::huffman::LFPhiPairDecoder decoder;
-		uint64_t const n;
-
-		typedef libmaus2::util::ConstIterator<this_type,libmaus2::huffman::LFPhiPair> const_iterator;
-
-		LFPhiPairDecoderAdapter(std::vector<std::string> const & Vfn, uint64_t const numthreads)
-		: decoder(Vfn,0), n(libmaus2::huffman::LFPhiPairDecoder::getLength(Vfn,numthreads))
-		{
-
-		}
-
-		libmaus2::huffman::LFPhiPair get(uint64_t const i) const
-		{
-			decoder.init(i);
-			libmaus2::huffman::LFPhiPair P;
-			bool const ok = decoder.decode(P);
-			assert ( ok );
-			return P;
-		}
-
-		libmaus2::huffman::LFPhiPair operator[](uint64_t const i) const
-		{
-			return get(i);
-		}
-
-		const_iterator begin() const
-		{
-			return const_iterator(this,0);
-		}
-
-		const_iterator end() const
-		{
-			return const_iterator(this,n);
-		}
-
-		struct P1Comp
-		{
-			bool operator()(libmaus2::huffman::LFPhiPair const & PA, libmaus2::huffman::LFPhiPair const & PB) const
-			{
-				return PA.p1 < PB.p1;
-			}
-		};
-
-		uint64_t getOffset(uint64_t const p1) const
-		{
-			const_iterator it = ::std::lower_bound(begin(),end(),libmaus2::huffman::LFPhiPair(0,0,p1),P1Comp());
-			return it - begin();
-		}
-	};
 
 	if ( verbose )
 	{
@@ -2482,7 +2538,6 @@ std::vector<std::string> computeSuccinctLCP(
 		std::cerr << "[V] computing LCP values via Karkkainen and Kempa algorithm for " << Padp->n << " ranks" << std::endl;
 	}
 
-	typedef typename input_types_type::linear_wrapper linear_wrapper;
 	typedef typename input_types_type::circular_wrapper circular_wrapper;
 	typedef typename input_types_type::base_input_stream::traits_type::char_type char_type;
 
@@ -2777,60 +2832,6 @@ std::vector<std::string> computeSuccinctLCP(
 		);
 	}
 
-	struct LFRankLCPDecoderAdapter
-	{
-		typedef LFRankLCPDecoderAdapter this_type;
-		typedef typename libmaus2::util::unique_ptr<this_type>::type unique_ptr_type;
-
-		mutable libmaus2::huffman::LFRankLCPDecoder decoder;
-		uint64_t const n;
-
-		typedef libmaus2::util::ConstIterator<this_type,libmaus2::huffman::LFRankLCP> const_iterator;
-
-		LFRankLCPDecoderAdapter(std::vector<std::string> const & Vfn, uint64_t const numthreads)
-		: decoder(Vfn,0), n(libmaus2::huffman::LFRankLCPDecoder::getLength(Vfn,numthreads))
-		{
-
-		}
-
-		libmaus2::huffman::LFRankLCP get(uint64_t const i) const
-		{
-			decoder.init(i);
-			libmaus2::huffman::LFRankLCP P;
-			bool const ok = decoder.decode(P);
-			assert ( ok );
-			return P;
-		}
-
-		libmaus2::huffman::LFRankLCP operator[](uint64_t const i) const
-		{
-			return get(i);
-		}
-
-		const_iterator begin() const
-		{
-			return const_iterator(this,0);
-		}
-
-		const_iterator end() const
-		{
-			return const_iterator(this,n);
-		}
-
-		struct RComp
-		{
-			bool operator()(libmaus2::huffman::LFRankLCP const & PA, libmaus2::huffman::LFRankLCP const & PB) const
-			{
-				return PA.r < PB.r;
-			}
-		};
-
-		uint64_t getOffset(uint64_t const r) const
-		{
-			const_iterator it = ::std::lower_bound(begin(),end(),libmaus2::huffman::LFRankLCP(r,0),RComp());
-			return it - begin();
-		}
-	};
 
 	if ( verbose )
 		std::cerr << "[V] filling differences into PD vector" << std::endl;
