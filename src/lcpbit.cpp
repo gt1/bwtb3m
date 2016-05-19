@@ -877,7 +877,7 @@ std::vector<std::string> computeSuccinctLCP(
 			std::cerr << ex.what() << std::endl;
 			throw;
 		}
-		
+
 	}
 
 	if ( verbose )
@@ -908,7 +908,7 @@ std::vector<std::string> computeSuccinctLCP(
 		{
 			std::cerr << ex.what() << std::endl;
 			throw;
-		}		
+		}
 	}
 
 	if ( verbose )
@@ -1342,7 +1342,7 @@ std::vector<std::string> computeSuccinctLCP(
 				{
 					std::cerr << ex.what() << std::endl;
 					throw;
-				}		
+				}
 			}
 
 			assert ( std::accumulate(sc_sym_hist.begin(),sc_sym_hist.begin() + sc_output_files * threadpacks,0ull) == n );
@@ -1748,7 +1748,7 @@ std::vector<std::string> computeSuccinctLCP(
 			{
 				std::cerr << ex.what() << std::endl;
 				throw;
-			}		
+			}
 		}
 
 		assert ( libmaus2::huffman::RLDecoder::getLength(Tfn,1) == n );
@@ -2025,7 +2025,7 @@ std::vector<std::string> computeSuccinctLCP(
 			{
 				std::cerr << ex.what() << std::endl;
 				throw;
-			}	
+			}
 		}
 
 		// remove old files
@@ -2118,7 +2118,7 @@ std::vector<std::string> computeSuccinctLCP(
 		{
 			std::cerr << ex.what() << std::endl;
 			throw;
-		}		
+		}
 	}
 	for ( uint64_t i = 0; i < activefn.size(); ++i )
 		libmaus2::aio::FileRemoval::removeFile(activefn[i]);
@@ -2187,7 +2187,7 @@ std::vector<std::string> computeSuccinctLCP(
 		{
 			std::cerr << ex.what() << std::endl;
 			throw;
-		}		
+		}
 	}
 	for ( uint64_t i = 0; i < Sfn.size(); ++i )
 		libmaus2::aio::FileRemoval::removeFile(Sfn[i]);
@@ -2242,7 +2242,7 @@ std::vector<std::string> computeSuccinctLCP(
 		{
 			std::cerr << ex.what() << std::endl;
 			throw;
-		}		
+		}
 	}
 	for ( uint64_t i = 0; i < Sfn.size(); ++i )
 		libmaus2::aio::FileRemoval::removeFile(Sfn[i]);
@@ -2403,7 +2403,7 @@ std::vector<std::string> computeSuccinctLCP(
 		{
 			std::cerr << ex.what() << std::endl;
 			throw;
-		}		
+		}
 	}
 	std::string const histfn = tmpgen.getFileName(true) + ".hist";
 	{
@@ -2494,7 +2494,7 @@ std::vector<std::string> computeSuccinctLCP(
 		{
 			std::cerr << ex.what() << std::endl;
 			throw;
-		}		
+		}
 	}
 
 	libmaus2::aio::FileRemoval::removeFile(histfn);
@@ -2543,13 +2543,23 @@ std::vector<std::string> computeSuccinctLCP(
 
 	uint64_t const phiblocksize = (maxmem + sizeof(char_type) - 1)/sizeof(char_type);
 	uint64_t const numphiblocks = (n+phiblocksize-1)/phiblocksize;
-	std::string overflow_fn;
+	std::vector<std::string> Voverflow_fn;
 	uint64_t b_set = 0;
 
-	std::string const philcpfn = tmpgen.getFileName(true) + ".philcp";
-	libmaus2::huffman::LFPhiPairLCPEncoder::unique_ptr_type Pphilcpenc(new libmaus2::huffman::LFPhiPairLCPEncoder(philcpfn,4096));
+	std::vector<std::string> Vphienclcpfn(numthreads);
+	libmaus2::autoarray::AutoArray< libmaus2::huffman::LFPhiPairLCPEncoder::unique_ptr_type > Aphilcpenc(numthreads);
+	#if defined(_OPENMP)
+	#pragma omp parallel for num_threads(numthreads)
+	#endif
+	for ( uint64_t t = 0; t < numthreads; ++t )
+	{
+		std::string const philcpfn = tmpgen.getFileName(true) + ".philcp";
+		Vphienclcpfn[t] = philcpfn;
+		libmaus2::huffman::LFPhiPairLCPEncoder::unique_ptr_type Pphilcpenc(new libmaus2::huffman::LFPhiPairLCPEncoder(philcpfn,4096));
+		Aphilcpenc[t] = UNIQUE_PTR_MOVE(Pphilcpenc);
+	}
 
-	for ( uint64_t bi = 0; (bi < numphiblocks) || overflow_fn.size(); ++bi )
+	for ( uint64_t bi = 0; (bi < numphiblocks) || Voverflow_fn.size(); ++bi )
 	{
 		if ( verbose )
 			std::cerr << "[V] computing LCP via Karkkainen and Kempa algorithm, block " << bi+1 << "/" << numphiblocks << std::endl;
@@ -2613,10 +2623,11 @@ std::vector<std::string> computeSuccinctLCP(
 			}
 		}
 		uint64_t ov_in = 0;
-		if ( overflow_fn.size() )
+		for ( uint64_t i = 0; i < Voverflow_fn.size(); ++i )
 		{
-			Vrange.push_back(overflow_fn);
-			ov_in = libmaus2::huffman::LFPhiPairDecoder::getLength(overflow_fn,numthreads);
+			std::string const ofn = Voverflow_fn[i];
+			Vrange.push_back(ofn);
+			ov_in = libmaus2::huffman::LFPhiPairDecoder::getLength(ofn,numthreads);
 		}
 
 		if ( verbose )
@@ -2646,64 +2657,126 @@ std::vector<std::string> computeSuccinctLCP(
 
 		libmaus2::autoarray::AutoArray<char_type> A(b_high-b_low,false);
 
-		typename circular_wrapper::unique_ptr_type circularBlockISI(new circular_wrapper(textfn,b_low));
-		circularBlockISI->read(A.begin(),b_high-b_low);
-		assert ( static_cast<int64_t>(circularBlockISI->gcount()) == static_cast<int64_t>(b_high-b_low) );
-		circularBlockISI.reset();
+		uint64_t const tlen = b_high-b_low;
+		uint64_t const tperthread = (tlen + numthreads - 1)/numthreads;
+		uint64_t const tthreads = (tlen + tperthread - 1)/tperthread;
+
+		#if defined(_OPENMP)
+		#pragma omp parallel for num_threads(numthreads)
+		#endif
+		for ( uint64_t t = 0; t < tthreads; ++t )
+		{
+			uint64_t const tlow = t * tperthread;
+			uint64_t const thigh = std::min(tlow+tperthread,tlen);
+			uint64_t const trange = thigh-tlow;
+			assert ( trange );
+
+			#if 0
+			{
+				libmaus2::parallel::ScopePosixSpinLock slock(libmaus2::aio::StreamLock::cerrlock);
+				std::cerr << "b_low=" << b_low << " b_high=" << b_high << " t=" << t << " tlow=" << tlow << " thigh=" << thigh << std::endl;
+			}
+			#endif
+
+			typename circular_wrapper::unique_ptr_type circularBlockISI(new circular_wrapper(textfn,(b_low+tlow)%n));
+			circularBlockISI->read(A.begin()+tlow,trange);
+			assert ( static_cast<int64_t>(circularBlockISI->gcount()) == static_cast<int64_t>(trange) );
+			circularBlockISI.reset();
+		}
+
+		uint64_t const numsamples = libmaus2::huffman::LFPhiPairDecoder::getLength(Vrange,numthreads);
 
 		if ( verbose )
-			std::cerr << "\t[V] processing block" << std::endl;
+			std::cerr << "\t[V] processing block, number of samples " << numsamples << std::endl;
 
-		// set up decoder
-		libmaus2::huffman::LFPhiPairDecoder lfdec(Vrange,0);
+		uint64_t const samplesperthread = (numsamples + numthreads - 1)/numthreads;
+		uint64_t const numsamplepacks = numsamples ? ((numsamples + samplesperthread - 1)/samplesperthread) : 0;
+		assert ( numsamplepacks <= numthreads );
 
-		uint64_t l = 0;
-		uint64_t prevp = 0;
-
-		typename circular_wrapper::unique_ptr_type circularTextISI(new circular_wrapper(textfn,0));
-		LinearAccessor<std::basic_istream<char_type> > LA(*circularTextISI);
-
-		uint64_t overflow_cnt = 0;
-		overflow_fn = tmpgen.getFileName(true) + ".phioverflow";
-		libmaus2::huffman::LFPhiPairEncoder::unique_ptr_type Poverflow(new libmaus2::huffman::LFPhiPairEncoder(overflow_fn,4096));
-
-		libmaus2::huffman::LFPhiPair P;
-		while ( lfdec.decode(P) )
+		std::vector<std::string> Voverflowoutfn(numsamplepacks);
+		#if defined(_OPENMP)
+		#pragma omp parallel for num_threads(numthreads)
+		#endif
+		for ( uint64_t t = 0; t < numsamplepacks; ++t )
 		{
-			uint64_t const p0 = P.p0;
-			uint64_t const p1 = P.p1;
+			uint64_t const tlow = t * samplesperthread;
+			uint64_t const thigh = std::min(tlow+samplesperthread,numsamples);
+			uint64_t const trange = thigh-tlow;
+			assert ( trange );
 
-			assert ( p0 >= prevp );
-			l -= std::min(l,p0-prevp);
-
-			if ( p1 < b_low )
-				l = std::max(l,b_low - p1);
-
-			while ( p1 + l < b_high && A[p1+l-b_low] == LA[p0+l] )
-				++l;
-
-			if ( p1+l >= b_high )
+			uint64_t fp0;
 			{
-				overflow_cnt += 1;
-				Poverflow->encode(P);
-			}
-			else
-			{
-				Pphilcpenc->encode(libmaus2::huffman::LFPhiPairLCP(P.r1,P.p1,l));
-				b_set += 1;
+				libmaus2::huffman::LFPhiPairDecoder lfdec(Vrange,tlow);
+				libmaus2::huffman::LFPhiPair P;
+				bool const ok = lfdec.decode(P);
+				assert ( ok );
+				fp0 = P.p0;
 			}
 
-			prevp = p0;
+			std::string const overflowfn = tmpgen.getFileName(true);
+			Voverflowoutfn[t] = overflowfn;
+
+			libmaus2::huffman::LFPhiPairLCPEncoder * Pphilcpenc = Aphilcpenc[t].get();
+			libmaus2::huffman::LFPhiPairDecoder lfdec(Vrange,tlow);
+			libmaus2::huffman::LFPhiPairEncoder::unique_ptr_type Poverflow(new libmaus2::huffman::LFPhiPairEncoder(overflowfn,4096));
+
+			uint64_t l = 0;
+			uint64_t prevp = 0;
+
+			typename circular_wrapper::unique_ptr_type circularTextISI(new circular_wrapper(textfn,fp0 % n));
+			LinearAccessor<std::basic_istream<char_type> > LA(*circularTextISI);
+			LA.p = fp0 % n;
+
+			uint64_t overflow_cnt = 0;
+			for ( uint64_t i = tlow; i < thigh; ++i )
+			{
+				libmaus2::huffman::LFPhiPair P;
+				bool const ok = lfdec.decode(P);
+				assert ( ok );
+
+				uint64_t const p0 = P.p0;
+				uint64_t const p1 = P.p1;
+
+				assert ( p0 >= prevp );
+				l -= std::min(l,p0-prevp);
+
+				if ( p1 < b_low )
+					l = std::max(l,b_low - p1);
+
+				while ( p1 + l < b_high && A[p1+l-b_low] == LA[p0+l] )
+					++l;
+
+				if ( p1+l >= b_high )
+				{
+					overflow_cnt += 1;
+					Poverflow->encode(P);
+				}
+				else
+				{
+					Pphilcpenc->encode(libmaus2::huffman::LFPhiPairLCP(P.r1,P.p1,l));
+					b_set += 1;
+				}
+
+				prevp = p0;
+			}
+
+			Poverflow->flush();
+			Poverflow.reset();
+
+			if ( ! overflow_cnt )
+			{
+				libmaus2::aio::FileRemoval::removeFile(overflowfn);
+				Voverflowoutfn[t] = std::string();
+			}
 		}
 
-		Poverflow->flush();
-		Poverflow.reset();
+		uint64_t o = 0;
+		for ( uint64_t i = 0; i < Voverflowoutfn.size(); ++i )
+			if ( Voverflowoutfn[i].size() )
+				Voverflowoutfn[o++] = Voverflowoutfn[i];
+		Voverflowoutfn.resize(o);
 
-		if ( ! overflow_cnt )
-		{
-			libmaus2::aio::FileRemoval::removeFile(overflow_fn);
-			overflow_fn = std::string();
-		}
+		Voverflow_fn = Voverflowoutfn;
 
 		for ( uint64_t i = 0; i < Vrange.size(); ++i )
 			libmaus2::aio::FileRemoval::removeFile(Vrange[i]);
@@ -2711,8 +2784,11 @@ std::vector<std::string> computeSuccinctLCP(
 	for ( uint64_t i = 0; i < phipairfn.size(); ++i )
 		libmaus2::aio::FileRemoval::removeFile(phipairfn[i]);
 
-	Pphilcpenc->flush();
-	Pphilcpenc.reset();
+	for ( uint64_t i = 0; i < Aphilcpenc.size(); ++i )
+	{
+		Aphilcpenc[i]->flush();
+		Aphilcpenc[i].reset();
+	}
 
 	if ( verbose )
 		std::cerr << "[V] sorting resulting data by p1" << std::endl;
@@ -2732,14 +2808,15 @@ std::vector<std::string> computeSuccinctLCP(
 			libmaus2::huffman::LFPhiPairLCPEncoder,
 			LFPhiPairLCPProjector
 		>(
-			std::vector<std::string>(1,philcpfn),
+			//std::vector<std::string>(1,philcpfn),
+			Vphienclcpfn,
 			numthreads,
 			maxfiles / 2 /* max files / 2 because of .meta files */,
 			true /* delete input */,
 			tmpgen,
 			4096 /* output block size */,
 			0, /* ilow */
-			libmaus2::huffman::LFPhiPairLCPDecoder::getLength(std::vector<std::string>(1,philcpfn),numthreads), /* ihigh */
+			libmaus2::huffman::LFPhiPairLCPDecoder::getLength(Vphienclcpfn,numthreads), /* ihigh */
 			n-1, /* max sym */
 			true /* max sym valid */
 		);
@@ -2917,7 +2994,8 @@ std::vector<std::string> computeSuccinctLCP(
 		libmaus2::aio::FileRemoval::removeFile(pdfn[i]);
 	pdfn = pdfntmp;
 
-	libmaus2::aio::FileRemoval::removeFile(philcpfn);
+	for ( uint64_t i = 0; i < Vphienclcpfn.size(); ++i )
+		libmaus2::aio::FileRemoval::removeFile(Vphienclcpfn[i]);
 	for ( uint64_t t = 0; t < Vphilcpfn.size(); ++t )
 		libmaus2::aio::FileRemoval::removeFile(Vphilcpfn[t]);
 	for ( uint64_t t = 0; t < Vranklcpfn.size(); ++t )
@@ -3366,7 +3444,7 @@ std::vector<std::string> computeSuccinctLCP(
 			{
 				std::cerr << ex.what() << std::endl;
 				throw;
-			}	
+			}
 		}
 
 		for ( uint64_t i = 0; i < bucketid; ++i )
@@ -3519,7 +3597,7 @@ std::vector<std::string> computeSuccinctLCP(
 		{
 			std::cerr << ex.what() << std::endl;
 			throw;
-		}		
+		}
 	}
 
 	for ( uint64_t i = 0; i < Vlfrankpos.size(); ++i )
@@ -3749,7 +3827,7 @@ void computeSuccinctLCP(libmaus2::util::ArgParser const & arg)
 	uint64_t const numthreads = arg.uniqueArgPresent("t") ? arg.getUnsignedNumericArg<uint64_t>("t") : libmaus2::parallel::NumCpus::getNumLogicalProcessors();
 	uint64_t const maxrounds = arg.uniqueArgPresent("R") ? arg.getUnsignedNumericArg<uint64_t>("R") : 64;
 	uint64_t maxmem = arg.uniqueArgPresent("M") ? arg.getUnsignedNumericArg<uint64_t>("M") : (1024ull*1024ull);
-	
+
 	if ( arg.size() < 3 )
 	{
 		libmaus2::exception::LibMausException lme;
@@ -3852,9 +3930,10 @@ int main(int argc, char * argv[])
 			uint64_t const maxrounds = arg.uniqueArgPresent("R") ? arg.getUnsignedNumericArg<uint64_t>("R") : 64;
 			//uint64_t maxmem = arg.uniqueArgPresent("M") ? arg.getUnsignedNumericArg<uint64_t>("M") : (1024ull*1024ull);
 
+			testrandomn(1024,8,numthreads,maxrounds);
+
 			testn("abbab#",numthreads,maxrounds);
 
-			testrandomn(1024,8,numthreads,maxrounds);
 			testrandomn(2048,8,numthreads,maxrounds);
 			testrandomn(16*1024,8,numthreads,maxrounds);
 			testrandomn(1024*1024,8,numthreads,maxrounds);
