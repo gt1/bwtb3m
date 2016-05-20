@@ -2627,7 +2627,7 @@ std::vector<std::string> computeSuccinctLCP(
 		{
 			std::string const ofn = Voverflow_fn[i];
 			Vrange.push_back(ofn);
-			ov_in = libmaus2::huffman::LFPhiPairDecoder::getLength(ofn,numthreads);
+			ov_in += libmaus2::huffman::LFPhiPairDecoder::getLength(ofn,numthreads);
 		}
 
 		if ( verbose )
