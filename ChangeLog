@@ -1,3 +1,9 @@
+bwtb3m (0.0.48-1) unstable; urgency=medium
+
+  * fix overflow count computation in lcpbit during parallel block wise LCP computation 
+
+ -- German Tischler <tischler@mpi-cbg.de>  Tue, 24 May 2016 13:59:32 +0200
+
 bwtb3m (0.0.47-1) unstable; urgency=medium
 
   * update libmaus2 (fixes in lcpbit unsorting and speedup in rank lookups of LFRankPosDecoder) 
