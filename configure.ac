@@ -68,6 +68,53 @@ AC_ARG_ENABLE(fast,
         AS_HELP_STRING([--enable-fast],[disable evaluation of assertions (default no)]),
         [fast=${enableval}],[fast=no])
 
+AC_MSG_CHECKING([whether host cpu is x86_64])
+HOSTCPUISX86_64=no
+case ${host_cpu} in
+	x86_64)
+		HOSTCPUISX86_64=yes
+		;;
+esac
+AC_MSG_RESULT([${HOSTCPUISX86_64}])
+
+AC_MSG_CHECKING([whether host os is GNU/Linux])
+HOSTOSISGNULINUX=no
+case ${host_os} in
+	linux-gnu)
+		HOSTOSISGNULINUX=yes
+		;;
+esac
+AC_MSG_RESULT([${HOSTOSISGNULINUX}])
+
+AC_MSG_CHECKING([whether we are compiling for x86_64 CPU on GNU/Linux OS ])
+HOSTISX86_64GNULINUX=no
+if test \( ${HOSTCPUISX86_64} = "yes" \) -a \( ${HOSTOSISGNULINUX} = "yes"  \) ; then
+	HOSTISX86_64GNULINUX=yes
+fi
+AC_MSG_RESULT([${HOSTISX86_64GNULINUX}])
+
+if test "${HOSTISX86_64GNULINUX}" = "yes" ; then
+	AC_ARG_ENABLE(native,
+		AS_HELP_STRING([--enable-native],[use compiler flags suitable for running on build platform (default no)]),
+		[nativegcc=${enableval}],[nativegcc=no])
+	if test "${nativegcc}" = "yes" ; then
+		AC_MSG_CHECKING([whether we can compile a program -march=native])
+		AC_LANG_PUSH([C++])
+		CXXFLAGS_SAVE="${CXXFLAGS}"
+		CXXFLAGS="-march=native"
+		AC_TRY_LINK([],[return 0;],[have_native_gcc=yes],[have_native_gcc=no])
+		AC_MSG_RESULT([${have_native_gcc}])
+		CXXFLAGS="${CXXFLAGS_SAVE}"
+		AC_LANG_POP
+
+		if test "${have_native_gcc}" = "yes" ; then
+			CXXFLAGS="${CXXFLAGS} -march=native"
+			CFLAGS="${CFLAGS} -march=native"
+		fi
+	fi
+fi
+
+
 if test "${fast}" = "yes" ; then
 	CPPFLAGS="${CPPFLAGS} -DNDEBUG"
 fi
