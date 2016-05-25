@@ -1,3 +1,10 @@
+bwtb3m (0.0.50-1) unstable; urgency=medium
+
+  * add separate program for checking LCP bit arrays
+  * add writing of meta information for circularly shifted succinct LCP arrays in lcpbit program
+
+ -- German Tischler <tischler@mpi-cbg.de>  Wed, 25 May 2016 11:27:46 +0200
+
 bwtb3m (0.0.49-1) unstable; urgency=medium
 
   * remove preisa tmp files in bwt3bm in bwtonly=0 mode 
