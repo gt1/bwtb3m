@@ -41,6 +41,7 @@
 #include <libmaus2/huffman/RLEncoder.hpp>
 #include <libmaus2/huffman/SymBitDecoder.hpp>
 #include <libmaus2/huffman/SymBitEncoder.hpp>
+#include <libmaus2/lcp/ComputeSuccinctLCPResult.hpp>
 #include <libmaus2/lcp/LCP.hpp>
 #include <libmaus2/lz/XzInputStream.hpp>
 #include <libmaus2/math/ilog.hpp>
@@ -520,6 +521,7 @@ struct LFRankLCPDecoderAdapter
 	}
 };
 
+
 /**
  * compute succinct LCP bit vector
  *
@@ -533,7 +535,7 @@ struct LFRankLCPDecoderAdapter
  * @param SA (used for debugging purposes if not NULL)
  **/
 template<typename input_types_type>
-std::vector<std::string> computeSuccinctLCP(
+libmaus2::lcp::ComputeSuccinctLCPResult computeSuccinctLCP(
 	std::string const & rBWTfn,
 	bool const bwtdeleteable,
 	std::string const & isafn,
@@ -2307,7 +2309,7 @@ std::vector<std::string> computeSuccinctLCP(
 				bool const lfok = lfdec.decode(lfbit);
 				assert ( lfok );
 
-				curbit = sbit || lfbit.sbit;
+				curbit = sbit || lfbit.sbit || (low==0) /* make sure SA[0] is extracted */;
 			}
 
 			for ( uint64_t i = low+1; i < high; ++i )
@@ -2437,6 +2439,21 @@ std::vector<std::string> computeSuccinctLCP(
 	if ( verbose )
 		std::cerr << "[V] selected in time " << selectrtc.getElapsedSeconds() << std::endl;
 
+	// get SA[0]
+	uint64_t sa_0 = 0;
+	{
+		libmaus2::aio::PairFileDecoder PFD(std::vector<std::string>(1,sasub));
+		std::pair<uint64_t,uint64_t> P;
+		bool const ok = PFD.getNext(P);
+		assert ( ok );
+		assert ( P.first == 0 );
+		sa_0 = P.second;
+	}
+	uint64_t const circularshift = (n-1)-(sa_0);
+
+	if ( verbose )
+		std::cerr << "[V] circular shift " << circularshift << std::endl;
+
 	uint64_t const numprephi = libmaus2::aio::PairFileDecoder::getLength(std::vector<std::string>(1,sasub));
 	uint64_t const numprephiperthread = (numprephi + numthreads - 1)/numthreads;
 	uint64_t const numprephipackages = numprephi ? ((numprephi + numprephiperthread - 1)/numprephiperthread) : 0;
@@ -2541,7 +2558,7 @@ std::vector<std::string> computeSuccinctLCP(
 	typedef typename input_types_type::circular_wrapper circular_wrapper;
 	typedef typename input_types_type::base_input_stream::traits_type::char_type char_type;
 
-	uint64_t const phiblocksize = (maxmem + sizeof(char_type) - 1)/sizeof(char_type);
+	uint64_t const phiblocksize = std::min ( static_cast<uint64_t>(2*n), static_cast<uint64_t>((maxmem + sizeof(char_type) - 1)/sizeof(char_type)));
 	uint64_t const numphiblocks = (n+phiblocksize-1)/phiblocksize;
 	std::vector<std::string> Voverflow_fn;
 	uint64_t b_set = 0;
@@ -3618,7 +3635,7 @@ std::vector<std::string> computeSuccinctLCP(
 			std::cerr << "left over " << memfn[i] << std::endl;
 	}
 
-	return Vbvfn;
+	return libmaus2::lcp::ComputeSuccinctLCPResult(Vbvfn,sa_0,circularshift);
 }
 
 // test for string s. String is assumed to have a unique minimal terminator symbol
@@ -3705,7 +3722,9 @@ void testn(std::string const & s, uint64_t const numthreads, uint64_t const maxr
 
 	typedef libmaus2::suffixsort::ByteInputTypes input_types_type;
 	bool const bwtdeleteable = true;
-	std::vector<std::string> const Vbvfn = computeSuccinctLCP<input_types_type>(BWTfn,bwtdeleteable,isafn,textfn,tmpgen,numthreads,maxrounds,16*1024*1024,SA.get());
+	libmaus2::lcp::ComputeSuccinctLCPResult const res = computeSuccinctLCP<input_types_type>(BWTfn,bwtdeleteable,isafn,textfn,tmpgen,numthreads,maxrounds,16*1024*1024,SA.get());
+	std::vector<std::string> const Vbvfn = res.Vfn;
+	assert ( res.circularshift == 0 );
 
 	libmaus2::aio::FileRemoval::removeFile(BWTfn);
 	libmaus2::aio::FileRemoval::removeFile(isafn);
@@ -3815,6 +3834,56 @@ void testnPlain(std::string const & fn, uint64_t const numthreads, uint64_t maxr
 
 #include <libmaus2/aio/SizeMonitorThread.hpp>
 
+struct BitNumberDecoder
+{
+	libmaus2::bitio::BitVectorInput BVI;
+
+	BitNumberDecoder(std::vector<std::string> const & Vfn)
+	: BVI(Vfn)
+	{
+
+	}
+
+	uint64_t decode()
+	{
+		uint64_t v = 0;
+
+		while ( ! BVI.readBit() )
+			v++;
+
+		return v;
+	}
+
+	void skip(uint64_t s)
+	{
+		while( s-- )
+			decode();
+	}
+};
+
+struct BitNumberEncoder
+{
+	libmaus2::bitio::BitVectorOutput BVO;
+
+	BitNumberEncoder(std::string const & fn)
+	: BVO(fn)
+	{
+
+	}
+
+	~BitNumberEncoder()
+	{
+		BVO.flush();
+	}
+
+	void encode(uint64_t const v)
+	{
+		for ( uint64_t i = 0; i < v; ++i )
+			BVO.writeBit(0);
+		BVO.writeBit(1);
+	}
+};
+
 void computeSuccinctLCP(libmaus2::util::ArgParser const & arg)
 {
 	libmaus2::timing::RealTimeClock rtc;
@@ -3837,6 +3906,7 @@ void computeSuccinctLCP(libmaus2::util::ArgParser const & arg)
 	}
 
 	std::string const bwtfn = arg[0];
+	// std::string const bwtmetafn = bwtfn + ".meta";
 	std::string const isafn = arg[1];
 	std::string const textfn = arg[2];
 
@@ -3855,28 +3925,28 @@ void computeSuccinctLCP(libmaus2::util::ArgParser const & arg)
 		libmaus2::util::GetFileSize::copy(ISI,OSI,libmaus2::util::GetFileSize::getFileSize(ISI));
 	}
 
-	std::vector<std::string> resfn;
+	libmaus2::lcp::ComputeSuccinctLCPResult res;
 	bool const bwtdeleteable = true;
 
 	switch ( itype )
 	{
 		case libmaus2::suffixsort::bwtb3m::BwtMergeSortOptions::bwt_merge_input_type_bytestream:
-			resfn = computeSuccinctLCP<libmaus2::suffixsort::ByteInputTypes>(tmpbwtfn,bwtdeleteable,isafn,textfn,tmpgen,numthreads,maxrounds,maxmem);
+			res = computeSuccinctLCP<libmaus2::suffixsort::ByteInputTypes>(tmpbwtfn,bwtdeleteable,isafn,textfn,tmpgen,numthreads,maxrounds,maxmem);
 			break;
 		case libmaus2::suffixsort::bwtb3m::BwtMergeSortOptions::bwt_merge_input_type_compactstream:
-			resfn = computeSuccinctLCP<libmaus2::suffixsort::CompactInputTypes>(tmpbwtfn,bwtdeleteable,isafn,textfn,tmpgen,numthreads,maxrounds,maxmem);
+			res = computeSuccinctLCP<libmaus2::suffixsort::CompactInputTypes>(tmpbwtfn,bwtdeleteable,isafn,textfn,tmpgen,numthreads,maxrounds,maxmem);
 			break;
 		case libmaus2::suffixsort::bwtb3m::BwtMergeSortOptions::bwt_merge_input_type_pac:
-			resfn = computeSuccinctLCP<libmaus2::suffixsort::PacInputTypes>(tmpbwtfn,bwtdeleteable,isafn,textfn,tmpgen,numthreads,maxrounds,maxmem);
+			res = computeSuccinctLCP<libmaus2::suffixsort::PacInputTypes>(tmpbwtfn,bwtdeleteable,isafn,textfn,tmpgen,numthreads,maxrounds,maxmem);
 			break;
 		case libmaus2::suffixsort::bwtb3m::BwtMergeSortOptions::bwt_merge_input_type_pacterm:
-			resfn = computeSuccinctLCP<libmaus2::suffixsort::PacTermInputTypes>(tmpbwtfn,bwtdeleteable,isafn,textfn,tmpgen,numthreads,maxrounds,maxmem);
+			res = computeSuccinctLCP<libmaus2::suffixsort::PacTermInputTypes>(tmpbwtfn,bwtdeleteable,isafn,textfn,tmpgen,numthreads,maxrounds,maxmem);
 			break;
 		case libmaus2::suffixsort::bwtb3m::BwtMergeSortOptions::bwt_merge_input_type_lz4:
-			resfn = computeSuccinctLCP<libmaus2::suffixsort::Lz4InputTypes>(tmpbwtfn,bwtdeleteable,isafn,textfn,tmpgen,numthreads,maxrounds,maxmem);
+			res = computeSuccinctLCP<libmaus2::suffixsort::Lz4InputTypes>(tmpbwtfn,bwtdeleteable,isafn,textfn,tmpgen,numthreads,maxrounds,maxmem);
 			break;
 		case libmaus2::suffixsort::bwtb3m::BwtMergeSortOptions::bwt_merge_input_type_utf_8:
-			resfn = computeSuccinctLCP<libmaus2::suffixsort::Utf8InputTypes>(tmpbwtfn,bwtdeleteable,isafn,textfn,tmpgen,numthreads,maxrounds,maxmem);
+			res = computeSuccinctLCP<libmaus2::suffixsort::Utf8InputTypes>(tmpbwtfn,bwtdeleteable,isafn,textfn,tmpgen,numthreads,maxrounds,maxmem);
 			break;
 		default:
 		{
@@ -3889,6 +3959,8 @@ void computeSuccinctLCP(libmaus2::util::ArgParser const & arg)
 	}
 
 	libmaus2::aio::FileRemoval::removeFile(tmpbwtfn);
+
+	std::vector<std::string> const & resfn = res.Vfn;
 
 	std::cerr << "[V] concatenating bit vectors to " << outputfn << std::endl;
 
@@ -3907,6 +3979,51 @@ void computeSuccinctLCP(libmaus2::util::ArgParser const & arg)
 	}
 	BVO->flush();
 	BVO.reset();
+
+	// if string does not have a unique terminator ensuring SA[0]=n-1
+	if ( res.circularshift )
+	{
+		std::cerr << "[V] rotating LCP bit vector...";
+
+		// rotate bit vector so that PLCP[n-1] = 0 by moving SA[0] to position n-1
+		std::string const tmpfn = tmpgen.getFileName(true);
+
+		{
+			BitNumberEncoder BNE(tmpfn);
+
+			uint64_t const n = res.circularshift+res.sa_0+1;
+			uint64_t const s = res.circularshift;
+			assert ( res.sa_0 + 1 < n );
+
+			// s entries from end to front
+			{
+				BitNumberDecoder d0(std::vector<std::string>(1,outputfn));
+				// skip n-s = sa_0+1
+				d0.skip(res.sa_0+1);
+
+				for ( uint64_t i = 0; i < s; ++i )
+				{
+					uint64_t const v = d0.decode();
+					BNE.encode(v);
+				}
+			}
+
+			// copy n-s entries from front to back
+			{
+				BitNumberDecoder d0(std::vector<std::string>(1,outputfn));
+				for ( uint64_t i = 0; i < n-s; ++i )
+				{
+					uint64_t const v = d0.decode();
+					BNE.encode(v);
+				}
+			}
+		}
+		libmaus2::aio::OutputStreamFactoryContainer::rename(tmpfn,outputfn);
+
+		std::cerr << "done.\n";
+	}
+
+	res.serialise(outputfn+".meta");
 
 	SMT.printSize(std::cerr);
 	std::cerr << "[V]\ttotalin\t" << libmaus2::aio::PosixFdInput::getTotalIn() << std::endl;
@@ -3930,26 +4047,24 @@ int main(int argc, char * argv[])
 			uint64_t const maxrounds = arg.uniqueArgPresent("R") ? arg.getUnsignedNumericArg<uint64_t>("R") : 64;
 			//uint64_t maxmem = arg.uniqueArgPresent("M") ? arg.getUnsignedNumericArg<uint64_t>("M") : (1024ull*1024ull);
 
-			testrandomn(1024,8,numthreads,maxrounds);
-
 			testn("abbab#",numthreads,maxrounds);
+			testnk(6,1);
 
+			testrandomn(1024,8,numthreads,maxrounds);
 			testrandomn(2048,8,numthreads,maxrounds);
 			testrandomn(16*1024,8,numthreads,maxrounds);
 			testrandomn(1024*1024,8,numthreads,maxrounds);
 			testrandomn(1024*1024*16,8,numthreads,maxrounds);
 			testrandomn(1024*1024*128,8,numthreads,maxrounds);
 
-			testnk(6,1);
-
 			testnPlain("configure",numthreads,maxrounds);
+
+			testnk(6,3);
+			testnk(8,2);
 
 			testnXz("testdata/hg19_000000.xz",numthreads,maxrounds);
 			testnXz("testdata/dmel_test.xz",numthreads,maxrounds);
 			testnXz("testdata/ecoli_test.xz",numthreads,maxrounds);
-
-			testnk(6,3);
-			testnk(8,2);
 		}
 		else
 		{
