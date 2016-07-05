@@ -1,3 +1,9 @@
+bwtb3m (0.0.51-1) unstable; urgency=medium
+
+  * update libmaus2 version to 2.0.221 
+
+ -- German Tischler <tischler@mpi-cbg.de>  Tue, 05 Jul 2016 16:26:40 +0200
+
 bwtb3m (0.0.50-1) unstable; urgency=medium
 
   * add separate program for checking LCP bit arrays
