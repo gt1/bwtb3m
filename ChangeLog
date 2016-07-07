@@ -1,3 +1,9 @@
+bwtb3m (0.0.52-1) unstable; urgency=medium
+
+  * update to libmaus2 version to 2.0.223
+
+ -- German Tischler <tischler@mpi-cbg.de>  Thu, 07 Jul 2016 17:30:03 +0200
+
 bwtb3m (0.0.51-1) unstable; urgency=medium
 
   * update libmaus2 version to 2.0.221 
