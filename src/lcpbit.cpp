@@ -3127,7 +3127,8 @@ libmaus2::lcp::ComputeSuccinctLCPResult computeSuccinctLCP(
 			resortedisa,
 			maxmem,
 			numthreads /* parallel */,
-			true /* delete input */
+			true /* delete input */,
+			&(std::cerr) /* log stream */
 		);
 
 		libmaus2::aio::FileRemoval::removeFile(pairisa);
