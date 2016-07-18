@@ -3128,6 +3128,7 @@ libmaus2::lcp::ComputeSuccinctLCPResult computeSuccinctLCP(
 			maxmem,
 			numthreads /* parallel */,
 			true /* delete input */,
+			std::min(static_cast<uint64_t>(ufiles-1),static_cast<uint64_t>(32)) /* fan in */,
 			&(std::cerr) /* log stream */
 		);
 
