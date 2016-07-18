@@ -1,3 +1,9 @@
+bwtb3m (0.0.55-1) unstable; urgency=medium
+
+  * adapt to new API in libmaus2 (add fanin parameter for PairFileSorting)
+
+ -- German Tischler <tischler@mpi-cbg.de>  Mon, 18 Jul 2016 12:13:28 +0200
+
 bwtb3m (0.0.54-1) unstable; urgency=medium
 
   * bump libmaus2 version to 2.0.226 
