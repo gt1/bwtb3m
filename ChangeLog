@@ -1,3 +1,9 @@
+bwtb3m (0.0.57-1) unstable; urgency=medium
+
+  * add bwttodnarank256 program 
+
+ -- German Tischler <tischler@mpi-cbg.de>  Sat, 23 Jul 2016 15:47:17 +0200
+
 bwtb3m (0.0.56-1) unstable; urgency=medium
 
   * update libmaus2 version to 2.0.233
