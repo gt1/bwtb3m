@@ -19,6 +19,7 @@ bin_PROGRAMS = \
 	arraytocompact \
 	fa4suffixarraytocompact \
 	bwttodnarank \
+	bwttodnarank256 \
 	bwttohwt \
 	sasubsample \
 	fagzToCompact4BigBand \
@@ -48,6 +49,7 @@ bwttestdecodespeed_SOURCES = bwttestdecodespeed.cpp
 arraytocompact_SOURCES = arraytocompact.cpp
 fa4suffixarraytocompact_SOURCES = fa4suffixarraytocompact.cpp
 bwttodnarank_SOURCES = bwttodnarank.cpp
+bwttodnarank256_SOURCES = bwttodnarank256.cpp
 bwttohwt_SOURCES = bwttohwt.cpp
 sasubsample_SOURCES = sasubsample.cpp
 fagzToCompact4BigBand_SOURCES = fagzToCompact4BigBand.cpp
