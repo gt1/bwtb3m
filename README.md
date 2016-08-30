@@ -28,7 +28,9 @@ installed in ${HOME}/bwtb3m using
 Calling bwtb3m and options
 --------------------------
 
+```
 usage: src/bwtb3m [options] <inputfile>
+```
 
 options:
 
