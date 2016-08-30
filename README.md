@@ -36,7 +36,7 @@ options:
 
 ```
 * inputtype=[<bytestream>] (bytestream,compactstream,pac,pacterm,lz4,utf-8)
-* outputfilename=[<bwtb3m_myers-mac-8.local_35627_1472591133.bwt>] (name of output .bwt file)
+* outputfilename=[<bwtb3m_<hostname>_<pid>_<starttime>.bwt>] (name of output .bwt file)
 * sasamplingrate=[32] sampling rate for sampled suffix array
 * isasamplingrate=[262144] sampling rate for sampled inverse suffix array
 * mem=[2147483648] memory target (suffixes k,m and g are accepted)
