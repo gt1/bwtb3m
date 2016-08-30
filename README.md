@@ -32,6 +32,7 @@ usage: src/bwtb3m [options] <inputfile>
 
 options:
 
+```
 * inputtype=[<bytestream>] (bytestream,compactstream,pac,pacterm,lz4,utf-8)
 * outputfilename=[<bwtb3m_myers-mac-8.local_35627_1472591133.bwt>] (name of output .bwt file)
 * sasamplingrate=[32] sampling rate for sampled suffix array
@@ -44,6 +45,7 @@ options:
 * copyinputtomemory=[0] (copy input file to memory)
 * largelcpthres=[16384] (large LCP value threshold)
 * verbose=[0] (verbosity level)
+```
 
 Output
 ------
