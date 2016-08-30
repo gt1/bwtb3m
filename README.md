@@ -25,6 +25,43 @@ installed in ${HOME}/bwtb3m using
 		--prefix=${HOME}/bwtb3m
 	- make install
 
+Calling bwtb3m and options
+--------------------------
+
+usage: src/bwtb3m [options] <inputfile>
+
+options:
+
+* inputtype=[<bytestream>] (bytestream,compactstream,pac,pacterm,lz4,utf-8)
+* outputfilename=[<bwtb3m_myers-mac-8.local_35627_1472591133.bwt>] (name of output .bwt file)
+* sasamplingrate=[32] sampling rate for sampled suffix array
+* isasamplingrate=[262144] sampling rate for sampled inverse suffix array
+* mem=[2147483648] memory target (suffixes k,m and g are accepted)
+* numthreads=[8] number of threads
+* bwtonly=[0] compute BWT only (no sampled suffix array and reverse)
+* tmpprefix=[bwtb3m_myers-mac-8.local_35627_1472591133] (prefix for tmp files)
+* sparsetmpprefix=[tmpprefix] (prefix for sparse gap tmp files)
+* copyinputtomemory=[0] (copy input file to memory)
+* largelcpthres=[16384] (large LCP value threshold)
+* verbose=[0] (verbosity level)
+
+Output
+------
+
+bwtb3m computes the BWT of the given input file. Note that this refers to
+the BWT as in the original definition (see M. Burrows and D. J. Wheeler: A Block-sorting Lossless
+Data Compression Algorithm, Digital Research Report 124), in particular no
+(implicit or explicit) terminator symbol is used. The input string is
+considered as circular for the sake of comparisons. The output .bwt file can
+be decoded using the bwtb3mdecoderl program or read using the class
+libmaus2::huffman::RLDecoder in libmaus2.
+
+If bwtonly=0, then bwtb3m computes a sampled suffix array by loading the final BWT to memory in
+the form of a Huffman shaped wavelet tree. If bwtonly=1, then the program
+only computes a hint file with suffix .preisa, which can be used for calling
+the bwtcomputessa program to compute a sampled suffix array and sampled
+inverse suffix array in external memory without loading the BWT into memory.
+
 Generating an index for BWA
 ---------------------------
 
