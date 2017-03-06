@@ -28,7 +28,8 @@ bin_PROGRAMS = \
 	checkbwt \
 	lcpbit \
 	hwtPreIsaToIsa \
-	checkLCPBit
+	checkLCPBit \
+	fagzToCompactUTerm
 noinst_HEADERS = 
 
 bwtb3m_SOURCES = bwtb3m.cpp
@@ -59,3 +60,4 @@ checkbwt_SOURCES = checkbwt.cpp
 lcpbit_SOURCES = lcpbit.cpp
 hwtPreIsaToIsa_SOURCES = hwtPreIsaToIsa.cpp
 checkLCPBit_SOURCES = checkLCPBit.cpp
+fagzToCompactUTerm_SOURCES = fagzToCompactUTerm.cpp
