@@ -1,3 +1,9 @@
+bwtb3m (0.0.59-1) unstable; urgency=medium
+
+  * add fagzToCompactUTerm
+
+ -- German Tischler <tischler@mpi-cbg.de>  Mon, 06 Mar 2017 16:21:20 +0100
+
 bwtb3m (0.0.58-1) unstable; urgency=medium
 
   * update to libmaus2 version 2.0.238
